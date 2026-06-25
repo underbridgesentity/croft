@@ -1,0 +1,83 @@
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #e7ebf4;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+body {
+  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  color: #101426;
+}
+input,
+button,
+textarea {
+  font-family: 'Manrope', system-ui, sans-serif;
+}
+input::placeholder {
+  color: #9aa3b5;
+}
+button {
+  font-family: inherit;
+}
+/* hide scrollbars on app scroll areas */
+.hearth-scroll::-webkit-scrollbar {
+  display: none;
+}
+.hearth-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+/* gentle entry fade for screens */
+@keyframes hearthFade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.hearth-fade {
+  animation: hearthFade 0.26s ease both;
+}
+@keyframes sheetUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.sheet-up {
+  animation: sheetUp 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes scrimIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.scrim-in {
+  animation: scrimIn 0.2s ease both;
+}
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+.toast-in {
+  animation: toastIn 0.2s ease both;
+}

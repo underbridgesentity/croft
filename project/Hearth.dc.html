@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #E7EBF4; }
+  input { font-family: 'Manrope', system-ui, sans-serif; }
+  input::placeholder { color: #9AA3B5; }
+  .hearth-scroll::-webkit-scrollbar { display: none; }
+  .hearth-scroll { scrollbar-width: none; -ms-overflow-style: none; }
+</style>
+</helmet>
+<div style="position: relative; width: 100%; height: 860px; max-width: 440px; margin: 0 auto; display: flex; flex-direction: column; background: #F3F5FB; font-family: 'Manrope', system-ui, sans-serif; color: #101426; overflow: hidden;">
+
+  <!-- ===== Onboarding overlay ===== -->
+  <sc-if value="{{ onboard }}" hint-placeholder-val="{{ true }}">
+  <div class="hearth-scroll" style="position: absolute; inset: 0; z-index: 100; background: #F3F5FB; overflow-y: auto; display: flex; flex-direction: column;">
+
+    <!-- WELCOME -->
+    <sc-if value="{{ obWelcome }}" hint-placeholder-val="{{ true }}">
+    <div style="min-height: 860px; display: flex; flex-direction: column; padding: 60px 26px 36px; text-align: center;">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
+        <span style="width: 34px; height: 34px; border-radius: 11px; background: #3B5BFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(59,91,255,0.32);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3.5 11L12 4l8.5 7v8.2a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1z" stroke="#fff" stroke-width="2" stroke-linejoin="round"/><path d="M9.5 20.5v-6h5v6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 22px; color: #101426; letter-spacing: -0.01em;">Hearth</span>
+      </div>
+      <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px 0;">
+        <img src="illustrations/family-home.jpg" alt="A family relaxing at home on their devices" style="width: 100%; max-width: 372px; height: auto; mix-blend-mode: multiply;">
+      </div>
+      <h1 style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 29px; line-height: 1.12; letter-spacing: -0.02em; color: #101426; margin: 0 0 12px;">One calm home for<br>your whole family.</h1>
+      <p style="font-size: 15px; line-height: 1.5; color: #717A90; margin: 0 8px 28px;">Dates, reminders, lists, goals and money — all in one warm place, off your group chats.</p>
+      <button onClick="{{ startIntro }}" style="width: 100%; padding: 16px; border-radius: 16px; border: none; background: #3B5BFF; color: #fff; font-weight: 700; font-size: 15.5px; cursor: pointer; box-shadow: 0 10px 22px rgba(59,91,255,0.34);">Get started</button>
+      <button onClick="{{ goLogin }}" style="width: 100%; padding: 15px; margin-top: 8px; border: none; background: none; color: #3B5BFF; font-weight: 700; font-size: 14.5px; cursor: pointer;">I already have an account</button>
+    </div>
+    </sc-if>
+
+    <!-- INTRO CAROUSEL -->
+    <sc-if value="{{ obIntro }}" hint-placeholder-val="{{ false }}">
+    <div style="min-height: 860px; display: flex; flex-direction: column; padding: 24px 26px 36px;">
+      <div style="display: flex; justify-content: flex-end;">
+        <button onClick="{{ goSignup }}" style="border: none; background: none; color: #717A90; font-weight: 700; font-size: 14px; cursor: pointer; padding: 8px;">Skip</button>
+      </div>
+      <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;">
+        <div style="margin-bottom: 36px;"><x-import component="Art" from="./HearthArt.jsx" name="{{ introArt }}" width="248" hint-size="248px,207px"></x-import></div>
+        <h1 style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 26px; letter-spacing: -0.02em; color: #101426; margin: 0 0 12px;">{{ introTitle }}</h1>
+        <p style="font-size: 15px; line-height: 1.55; color: #717A90; margin: 0 6px; max-width: 320px;">{{ introBody }}</p>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: center; gap: 7px; margin-bottom: 22px;">
+        <div style="height: 7px; width: {{ dot0W }}; border-radius: 100px; background: {{ dot0Bg }}; transition: all .2s;"></div>
+        <div style="height: 7px; width: {{ dot1W }}; border-radius: 100px; background: {{ dot1Bg }}; transition: all .2s;"></div>
+        <div style="height: 7px; width: {{ dot2W }}; border-radius: 100px; background: {{ dot2Bg }}; transition: all .2s;"></div>
+      </div>
+      <button onClick="{{ introNext }}" style="width: 100%; padding: 16px; border-radius: 16px; border: none; background: #3B5BFF; color: #fff; font-weight: 700; font-size: 15.5px; cursor: pointer; box-shadow: 0 10px 22px rgba(59,91,255,0.34);">{{ introBtn }}</button>
+    </div>
+    </sc-if>
+
+    <!-- SIGN UP -->
+    <sc-if value="{{ obSignup }}" hint-placeholder-val="{{ false }}">
+    <div style="min-height: 860px; display: flex; flex-direction: column; padding: 56px 26px 36px;">
+      <button onClick="{{ goWelcome }}" style="width: 42px; height: 42px; border-radius: 13px; border: none; background: #fff; box-shadow: 0 1px 3px rgba(16,20,38,0.06); cursor: pointer; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="#101426" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <h1 style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 28px; letter-spacing: -0.02em; color: #101426; margin: 0 0 6px;">Create your account</h1>
+      <p style="font-size: 14.5px; color: #717A90; margin: 0 0 26px;">Start running your home in one place.</p>
+      <div style="margin-bottom: 14px;">
+        <div style="font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 6px;">Full name</div>
+        <input type="text" placeholder="Sipho Mokoena" style="width: 100%; padding: 15px 16px; border-radius: 14px; border: 1.5px solid #E4E9F2; background: #fff; font-size: 15px; color: #101426; outline: none;">
+      </div>
+      <div style="margin-bottom: 14px;">
+        <div style="font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 6px;">Email</div>
+        <input type="email" placeholder="you@email.com" style="width: 100%; padding: 15px 16px; border-radius: 14px; border: 1.5px solid #E4E9F2; background: #fff; font-size: 15px; color: #101426; outline: none;">
+      </div>
+      <div style="margin-bottom: 24px;">
+        <div style="font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 6px;">Password</div>
+        <input type="password" placeholder="At least 8 characters" style="width: 100%; padding: 15px 16px; border-radius: 14px; border: 1.5px solid #E4E9F2; background: #fff; font-size: 15px; color: #101426; outline: none;">
+      </div>
+      <button onClick="{{ toFamily }}" style="width: 100%; padding: 16px; border-radius: 16px; border: none; background: #3B5BFF; color: #fff; font-weight: 700; font-size: 15.5px; cursor: pointer; box-shadow: 0 10px 22px rgba(59,91,255,0.34); margin-bottom: 18px;">Create account</button>
+      <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 18px;"><div style="flex: 1; height: 1px; background: #E4E9F2;"></div><span style="font-size: 12px; color: #9AA3B5; font-weight: 600;">or</span><div style="flex: 1; height: 1px; background: #E4E9F2;"></div></div>
+      <button onClick="{{ toFamily }}" style="width: 100%; padding: 14px; border-radius: 14px; border: 1.5px solid #E4E9F2; background: #fff; color: #101426; font-weight: 700; font-size: 14.5px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="#101426"><path d="M16.3 12.7c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.8-3.5.8-.7 0-1.8-.8-3-.8-1.5 0-2.9.9-3.7 2.3-1.6 2.7-.4 6.8 1.1 9 .7 1.1 1.6 2.3 2.7 2.2 1.1 0 1.5-.7 2.8-.7s1.6.7 2.8.7c1.1 0 1.9-1.1 2.6-2.2.8-1.2 1.1-2.4 1.2-2.5-.1 0-2.3-.9-2.3-3.5zM14 6c.6-.7 1-1.7.9-2.7-.9 0-1.9.6-2.5 1.3-.5.6-1 1.6-.9 2.6 1 .1 2-.5 2.5-1.2z"/></svg>Continue with Apple</button>
+      <button onClick="{{ toFamily }}" style="width: 100%; padding: 14px; border-radius: 14px; border: 1.5px solid #E4E9F2; background: #fff; color: #101426; font-weight: 700; font-size: 14.5px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;"><svg width="18" height="18" viewBox="0 0 24 24"><path d="M21.6 12.2c0-.6-.1-1.3-.2-1.9H12v3.6h5.4c-.2 1.2-.9 2.3-2 3v2.5h3.2c1.9-1.7 3-4.3 3-7.2z" fill="#4285F4"/><path d="M12 22c2.7 0 5-.9 6.6-2.4l-3.2-2.5c-.9.6-2 .9-3.4.9-2.6 0-4.8-1.8-5.6-4.1H3.1v2.6C4.7 19.7 8.1 22 12 22z" fill="#34A853"/><path d="M6.4 13.9c-.4-1.2-.4-2.5 0-3.7V7.6H3.1c-1.4 2.7-1.4 5.9 0 8.6l3.3-2.3z" fill="#FBBC05"/><path d="M12 6.1c1.5 0 2.8.5 3.8 1.5l2.8-2.8C16.9 3.2 14.7 2.3 12 2.3 8.1 2.3 4.7 4.6 3.1 7.6l3.3 2.6c.8-2.3 3-4.1 5.6-4.1z" fill="#EA4335"/></svg>Continue with Google</button>
+      <div style="text-align: center; margin-top: auto; padding-top: 22px; font-size: 14px; color: #717A90;">Already have an account? <button onClick="{{ goLogin }}" style="border: none; background: none; color: #3B5BFF; font-weight: 700; font-size: 14px; cursor: pointer;">Log in</button></div>
+    </div>
+    </sc-if>
+
+    <!-- LOG IN -->
+    <sc-if value="{{ obLogin }}" hint-placeholder-val="{{ false }}">
+    <div style="min-height: 860px; display: flex; flex-direction: column; padding: 56px 26px 36px;">
+      <button onClick="{{ goWelcome }}" style="width: 42px; height: 42px; border-radius: 13px; border: none; background: #fff; box-shadow: 0 1px 3px rgba(16,20,38,0.06); cursor: pointer; display: flex; align-items: center; justify-content: center; margin-bottom: 20px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="#101426" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <h1 style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 28px; letter-spacing: -0.02em; color: #101426; margin: 0 0 6px;">Welcome back</h1>
+      <p style="font-size: 14.5px; color: #717A90; margin: 0 0 26px;">Log in to your Hearth home.</p>
+      <div style="margin-bottom: 14px;">
+        <div style="font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 6px;">Email</div>
+        <input type="email" placeholder="you@email.com" style="width: 100%; padding: 15px 16px; border-radius: 14px; border: 1.5px solid #E4E9F2; background: #fff; font-size: 15px; color: #101426; outline: none;">
+      </div>
+      <div style="margin-bottom: 10px;">
+        <div style="font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 6px;">Password</div>
+        <input type="password" placeholder="Your password" style="width: 100%; padding: 15px 16px; border-radius: 14px; border: 1.5px solid #E4E9F2; background: #fff; font-size: 15px; color: #101426; outline: none;">
+      </div>
+      <div style="text-align: right; margin-bottom: 22px;"><button onClick="{{ finishApp }}" style="border: none; background: none; color: #3B5BFF; font-weight: 700; font-size: 13px; cursor: pointer;">Forgot password?</button></div>
+      <button onClick="{{ finishApp }}" style="width: 100%; padding: 16px; border-radius: 16px; border: none; background: #3B5BFF; color: #fff; font-weight: 700; font-size: 15.5px; cursor: pointer; box-shadow: 0 10px 22px rgba(59,91,255,0.34);">Log in</button>
+      <div style="text-align: center; margin-top: auto; padding-top: 22px; font-size: 14px; color: #717A90;">New here? <button onClick="{{ goSignup }}" style="border: none; background: none; color: #3B5BFF; font-weight: 700; font-size: 14px; cursor: pointer;">Create account</button></div>
+    </div>
+    </sc-if>
+
+    <!-- CREATE FAMILY -->
+    <sc-if value="{{ obFamily }}" hint-placeholder-val="{{ false }}">
+    <div style="min-height: 860px; display: flex; flex-direction: column; padding: 56px 26px 36px;">
+      <div style="display: flex; justify-content: center; margin-bottom: 8px;"><x-import component="Art" from="./HearthArt.jsx" name="family" width="200" hint-size="200px,167px"></x-import></div>
+      <h1 style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 27px; letter-spacing: -0.02em; color: #101426; margin: 0 0 6px; text-align: center;">Set up your home</h1>
+      <p style="font-size: 14.5px; color: #717A90; margin: 0 0 24px; text-align: center;">Give your household a name and add the family.</p>
+      <div style="margin-bottom: 22px;">
+        <div style="font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 6px;">Household name</div>
+        <input type="text" placeholder="Mokoena Home" style="width: 100%; padding: 15px 16px; border-radius: 14px; border: 1.5px solid #E4E9F2; background: #fff; font-size: 15px; color: #101426; outline: none;">
+      </div>
+      <div style="font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 10px;">Members</div>
+      <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;">
+        <sc-for list="{{ memberRows }}" as="m" hint-placeholder-count="4">
+          <div style="display: flex; align-items: center; gap: 12px; background: #fff; padding: 11px 14px; border-radius: 16px; box-shadow: 0 1px 3px rgba(16,20,38,0.05);">
+            <div style="width: 38px; height: 38px; border-radius: 50%; background: {{ m.color }}; color: #fff; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px;">{{ m.initial }}</div>
+            <div style="flex: 1;"><div style="font-weight: 700; font-size: 14.5px; color: #101426;">{{ m.name }}</div><div style="font-size: 12px; color: #717A90;">{{ m.role }}</div></div>
+            <sc-if value="{{ m.you }}" hint-placeholder-val="{{ false }}"><span style="font-size: 10.5px; font-weight: 700; color: #3B5BFF; background: rgba(59,91,255,0.1); padding: 3px 10px; border-radius: 100px;">You</span></sc-if>
+          </div>
+        </sc-for>
+      </div>
+      <button onClick="{{ toNotify }}" style="width: 100%; border: 1.5px dashed #CBD4E4; background: transparent; color: #5B6B8C; font-weight: 700; font-size: 14px; padding: 13px; border-radius: 14px; cursor: pointer; margin-bottom: 24px;">+ Add another member</button>
+      <button onClick="{{ toNotify }}" style="width: 100%; padding: 16px; border-radius: 16px; border: none; background: #3B5BFF; color: #fff; font-weight: 700; font-size: 15.5px; cursor: pointer; box-shadow: 0 10px 22px rgba(59,91,255,0.34); margin-top: auto;">Continue</button>
+    </div>
+    </sc-if>
+
+    <!-- NOTIFICATIONS PERMISSION -->
+    <sc-if value="{{ obNotify }}" hint-placeholder-val="{{ false }}">
+    <div style="min-height: 860px; display: flex; flex-direction: column; padding: 56px 26px 36px; text-align: center;">
+      <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+        <div style="margin-bottom: 28px; width: 100%; display: flex; justify-content: center;"><img src="illustrations/in-sync.jpg" alt="Family staying in sync across devices" style="width: 100%; max-width: 340px; height: auto; mix-blend-mode: multiply;"></div>
+        <h1 style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 27px; letter-spacing: -0.02em; color: #101426; margin: 0 0 12px;">Stay in the loop</h1>
+        <p style="font-size: 15px; line-height: 1.55; color: #717A90; margin: 0 8px; max-width: 320px;">Turn on push notifications so reminders, dates and nudges reach you and the family the moment they happen.</p>
+      </div>
+      <button onClick="{{ enableNotifs }}" style="width: 100%; padding: 16px; border-radius: 16px; border: none; background: #3B5BFF; color: #fff; font-weight: 700; font-size: 15.5px; cursor: pointer; box-shadow: 0 10px 22px rgba(59,91,255,0.34);">Turn on notifications</button>
+      <button onClick="{{ finishApp }}" style="width: 100%; padding: 15px; margin-top: 8px; border: none; background: none; color: #717A90; font-weight: 700; font-size: 14.5px; cursor: pointer;">Maybe later</button>
+    </div>
+    </sc-if>
+
+  </div>
+  </sc-if>
+
+  <!-- ===== Top bar ===== -->
+  <div style="flex-shrink: 0; padding: 20px 18px 12px; display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 8;">
+    <button onClick="{{ goFamily }}" style="display: flex; align-items: center; gap: 9px; border: none; background: #FFFFFF; padding: 7px 14px 7px 9px; border-radius: 100px; box-shadow: 0 1px 3px rgba(16,20,38,0.06); cursor: pointer;">
+      <span style="width: 28px; height: 28px; border-radius: 9px; background: rgba(59,91,255,0.12); display: flex; align-items: center; justify-content: center;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3.5 11L12 4l8.5 7v8.2a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1z" stroke="#3B5BFF" stroke-width="1.9" stroke-linejoin="round"/><path d="M9.5 20.5v-6h5v6" stroke="#3B5BFF" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14.5px; color: #101426; letter-spacing: -0.01em;">Mokoena Home</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="opacity: .35;"><path d="M6 9l6 6 6-6" stroke="#101426" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button onClick="{{ openNotifs }}" style="position: relative; width: 42px; height: 42px; border-radius: 13px; border: none; background: #FFFFFF; box-shadow: 0 1px 3px rgba(16,20,38,0.06); cursor: pointer; display: flex; align-items: center; justify-content: center;">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M18 9.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 15.5 18 9.5" stroke="#101426" stroke-width="1.8" stroke-linejoin="round"/><path d="M10.2 20.5a2 2 0 0 0 3.6 0" stroke="#101426" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <sc-if value="{{ hasUnread }}" hint-placeholder-val="{{ true }}"><span style="position: absolute; top: 9px; right: 10px; width: 9px; height: 9px; border-radius: 50%; background: #FF4D5E; border: 2px solid #FFFFFF;"></span></sc-if>
+      </button>
+      <button onClick="{{ goFamily }}" style="width: 42px; height: 42px; border-radius: 50%; border: none; background: #3B5BFF; color: #fff; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px; cursor: pointer; box-shadow: 0 2px 8px rgba(59,91,255,0.32);">S</button>
+    </div>
+  </div>
+
+  <!-- ===== Scroll area ===== -->
+  <div class="hearth-scroll" style="flex: 1; overflow-y: auto; overflow-x: hidden; padding: 4px 18px 120px;">
+
+    <!-- ===================== HOME ===================== -->
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+    <div>
+      <div style="margin: 8px 2px 20px;">
+        <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; line-height: 1.1; letter-spacing: -0.02em; color: #101426;">Good morning,<br>Sipho.</div>
+        <div style="margin-top: 8px; color: #717A90; font-size: 14px; font-weight: 500;">Wednesday, 8 October · here's your day</div>
+      </div>
+
+      <!-- quick stats -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 24px;">
+        <button onClick="{{ goCalendar }}" style="text-align: left; border: none; cursor: pointer; background: #FFFFFF; border-radius: 18px; padding: 15px 13px; box-shadow: 0 2px 8px rgba(16,20,38,0.04);">
+          <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 25px; color: #FFB020;">{{ todayCount }}</div>
+          <div style="font-size: 11.5px; color: #717A90; font-weight: 600; margin-top: 3px;">events today</div>
+        </button>
+        <button onClick="{{ goTasks }}" style="text-align: left; border: none; cursor: pointer; background: #FFFFFF; border-radius: 18px; padding: 15px 13px; box-shadow: 0 2px 8px rgba(16,20,38,0.04);">
+          <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 25px; color: #3B5BFF;">{{ openCount }}</div>
+          <div style="font-size: 11.5px; color: #717A90; font-weight: 600; margin-top: 3px;">to-dos left</div>
+        </button>
+        <button onClick="{{ goMoney }}" style="text-align: left; border: none; cursor: pointer; background: #FFFFFF; border-radius: 18px; padding: 15px 13px; box-shadow: 0 2px 8px rgba(16,20,38,0.04);">
+          <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 25px; color: #FF4D5E;">{{ unpaidCount }}</div>
+          <div style="font-size: 11.5px; color: #717A90; font-weight: 600; margin-top: 3px;">bills due</div>
+        </button>
+      </div>
+
+      <!-- Today card -->
+      <div style="display: flex; align-items: center; justify-content: space-between; margin: 0 2px 12px;">
+        <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px; color: #101426;">Today</div>
+        <button onClick="{{ goCalendar }}" style="border: none; background: none; color: #3B5BFF; font-weight: 700; font-size: 13px; cursor: pointer;">Calendar →</button>
+      </div>
+      <div style="background: #FFFFFF; border-radius: 22px; padding: 6px 14px; box-shadow: 0 2px 10px rgba(16,20,38,0.04); margin-bottom: 26px;">
+        <sc-for list="{{ todayList }}" as="it" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 13px; padding: 12px 2px; border-bottom: 1px solid #F1F4FA;">
+            <x-import component="Icon" from="./HearthIcon.jsx" name="{{ it.illo }}" color="{{ it.color }}" size="42" radius="13" glyph="22" hint-size="42px,42px"></x-import>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 700; font-size: 14.5px; color: #101426; line-height: 1.25;">{{ it.title }}</div>
+              <div style="font-size: 12px; color: #717A90; margin-top: 2px;">{{ it.meta }}</div>
+            </div>
+            <sc-if value="{{ it.tappable }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ it.onToggle }}" style="flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #DDE3EF; background: #fff; cursor: pointer;"></button>
+            </sc-if>
+            <sc-if value="{{ it.showTime }}" hint-placeholder-val="{{ true }}">
+              <div style="flex-shrink: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 13px; color: #101426; text-align: right;">{{ it.time }}</div>
+            </sc-if>
+          </div>
+        </sc-for>
+        <div style="height: 6px;"></div>
+      </div>
+
+      <!-- Family activity -->
+      <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px; color: #101426; margin: 0 2px 12px;">Family activity</div>
+      <div style="background: #FFFFFF; border-radius: 22px; padding: 6px 16px; box-shadow: 0 2px 10px rgba(16,20,38,0.04); margin-bottom: 26px;">
+        <sc-for list="{{ feed }}" as="f" hint-placeholder-count="4">
+          <div style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid #F1F4FA;">
+            <div style="flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; background: {{ f.color }}; color: #fff; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px;">{{ f.initial }}</div>
+            <div style="flex: 1; font-size: 13.5px; color: #2A3145; line-height: 1.4;"><b style="font-weight: 700; color: #101426;">{{ f.who }}</b> {{ f.text }}</div>
+            <div style="flex-shrink: 0; font-size: 11px; color: #9AA3B5; font-weight: 600; padding-top: 2px;">{{ f.time }}</div>
+          </div>
+        </sc-for>
+        <div style="height: 6px;"></div>
+      </div>
+
+      <!-- Goal highlight -->
+      <div style="display: flex; align-items: center; justify-content: space-between; margin: 0 2px 12px;">
+        <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px; color: #101426;">A goal you're chasing</div>
+        <button onClick="{{ goGoals }}" style="border: none; background: none; color: #3B5BFF; font-weight: 700; font-size: 13px; cursor: pointer;">All →</button>
+      </div>
+      <div style="background: #13182B; border-radius: 24px; padding: 20px; box-shadow: 0 10px 26px rgba(19,24,43,0.22); color: #fff; position: relative; overflow: hidden;">
+        <div style="position: absolute; top: -30px; right: -30px; width: 120px; height: 120px; border-radius: 50%; background: rgba(198,242,78,0.16);"></div>
+        <div style="display: flex; align-items: center; justify-content: space-between; position: relative;">
+          <div style="font-size: 11.5px; font-weight: 700; color: #C6F24E; text-transform: uppercase; letter-spacing: .08em;">Family · Savings</div>
+          <div style="font-family: 'Space Grotesk', sans-serif; font-size: 13px; font-weight: 700; color: #C6F24E;">62%</div>
+        </div>
+        <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 21px; margin: 10px 0 3px; position: relative;">December holiday fund</div>
+        <div style="font-size: 13px; color: #AEB6CC; margin-bottom: 16px; position: relative;">R9,300 saved of R15,000</div>
+        <div style="height: 9px; border-radius: 100px; background: rgba(255,255,255,0.14); overflow: hidden; position: relative;"><div style="height: 100%; width: 62%; border-radius: 100px; background: #C6F24E;"></div></div>
+      </div>
+
+    </div>
+    </sc-if>
+
+    <!-- ===================== CALENDAR ===================== -->
+    <sc-if value="{{ isCalendar }}" hint-placeholder-val="{{ false }}"><div>
+      <div style="margin: 8px 2px 18px;">
+        <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; letter-spacing: -0.02em; color: #101426;">Calendar</div>
+        <div style="margin-top: 4px; color: #717A90; font-size: 14px; font-weight: 500;">October 2025 · 4 important dates ahead</div>
+      </div>
+
+      <div style="background: #FFFFFF; border-radius: 22px; padding: 16px 12px 18px; box-shadow: 0 2px 10px rgba(16,20,38,0.04); margin-bottom: 24px;">
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); margin-bottom: 8px;">
+          <div style="text-align: center; font-size: 11px; font-weight: 700; color: #A6AEC0;">S</div>
+          <div style="text-align: center; font-size: 11px; font-weight: 700; color: #A6AEC0;">M</div>
+          <div style="text-align: center; font-size: 11px; font-weight: 700; color: #A6AEC0;">T</div>
+          <div style="text-align: center; font-size: 11px; font-weight: 700; color: #A6AEC0;">W</div>
+          <div style="text-align: center; font-size: 11px; font-weight: 700; color: #A6AEC0;">T</div>
+          <div style="text-align: center; font-size: 11px; font-weight: 700; color: #A6AEC0;">F</div>
+          <div style="text-align: center; font-size: 11px; font-weight: 700; color: #A6AEC0;">S</div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(7, 1fr); row-gap: 2px;">
+          <sc-for list="{{ cells }}" as="c" hint-placeholder-count="35">
+            <div style="height: 42px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;">
+              <div style="width: 31px; height: 31px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-size: 13.5px; font-weight: 600; background: {{ c.bg }}; color: {{ c.numColor }};">{{ c.label }}</div>
+              <div style="width: 5px; height: 5px; border-radius: 50%; background: {{ c.dot }};"></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px; color: #101426; margin: 0 2px 12px;">Important dates</div>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <sc-for list="{{ events }}" as="e" hint-placeholder-count="6">
+          <div style="display: flex; gap: 13px; padding: 14px; background: #FFFFFF; border-radius: 18px; box-shadow: 0 2px 8px rgba(16,20,38,0.04); align-items: center;">
+            <x-import component="Icon" from="./HearthIcon.jsx" name="{{ e.illo }}" color="{{ e.color }}" size="44" radius="14" glyph="23" hint-size="44px,44px"></x-import>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 700; font-size: 14.5px; color: #101426; line-height: 1.25;">{{ e.title }}</div>
+              <div style="font-size: 12px; color: #717A90; margin-top: 2px;">{{ e.dateLabel }} · {{ e.loc }}</div>
+            </div>
+            <div style="flex-shrink: 0; text-align: right;">
+              <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 13px; color: #101426;">{{ e.time }}</div>
+              <div style="font-size: 10px; color: #9AA3B5; font-weight: 600;">{{ e.ampm }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div></sc-if>
+
+    <!-- ===================== PLANS ===================== -->
+    <sc-if value="{{ isTasks }}" hint-placeholder-val="{{ false }}"><div>
+      <div style="margin: 8px 2px 16px;">
+        <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; letter-spacing: -0.02em; color: #101426;">Plans</div>
+        <div style="margin-top: 4px; color: #717A90; font-size: 14px; font-weight: 500;">To-dos, lists & goals — together</div>
+      </div>
+
+      <div style="display: flex; gap: 4px; background: #E9EDF6; border-radius: 14px; padding: 4px; margin-bottom: 22px;">
+        <button onClick="{{ setTodos }}" style="flex: 1; border: none; cursor: pointer; padding: 10px 0; border-radius: 10px; font-weight: 700; font-size: 13.5px; color: {{ planTodosC }}; background: {{ planTodosBg }}; box-shadow: {{ planTodosSh }};">To-dos</button>
+        <button onClick="{{ setLists }}" style="flex: 1; border: none; cursor: pointer; padding: 10px 0; border-radius: 10px; font-weight: 700; font-size: 13.5px; color: {{ planListsC }}; background: {{ planListsBg }}; box-shadow: {{ planListsSh }};">Lists</button>
+        <button onClick="{{ setGoals }}" style="flex: 1; border: none; cursor: pointer; padding: 10px 0; border-radius: 10px; font-weight: 700; font-size: 13.5px; color: {{ planGoalsC }}; background: {{ planGoalsBg }}; box-shadow: {{ planGoalsSh }};">Goals</button>
+      </div>
+
+      <!-- TO-DOS -->
+      <sc-if value="{{ isTodos }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+          <input value="{{ draftTodo }}" onInput="{{ onTodoInput }}" onKeyDown="{{ onTodoKey }}" placeholder="Add a to-do or reminder…" style="flex: 1; border: 1.5px solid #E4E9F2; background: #fff; border-radius: 14px; padding: 13px 16px; font-size: 14.5px; color: #101426; outline: none;">
+          <button onClick="{{ addTodo }}" style="width: 48px; flex-shrink: 0; border: none; background: #3B5BFF; border-radius: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(59,91,255,0.3);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 5.5v13M5.5 12h13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+        </div>
+        <sc-if value="{{ hasOpenTasks }}" hint-placeholder-val="{{ true }}">
+        <div style="background: #FFFFFF; border-radius: 20px; padding: 4px 14px; box-shadow: 0 2px 10px rgba(16,20,38,0.04); margin-bottom: 18px;">
+          <sc-for list="{{ tasksOpen }}" as="t" hint-placeholder-count="6">
+            <div style="display: flex; align-items: center; gap: 13px; padding: 13px 2px; border-bottom: 1px solid #F1F4FA;">
+              <button onClick="{{ t.onToggle }}" style="flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; border: 2px solid #DDE3EF; background: #fff; cursor: pointer;"></button>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-weight: 700; font-size: 14.5px; color: #101426; line-height: 1.25;">{{ t.title }}</div>
+                <div style="display: flex; align-items: center; gap: 7px; margin-top: 5px; flex-wrap: wrap;">
+                  <span style="font-size: 10.5px; font-weight: 700; color: {{ t.chipColor }}; background: {{ t.chipBg }}; padding: 2px 9px; border-radius: 100px;">{{ t.type }}</span>
+                  <span style="font-size: 11.5px; color: #717A90;">From {{ t.from }} · <b style="color: {{ t.dueColor }}; font-weight: 700;">{{ t.due }}</b></span>
+                </div>
+              </div>
+              <button onClick="{{ t.onNudge }}" style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 11px; border: none; background: #F1F4FA; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 9.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 15.5 18 9.5" stroke="#3B5BFF" stroke-width="1.8" stroke-linejoin="round"/><path d="M10.2 20.5a2 2 0 0 0 3.6 0" stroke="#3B5BFF" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+            </div>
+          </sc-for>
+          <div style="height: 6px;"></div>
+        </div>
+        </sc-if>
+        <sc-if value="{{ noOpenTasks }}" hint-placeholder-val="{{ false }}">
+        <div style="background: #FFFFFF; border-radius: 20px; padding: 28px 20px; box-shadow: 0 2px 10px rgba(16,20,38,0.04); margin-bottom: 18px; text-align: center;">
+          <div style="display: flex; justify-content: center; margin-bottom: 4px;"><x-import component="Art" from="./HearthArt.jsx" name="done" width="148" hint-size="148px,123px"></x-import></div>
+          <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; color: #101426;">You're all caught up</div>
+          <div style="font-size: 13px; color: #717A90; margin-top: 4px;">No open to-dos. Add one above when something comes up.</div>
+        </div>
+        </sc-if>
+
+        <div style="font-size: 12px; font-weight: 700; color: #A6AEC0; text-transform: uppercase; letter-spacing: .05em; margin: 0 2px 8px;">Done</div>
+        <div style="background: #EEF1F8; border-radius: 20px; padding: 4px 14px;">
+          <sc-for list="{{ tasksDone }}" as="t" hint-placeholder-count="1">
+            <div style="display: flex; align-items: center; gap: 13px; padding: 12px 2px;">
+              <button onClick="{{ t.onToggle }}" style="flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%; border: none; background: #16C098; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+              <div style="flex: 1; font-weight: 600; font-size: 14.5px; color: #9AA3B5; text-decoration: line-through;">{{ t.title }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- LISTS -->
+      <sc-if value="{{ isLists }}" hint-placeholder-val="{{ false }}">
+      <div>
+        <div style="display: flex; align-items: center; justify-content: space-between; margin: 0 2px 12px;">
+          <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px; color: #101426;">Shopping list</div>
+          <span style="font-size: 12px; font-weight: 700; color: #3B5BFF; background: rgba(59,91,255,0.1); padding: 4px 11px; border-radius: 100px;">{{ shoppingLeft }} to buy</span>
+        </div>
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+          <input value="{{ draftShop }}" onInput="{{ onShopInput }}" onKeyDown="{{ onShopKey }}" placeholder="Add an item…" style="flex: 1; border: 1.5px solid #E4E9F2; background: #fff; border-radius: 14px; padding: 13px 16px; font-size: 14.5px; color: #101426; outline: none;">
+          <button onClick="{{ addShop }}" style="width: 48px; flex-shrink: 0; border: none; background: #3B5BFF; border-radius: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(59,91,255,0.3);"><svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 5.5v13M5.5 12h13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+        </div>
+        <sc-if value="{{ allBought }}" hint-placeholder-val="{{ false }}">
+        <div style="display: flex; align-items: center; gap: 12px; background: rgba(22,192,152,0.1); border-radius: 16px; padding: 12px 14px; margin-bottom: 12px;">
+          <div style="width: 30px; height: 30px; border-radius: 9px; background: #16C098; display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <div style="font-size: 13.5px; font-weight: 700; color: #0E7A5F;">Nice — everything's bought! 🎉</div>
+        </div>
+        </sc-if>
+        <div style="background: #FFFFFF; border-radius: 20px; padding: 4px 14px; box-shadow: 0 2px 10px rgba(16,20,38,0.04);">
+          <sc-for list="{{ shoppingView }}" as="x" hint-placeholder-count="8">
+            <div style="display: flex; align-items: center; gap: 13px; padding: 12px 2px; border-bottom: 1px solid #F1F4FA;">
+              <button onClick="{{ x.onToggle }}" style="flex-shrink: 0; width: 25px; height: 25px; border-radius: 50%; border: 2px solid #DDE3EF; background: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+                <sc-if value="{{ x.got }}" hint-placeholder-val="{{ false }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#16C098" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></sc-if>
+              </button>
+              <div style="flex: 1; font-weight: 600; font-size: 14.5px; color: {{ x.nameColor }}; text-decoration: {{ x.deco }};">{{ x.name }}</div>
+              <div style="flex-shrink: 0; width: 22px; height: 22px; border-radius: 50%; background: {{ x.byBg }}; color: {{ x.by }}; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; font-family: 'Space Grotesk', sans-serif;">{{ x.byInitial }}</div>
+            </div>
+          </sc-for>
+          <div style="height: 6px;"></div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- GOALS -->
+      <sc-if value="{{ isGoals }}" hint-placeholder-val="{{ false }}">
+      <div>
+        <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px; color: #101426; margin: 0 2px 12px;">Family goals</div>
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+          <sc-for list="{{ goalsFamily }}" as="g" hint-placeholder-count="3">
+            <div style="background: #FFFFFF; border-radius: 20px; padding: 16px; box-shadow: 0 2px 10px rgba(16,20,38,0.04);">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-size: 10.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: {{ g.color }};">{{ g.tag }}</span>
+                <span style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px; color: {{ g.color }};">{{ g.pctStr }}</span>
+              </div>
+              <div style="font-weight: 700; font-size: 16px; color: #101426;">{{ g.title }}</div>
+              <div style="font-size: 12.5px; color: #717A90; margin: 2px 0 13px;">{{ g.sub }}</div>
+              <div style="height: 8px; border-radius: 100px; background: #EEF1F8; overflow: hidden; margin-bottom: 13px;"><div style="height: 100%; width: {{ g.pctWidth }}; border-radius: 100px; background: {{ g.color }};"></div></div>
+              <button onClick="{{ g.onBump }}" style="border: none; background: #F1F4FA; color: #3B5BFF; font-weight: 700; font-size: 12.5px; padding: 9px 15px; border-radius: 100px; cursor: pointer;">+ Log progress</button>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px; color: #101426; margin: 0 2px 12px;">Personal goals</div>
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <sc-for list="{{ goalsPersonal }}" as="g" hint-placeholder-count="2">
+            <div style="background: #FFFFFF; border-radius: 20px; padding: 15px; box-shadow: 0 2px 10px rgba(16,20,38,0.04); display: flex; align-items: center; gap: 14px;">
+              <div style="flex-shrink: 0; width: 48px; height: 48px; border-radius: 15px; background: {{ g.color }}; color: #fff; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px;">{{ g.pctStr }}</div>
+              <div style="flex: 1; min-width: 0;">
+                <div style="font-size: 11px; font-weight: 700; color: {{ g.color }};">{{ g.whoLabel }}</div>
+                <div style="font-weight: 700; font-size: 15px; color: #101426;">{{ g.title }}</div>
+                <div style="font-size: 12px; color: #717A90;">{{ g.sub }}</div>
+              </div>
+              <button onClick="{{ g.onBump }}" style="flex-shrink: 0; width: 36px; height: 36px; border-radius: 11px; border: none; background: #F1F4FA; cursor: pointer; font-size: 20px; color: #3B5BFF; line-height: 1;">+</button>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+    </div></sc-if>
+
+    <!-- ===================== MONEY ===================== -->
+    <sc-if value="{{ isMoney }}" hint-placeholder-val="{{ false }}"><div>
+      <div style="margin: 8px 2px 18px;">
+        <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; letter-spacing: -0.02em; color: #101426;">Money</div>
+        <div style="margin-top: 4px; color: #717A90; font-size: 14px; font-weight: 500;">Where the household stands this month</div>
+      </div>
+
+      <div style="background: #3B5BFF; border-radius: 24px; padding: 22px; box-shadow: 0 10px 26px rgba(59,91,255,0.3); color: #fff; margin-bottom: 24px; position: relative; overflow: hidden;">
+        <div style="position: absolute; top: -40px; right: -30px; width: 130px; height: 130px; border-radius: 50%; background: rgba(255,255,255,0.1);"></div>
+        <div style="font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.8); text-transform: uppercase; letter-spacing: .06em; position: relative;">Still outstanding</div>
+        <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 38px; margin: 6px 0 2px; letter-spacing: -0.02em; position: relative;">{{ outStr }}</div>
+        <div style="font-size: 13px; color: rgba(255,255,255,0.85); margin-bottom: 16px; position: relative;">{{ paidStr }} paid of {{ totalStr }} total</div>
+        <div style="height: 9px; border-radius: 100px; background: rgba(255,255,255,0.22); overflow: hidden; position: relative;"><div style="height: 100%; width: {{ paidPctW }}; border-radius: 100px; background: #C6F24E;"></div></div>
+      </div>
+
+      <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px; color: #101426; margin: 0 2px 12px;">Bills</div>
+      <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px;">
+        <sc-for list="{{ billsView }}" as="b" hint-placeholder-count="6">
+          <div style="display: flex; align-items: center; gap: 13px; padding: 13px 14px; background: #FFFFFF; border-radius: 18px; box-shadow: 0 2px 8px rgba(16,20,38,0.04);">
+            <x-import component="Icon" from="./HearthIcon.jsx" name="{{ b.illo }}" color="{{ b.color }}" size="42" radius="13" glyph="22" hint-size="42px,42px"></x-import>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 700; font-size: 14.5px; color: #101426;">{{ b.name }}</div>
+              <div style="font-size: 11.5px; color: #717A90; margin-top: 1px;">{{ b.payer }} · {{ b.cat }}</div>
+            </div>
+            <div style="text-align: right; flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
+              <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px; color: #101426;">{{ b.amountStr }}</div>
+              <sc-if value="{{ b.notPaid }}" hint-placeholder-val="{{ true }}">
+                <button onClick="{{ b.onPay }}" style="border: none; background: #3B5BFF; color: #fff; font-weight: 700; font-size: 11px; padding: 5px 12px; border-radius: 100px; cursor: pointer;">Mark paid</button>
+              </sc-if>
+              <sc-if value="{{ b.isPaid }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size: 10.5px; font-weight: 700; color: #16C098; background: rgba(22,192,152,0.12); padding: 3px 10px; border-radius: 100px;">Paid</span>
+              </sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px; color: #101426; margin: 0 2px 12px;">Monthly budget</div>
+      <div style="background: #FFFFFF; border-radius: 22px; padding: 18px 16px 8px; box-shadow: 0 2px 10px rgba(16,20,38,0.04); margin-bottom: 24px;">
+        <sc-for list="{{ budgetView }}" as="c" hint-placeholder-count="5">
+          <div style="margin-bottom: 16px;">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 7px;">
+              <span style="font-weight: 600; font-size: 14px; color: #101426;">{{ c.name }}</span>
+              <span style="font-size: 12.5px; color: #717A90;"><b style="color: {{ c.barColor }}; font-weight: 700; font-family: 'Space Grotesk', sans-serif;">{{ c.spentStr }}</b> / {{ c.limitStr }}</span>
+            </div>
+            <div style="height: 8px; border-radius: 100px; background: #EEF1F8; overflow: hidden;"><div style="height: 100%; width: {{ c.barWidth }}; border-radius: 100px; background: {{ c.barColor }};"></div></div>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px; color: #101426; margin: 0 2px 6px;">Who owes who</div>
+      <div style="font-size: 13px; color: #717A90; margin: 0 2px 12px;">Overall, you owe Naledi <b style="color: #FF5C8A;">{{ netStr }}</b></div>
+      <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+        <sc-for list="{{ settle }}" as="su" hint-placeholder-count="2">
+          <div style="background: #FFFFFF; border-radius: 18px; padding: 14px 16px; box-shadow: 0 2px 8px rgba(16,20,38,0.04); display: flex; align-items: center; gap: 12px;">
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 600; font-size: 13.5px; color: #101426; line-height: 1.3;">{{ su.text }}</div>
+              <div style="font-size: 12px; color: #717A90; margin-top: 2px;">{{ su.detail }} <b style="color: {{ su.amountColor }};">{{ su.sign }}{{ su.amount }}</b></div>
+            </div>
+            <button onClick="{{ su.onTap }}" style="flex-shrink: 0; border: none; background: #F1F4FA; color: #3B5BFF; font-weight: 700; font-size: 12.5px; padding: 9px 15px; border-radius: 100px; cursor: pointer;">{{ su.btn }}</button>
+          </div>
+        </sc-for>
+      </div>
+
+      <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px; color: #101426; margin: 0 2px 12px;">Savings goals</div>
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <sc-for list="{{ savingsView }}" as="v" hint-placeholder-count="3">
+          <div style="background: #FFFFFF; border-radius: 20px; padding: 16px; box-shadow: 0 2px 10px rgba(16,20,38,0.04);">
+            <div style="display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px;">
+              <span style="font-weight: 700; font-size: 15px; color: #101426;">{{ v.name }}</span>
+              <span style="font-size: 12.5px; color: #717A90;"><b style="color: {{ v.color }}; font-weight: 700; font-family: 'Space Grotesk', sans-serif;">{{ v.savedStr }}</b> / {{ v.targetStr }}</span>
+            </div>
+            <div style="height: 8px; border-radius: 100px; background: #EEF1F8; overflow: hidden;"><div style="height: 100%; width: {{ v.barWidth }}; border-radius: 100px; background: {{ v.color }};"></div></div>
+          </div>
+        </sc-for>
+      </div>
+    </div></sc-if>
+
+    <!-- ===================== FAMILY ===================== -->
+    <sc-if value="{{ isFamily }}" hint-placeholder-val="{{ false }}"><div>
+      <div style="margin: 8px 2px 18px;">
+        <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; letter-spacing: -0.02em; color: #101426;">Family</div>
+        <div style="margin-top: 4px; color: #717A90; font-size: 14px; font-weight: 500;">Mokoena Home · 4 members</div>
+      </div>
+
+      <div style="background: #FFFFFF; border-radius: 22px; padding: 4px 16px; box-shadow: 0 2px 10px rgba(16,20,38,0.04); margin-bottom: 14px;">
+        <sc-for list="{{ memberRows }}" as="m" hint-placeholder-count="4">
+          <div onClick="{{ m.onTap }}" style="display: flex; align-items: center; gap: 13px; padding: 13px 0; border-bottom: 1px solid #F1F4FA; cursor: pointer;">
+            <div style="flex-shrink: 0; width: 46px; height: 46px; border-radius: 50%; background: {{ m.color }}; color: #fff; display: flex; align-items: center; justify-content: center; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px;">{{ m.initial }}</div>
+            <div style="flex: 1; min-width: 0;">
+              <div style="font-weight: 700; font-size: 15.5px; color: #101426;">{{ m.name }}</div>
+              <div style="font-size: 12.5px; color: #717A90;">{{ m.role }}</div>
+            </div>
+            <sc-if value="{{ m.you }}" hint-placeholder-val="{{ false }}"><span style="font-size: 10.5px; font-weight: 700; color: #3B5BFF; background: rgba(59,91,255,0.1); padding: 3px 10px; border-radius: 100px;">You</span></sc-if>
+            <svg width="8" height="14" viewBox="0 0 8 14" style="flex-shrink: 0;"><path d="M1 1l6 6-6 6" stroke="#C4CBDA" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </sc-for>
+        <div style="height: 4px;"></div>
+      </div>
+      <button onClick="{{ openAdd }}" style="width: 100%; border: 1.5px dashed #CBD4E4; background: transparent; color: #5B6B8C; font-weight: 700; font-size: 14px; padding: 15px; border-radius: 16px; cursor: pointer; margin-bottom: 26px;">+ Invite a family member</button>
+
+      <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px; color: #101426; margin: 0 2px 4px;">Notifications & reminders</div>
+      <div style="font-size: 12.5px; color: #717A90; margin: 0 2px 12px;">How Hearth reaches you and the family</div>
+      <div style="background: #FFFFFF; border-radius: 22px; padding: 4px 16px; box-shadow: 0 2px 10px rgba(16,20,38,0.04); margin-bottom: 26px;">
+        <sc-for list="{{ notifRows }}" as="r" hint-placeholder-count="5">
+          <div onClick="{{ r.onTap }}" style="display: flex; align-items: center; gap: 13px; padding: 12px 0; border-bottom: 1px solid #F1F4FA; cursor: pointer;">
+            <x-import component="Icon" from="./HearthIcon.jsx" name="{{ r.illo }}" color="{{ r.iconColor }}" size="38" radius="11" glyph="20" hint-size="38px,38px"></x-import>
+            <div style="flex: 1; font-weight: 600; font-size: 14.5px; color: #101426;">{{ r.label }}</div>
+            <span style="font-size: 12.5px; font-weight: 700; color: {{ r.dc }};">{{ r.detail }}</span>
+            <svg width="8" height="14" viewBox="0 0 8 14" style="flex-shrink: 0;"><path d="M1 1l6 6-6 6" stroke="#C4CBDA" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </sc-for>
+        <div style="height: 4px;"></div>
+      </div>
+
+      <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px; color: #101426; margin: 0 2px 12px;">Account & security</div>
+      <div style="background: #FFFFFF; border-radius: 22px; padding: 4px 16px; box-shadow: 0 2px 10px rgba(16,20,38,0.04); margin-bottom: 18px;">
+        <sc-for list="{{ accountRows }}" as="r" hint-placeholder-count="4">
+          <div onClick="{{ r.onTap }}" style="display: flex; align-items: center; gap: 13px; padding: 12px 0; border-bottom: 1px solid #F1F4FA; cursor: pointer;">
+            <x-import component="Icon" from="./HearthIcon.jsx" name="{{ r.illo }}" color="{{ r.iconColor }}" size="38" radius="11" glyph="20" hint-size="38px,38px"></x-import>
+            <div style="flex: 1; font-weight: 600; font-size: 14.5px; color: #101426;">{{ r.label }}</div>
+            <span style="font-size: 12.5px; font-weight: 700; color: {{ r.dc }};">{{ r.detail }}</span>
+            <svg width="8" height="14" viewBox="0 0 8 14" style="flex-shrink: 0;"><path d="M1 1l6 6-6 6" stroke="#C4CBDA" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </sc-for>
+        <div style="height: 4px;"></div>
+      </div>
+
+      <button onClick="{{ stop }}" style="width: 100%; border: none; background: transparent; color: #9AA3B5; font-weight: 700; font-size: 14px; padding: 12px; cursor: pointer;">Sign out</button>
+    </div></sc-if>
+
+  </div>
+
+  <!-- ===== FAB ===== -->
+  <button onClick="{{ openAdd }}" style="position: absolute; right: 18px; bottom: 92px; width: 56px; height: 56px; border-radius: 18px; border: none; background: #3B5BFF; box-shadow: 0 10px 24px rgba(59,91,255,0.45); cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 30;">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.6" stroke-linecap="round"/></svg>
+  </button>
+
+  <!-- ===== Tab bar ===== -->
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; z-index: 25; padding: 12px 10px 16px; background: rgba(255,255,255,0.94); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid #EAEEF6; display: flex; justify-content: space-around; align-items: center;">
+    <button onClick="{{ goHome }}" style="border: none; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; color: {{ cHome }}; width: 60px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></svg>
+      <span style="font-size: 10.5px; font-weight: 700;">Home</span>
+    </button>
+    <button onClick="{{ goCalendar }}" style="border: none; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; color: {{ cCal }}; width: 60px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="4.5" width="18" height="16" rx="3" stroke="currentColor" stroke-width="1.9"/><path d="M3 9h18M8 2.5v4M16 2.5v4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+      <span style="font-size: 10.5px; font-weight: 700;">Calendar</span>
+    </button>
+    <button onClick="{{ goTasks }}" style="border: none; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; color: {{ cTasks }}; width: 60px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.9"/><path d="M8 12.2l2.6 2.6L16 9.4" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span style="font-size: 10.5px; font-weight: 700;">Plans</span>
+    </button>
+    <button onClick="{{ goMoney }}" style="border: none; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; color: {{ cMoney }}; width: 60px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="2.5" y="5.5" width="19" height="14" rx="3" stroke="currentColor" stroke-width="1.9"/><path d="M2.5 10h19" stroke="currentColor" stroke-width="1.9"/><circle cx="17.5" cy="15" r="1.4" fill="currentColor"/></svg>
+      <span style="font-size: 10.5px; font-weight: 700;">Money</span>
+    </button>
+    <button onClick="{{ goFamily }}" style="border: none; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 5px; color: {{ cFamily }}; width: 60px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.9"/><circle cx="16.5" cy="9.5" r="2.4" stroke="currentColor" stroke-width="1.9"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5M15 14.2c2.4.2 4.5 2 4.5 4.8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>
+      <span style="font-size: 10.5px; font-weight: 700;">Family</span>
+    </button>
+  </div>
+
+  <!-- ===== Sheets & toast ===== -->
+  <sc-if value="{{ showSheet }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeSheet }}" style="position: absolute; inset: 0; z-index: 40; background: rgba(16,20,38,0.45); display: flex; flex-direction: column; justify-content: flex-end;">
+      <div onClick="{{ stop }}" style="background: #F3F5FB; border-radius: 28px 28px 0 0; padding: 10px 18px 30px; max-height: 86%; overflow-y: auto; box-shadow: 0 -8px 40px rgba(0,0,0,0.2);" class="hearth-scroll">
+        <div style="width: 40px; height: 5px; border-radius: 100px; background: #D3DAE8; margin: 4px auto 16px;"></div>
+
+        <sc-if value="{{ isAddSheet }}" hint-placeholder-val="{{ true }}">
+        <div>
+          <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 22px; color: #101426; margin: 0 2px 4px;">Add to Hearth</div>
+          <div style="font-size: 13px; color: #717A90; margin: 0 2px 16px;">What would you like to add?</div>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <sc-for list="{{ addOptions }}" as="o" hint-placeholder-count="6">
+              <button onClick="{{ o.onTap }}" style="display: flex; align-items: center; gap: 14px; text-align: left; border: none; background: #FFFFFF; padding: 13px 15px; border-radius: 18px; cursor: pointer; box-shadow: 0 1px 4px rgba(16,20,38,0.05);">
+                <x-import component="Icon" from="./HearthIcon.jsx" name="{{ o.illo }}" color="{{ o.color }}" size="44" radius="14" glyph="23" hint-size="44px,44px"></x-import>
+                <div style="flex: 1;">
+                  <div style="font-weight: 700; font-size: 15px; color: #101426;">{{ o.label }}</div>
+                  <div style="font-size: 12px; color: #717A90; margin-top: 1px;">{{ o.sub }}</div>
+                </div>
+                <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="#C4CBDA" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isNotifSheet }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin: 0 2px 16px;">
+            <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 22px; color: #101426;">Notifications</div>
+            <button onClick="{{ markAllRead }}" style="border: none; background: none; color: #3B5BFF; font-weight: 700; font-size: 13px; cursor: pointer;">Mark all read</button>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <sc-for list="{{ notifView }}" as="n" hint-placeholder-count="5">
+              <div style="display: flex; align-items: flex-start; gap: 13px; background: #FFFFFF; padding: 14px 15px; border-radius: 18px; box-shadow: 0 1px 4px rgba(16,20,38,0.05); position: relative;">
+                <x-import component="Icon" from="./HearthIcon.jsx" name="{{ n.illo }}" color="{{ n.color }}" size="40" radius="12" glyph="21" hint-size="40px,40px"></x-import>
+                <div style="flex: 1; min-width: 0;">
+                  <div style="font-weight: 700; font-size: 14px; color: #101426; line-height: 1.25;">{{ n.title }}</div>
+                  <div style="font-size: 12.5px; color: #717A90; margin-top: 2px; line-height: 1.35;">{{ n.body }}</div>
+                  <div style="font-size: 11px; color: #9AA3B5; font-weight: 600; margin-top: 5px;">{{ n.time }}</div>
+                </div>
+                <sc-if value="{{ n.unread }}" hint-placeholder-val="{{ false }}"><span style="position: absolute; top: 14px; right: 14px; width: 9px; height: 9px; border-radius: 50%; background: #FF4D5E;"></span></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        </sc-if>
+
+        <sc-if value="{{ isFormSheet }}" hint-placeholder-val="{{ false }}">
+        <div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin: 0 2px 18px;">
+            <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 22px; color: #101426;">{{ formTitle }}</div>
+            <button onClick="{{ closeSheet }}" style="width: 34px; height: 34px; border-radius: 11px; border: none; background: #EEF1F8; cursor: pointer; display: flex; align-items: center; justify-content: center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#101426" stroke-width="2.2" stroke-linecap="round"/></svg></button>
+          </div>
+
+          <sc-if value="{{ formEvent }}" hint-placeholder-val="{{ true }}">
+          <div>
+            <div style="margin-bottom: 16px;"><label style="display: block; font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 6px;">Title</label><input value="{{ fdTitle }}" onInput="{{ onTitle }}" type="text" placeholder="e.g. Swimming lesson" style="width: 100%; padding: 14px 16px; border-radius: 14px; border: 1.5px solid #E4E9F2; background: #fff; font-size: 15px; color: #101426; outline: none;"></div>
+            <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+              <div style="flex: 1;"><label style="display: block; font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 6px;">Date</label><input value="{{ fdDate }}" onInput="{{ onDate }}" type="date" style="width: 100%; padding: 14px 16px; border-radius: 14px; border: 1.5px solid #E4E9F2; background: #fff; font-size: 15px; color: #101426; outline: none;"></div>
+              <div style="flex: 1;"><label style="display: block; font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 6px;">Time</label><input value="{{ fdTime }}" onInput="{{ onTime }}" type="time" style="width: 100%; padding: 14px 16px; border-radius: 14px; border: 1.5px solid #E4E9F2; background: #fff; font-size: 15px; color: #101426; outline: none;"></div>
+            </div>
+            <div style="margin-bottom: 8px;"><label style="display: block; font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 8px;">Who's it for</label>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;"><sc-for list="{{ whoChips }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.onSel }}" style="border: none; cursor: pointer; padding: 9px 14px; border-radius: 100px; font-weight: 700; font-size: 13px; background: {{ c.bg }}; color: {{ c.fg }};">{{ c.name }}</button></sc-for></div>
+            </div>
+          </div>
+          </sc-if>
+
+          <sc-if value="{{ formBill }}" hint-placeholder-val="{{ false }}">
+          <div>
+            <div style="margin-bottom: 16px;"><label style="display: block; font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 6px;">Bill name</label><input value="{{ fdName }}" onInput="{{ onName }}" type="text" placeholder="e.g. Water & lights" style="width: 100%; padding: 14px 16px; border-radius: 14px; border: 1.5px solid #E4E9F2; background: #fff; font-size: 15px; color: #101426; outline: none;"></div>
+            <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+              <div style="flex: 1;"><label style="display: block; font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 6px;">Amount (R)</label><input value="{{ fdAmount }}" onInput="{{ onAmount }}" type="number" placeholder="0" style="width: 100%; padding: 14px 16px; border-radius: 14px; border: 1.5px solid #E4E9F2; background: #fff; font-size: 15px; color: #101426; outline: none;"></div>
+              <div style="flex: 1;"><label style="display: block; font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 6px;">Due date</label><input value="{{ fdDue }}" onInput="{{ onDue }}" type="date" style="width: 100%; padding: 14px 16px; border-radius: 14px; border: 1.5px solid #E4E9F2; background: #fff; font-size: 15px; color: #101426; outline: none;"></div>
+            </div>
+            <div style="margin-bottom: 8px;"><label style="display: block; font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 8px;">Paid by</label>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;"><sc-for list="{{ payerChips }}" as="c" hint-placeholder-count="4"><button onClick="{{ c.onSel }}" style="border: none; cursor: pointer; padding: 9px 14px; border-radius: 100px; font-weight: 700; font-size: 13px; background: {{ c.bg }}; color: {{ c.fg }};">{{ c.name }}</button></sc-for></div>
+            </div>
+          </div>
+          </sc-if>
+
+          <sc-if value="{{ formGoal }}" hint-placeholder-val="{{ false }}">
+          <div>
+            <div style="margin-bottom: 16px;"><label style="display: block; font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 6px;">Goal</label><input value="{{ fdTitle }}" onInput="{{ onTitle }}" type="text" placeholder="e.g. Save for a family car" style="width: 100%; padding: 14px 16px; border-radius: 14px; border: 1.5px solid #E4E9F2; background: #fff; font-size: 15px; color: #101426; outline: none;"></div>
+            <div style="margin-bottom: 16px;"><label style="display: block; font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 8px;">Type</label>
+              <div style="display: flex; gap: 8px;"><sc-for list="{{ kindChips }}" as="c" hint-placeholder-count="2"><button onClick="{{ c.onSel }}" style="flex: 1; border: none; cursor: pointer; padding: 11px 0; border-radius: 12px; font-weight: 700; font-size: 13.5px; background: {{ c.bg }}; color: {{ c.fg }};">{{ c.l }}</button></sc-for></div>
+            </div>
+            <div style="margin-bottom: 8px;"><label style="display: block; font-size: 12.5px; font-weight: 700; color: #717A90; margin-bottom: 6px;">Target amount (optional)</label><input value="{{ fdTarget }}" onInput="{{ onTarget }}" type="number" placeholder="e.g. 15000" style="width: 100%; padding: 14px 16px; border-radius: 14px; border: 1.5px solid #E4E9F2; background: #fff; font-size: 15px; color: #101426; outline: none;"></div>
+          </div>
+          </sc-if>
+
+          <button onClick="{{ submitForm }}" style="width: 100%; padding: 16px; border-radius: 16px; border: none; background: #3B5BFF; color: #fff; font-weight: 700; font-size: 15.5px; cursor: pointer; box-shadow: 0 8px 20px rgba(59,91,255,0.32); margin-top: 22px;">Add</button>
+        </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; bottom: 110px; left: 50%; z-index: 60; transform: translateX(-50%); background: #101426; color: #fff; padding: 12px 20px; border-radius: 100px; font-size: 13.5px; font-weight: 600; white-space: nowrap; box-shadow: 0 8px 24px rgba(0,0,0,0.25);">{{ toast }}</div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 402, &quot;height&quot;: 860}}">
+class Component extends DCLogic {
+  state = {
+    tab: 'home',
+    plan: 'todos',
+    sheet: null,
+    toast: null,
+    draftShop: '',
+    draftTodo: '',
+    onboard: true,
+    ob: 'welcome',
+    intro: 0,
+    form: null,
+    fd: {},
+    members: [
+      { id:'you', name:'Sipho', role:'Dad', initial:'S', color:'#3B5BFF', you:true },
+      { id:'naledi', name:'Naledi', role:'Mom', initial:'N', color:'#FF5C8A' },
+      { id:'amara', name:'Amara', role:'Age 4', initial:'A', color:'#FFB020' },
+      { id:'lwazi', name:'Lwazi', role:'Age 2', initial:'L', color:'#16C098' },
+    ],
+    events: [
+      { id:'e1', title:'Amara — Dentist check-up', time:'14:30', ampm:'PM', day:'today', dateLabel:'Today', loc:'Dr. Pillay, Rosebank', color:'#FFB020', illo:'health' },
+      { id:'e2', title:'Parent evening (Amara)', time:'18:00', ampm:'PM', day:'thu', dateLabel:'Thu 9 Oct', loc:'Little Acorns Pre-school', color:'#FFB020', illo:'family' },
+      { id:'e3', title:'Naledi — Work conference', time:'All', ampm:'day', day:'fri', dateLabel:'Fri 10 – Sat 11', loc:'Sandton Convention Centre', color:'#FF5C8A', illo:'calendar' },
+      { id:'e4', title:'Lwazi — Vaccination', time:'09:15', ampm:'AM', day:'mon', dateLabel:'Mon 13 Oct', loc:'Clinic · 6-month jabs', color:'#16C098', illo:'health' },
+      { id:'e5', title:'Our anniversary', time:'All', ampm:'day', day:'wed15', dateLabel:'Wed 15 Oct', loc:'7 years together', color:'#FF5C8A', illo:'heart' },
+      { id:'e6', title:'Pay day', time:'', ampm:'', day:'sat25', dateLabel:'Sat 25 Oct', loc:'Salaries in', color:'#16C098', illo:'coin' },
+    ],
+    tasks: [
+      { id:'t1', title:'Pick up nappies & wipes', from:'Naledi', fromColor:'#FF5C8A', due:'Today', dueKey:'today', done:false, type:'Reminder' },
+      { id:'t2', title:'Defrost chicken for dinner', from:'Naledi', fromColor:'#FF5C8A', due:'Today', dueKey:'today', done:false, type:'Reminder' },
+      { id:'t3', title:"Book Amara's swimming lessons", from:'You', fromColor:'#3B5BFF', due:'Tomorrow', dueKey:'tom', done:false, type:'Task' },
+      { id:'t4', title:'Call plumber about the geyser', from:'Naledi', fromColor:'#FF5C8A', due:'Overdue', dueKey:'over', done:false, type:'Task' },
+      { id:'t5', title:'Renew car licence disc', from:'You', fromColor:'#3B5BFF', due:'Fri', dueKey:'fri', done:false, type:'Task' },
+      { id:'t6', title:"Pack Lwazi's clinic card", from:'You', fromColor:'#3B5BFF', due:'Mon', dueKey:'mon', done:false, type:'Reminder' },
+    ],
+    shopping: [
+      { id:'s1', name:'Nappies (size 4)', by:'naledi', got:false },
+      { id:'s2', name:'Baby wipes', by:'naledi', got:false },
+      { id:'s3', name:'Milk (2L)', by:'you', got:false },
+      { id:'s4', name:'Bread', by:'you', got:true },
+      { id:'s5', name:'Bananas', by:'amara', got:false },
+      { id:'s6', name:'Coffee', by:'you', got:false },
+      { id:'s7', name:'Dishwashing liquid', by:'naledi', got:false },
+      { id:'s8', name:'Yoghurt (kids)', by:'naledi', got:true },
+    ],
+    goals: [
+      { id:'g1', kind:'Family', tag:'Savings', title:'December holiday fund', sub:'R9,300 of R15,000', pct:62, color:'#3B5BFF' },
+      { id:'g2', kind:'Family', tag:'Habit', title:'Family walk every Sunday', sub:'5-week streak going strong', pct:80, color:'#16C098' },
+      { id:'g3', kind:'Family', tag:'Habit', title:'Screen-free dinners', sub:'4 of 7 nights this week', pct:57, color:'#FFB020' },
+      { id:'g4', kind:'Sipho', tag:'Personal', title:'Read 2 books this month', sub:'1 of 2 done', pct:50, color:'#3B5BFF' },
+      { id:'g5', kind:'Naledi', tag:'Personal', title:'Gym 3× a week', sub:'2 of 3 this week', pct:66, color:'#FF5C8A' },
+    ],
+    bills: [
+      { id:'b1', name:'Bond / Home loan', cat:'Housing', amount:12500, due:'1 Oct', status:'paid', payer:'Sipho', color:'#3B5BFF', illo:'house' },
+      { id:'b2', name:'Electricity', cat:'Utilities', amount:1450, due:'28 Oct', status:'unpaid', payer:'Shared', color:'#FFB020', illo:'alarm' },
+      { id:'b3', name:'School fees — Amara', cat:'Kids', amount:3200, due:'20 Oct', status:'overdue', payer:'Naledi', color:'#FF5C8A', illo:'family' },
+      { id:'b4', name:'Medical aid', cat:'Health', amount:4100, due:'1 Oct', status:'paid', payer:'Sipho', color:'#16C098', illo:'health' },
+      { id:'b5', name:'Fibre internet', cat:'Utilities', amount:899, due:'26 Oct', status:'unpaid', payer:'Sipho', color:'#3B5BFF', illo:'cloud' },
+      { id:'b6', name:'Car instalment', cat:'Transport', amount:4800, due:'3 Oct', status:'paid', payer:'Naledi', color:'#FFB020', illo:'wallet' },
+    ],
+    budget: [
+      { id:'c1', name:'Groceries', spent:4200, limit:6000, color:'#3B5BFF' },
+      { id:'c2', name:'Transport / fuel', spent:2650, limit:3000, color:'#16C098' },
+      { id:'c3', name:'Kids', spent:1800, limit:2500, color:'#FFB020' },
+      { id:'c4', name:'Eating out', spent:1400, limit:1200, color:'#FF4D5E' },
+      { id:'c5', name:'Savings', spent:3000, limit:3000, color:'#7A5CFF' },
+    ],
+    settle: [
+      { id:'su1', text:"You paid R450 for Amara's shoes", detail:'Naledi owes you', amount:'R225', dir:'in', who:'Naledi' },
+      { id:'su2', text:'Naledi paid R680 for groceries', detail:'You owe Naledi', amount:'R340', dir:'out', who:'Naledi' },
+    ],
+    savings: [
+      { id:'sv1', name:'December holiday', saved:9300, target:15000, color:'#3B5BFF' },
+      { id:'sv2', name:'Emergency fund', saved:22000, target:50000, color:'#16C098' },
+      { id:'sv3', name:'New fridge', saved:3200, target:9000, color:'#FF5C8A' },
+    ],
+    notifications: [
+      { id:'n1', illo:'bell', color:'#FF5C8A', title:'Reminder from Naledi', body:'Pick up nappies & wipes on your way home', time:'8m ago', unread:true },
+      { id:'n2', illo:'calendar', color:'#FFB020', title:'Today · Amara — Dentist check-up', body:'14:30 · Dr. Pillay, Rosebank', time:'1h ago', unread:true },
+      { id:'n3', illo:'wallet', color:'#FF4D5E', title:'Bill overdue', body:'School fees — Amara (R3,200) was due 20 Oct', time:'2h ago', unread:true },
+      { id:'n4', illo:'check', color:'#16C098', title:'Naledi completed a task', body:'Marked "Pay school fees" as done', time:'Yesterday', unread:false },
+      { id:'n5', illo:'cart', color:'#3B5BFF', title:'Naledi added to Shopping list', body:'Nappies (size 4), Baby wipes', time:'Yesterday', unread:false },
+    ],
+    feed: [
+      { id:'f1', who:'Naledi', color:'#FF5C8A', initial:'N', text:'added Nappies & Wipes to the shopping list', time:'8m' },
+      { id:'f2', who:'You', color:'#3B5BFF', initial:'S', text:'completed "Pay school fees"', time:'1h' },
+      { id:'f3', who:'Naledi', color:'#FF5C8A', initial:'N', text:'marked the Car instalment as paid', time:'3h' },
+      { id:'f4', who:'Naledi', color:'#FF5C8A', initial:'N', text:'set a new family goal: Sunday walks', time:'1d' },
+    ],
+  };
+
+  go(tab) { this.setState({ tab, sheet: null }); }
+  setPlan(plan) { this.setState({ plan }); }
+  openSheet(sheet) { this.setState({ sheet }); }
+  closeSheet() { this.setState({ sheet: null }); }
+
+  flash(msg) {
+    this.setState({ toast: msg });
+    clearTimeout(this._t);
+    this._t = setTimeout(() => this.setState({ toast: null }), 2000);
+  }
+
+  toggleTask(id) {
+    const t = this.state.tasks.find(x => x.id === id);
+    this.setState(s => ({ tasks: s.tasks.map(x => x.id === id ? { ...x, done: !x.done } : x) }));
+    if (t && !t.done) this.flash('Nice — one less thing ✓');
+  }
+  toggleShop(id) {
+    this.setState(s => ({ shopping: s.shopping.map(x => x.id === id ? { ...x, got: !x.got } : x) }));
+  }
+  markPaid(id) {
+    this.setState(s => ({ bills: s.bills.map(b => b.id === id ? { ...b, status: 'paid' } : b) }));
+    this.flash('Marked as paid ✓');
+  }
+  bumpGoal(id) {
+    this.setState(s => ({ goals: s.goals.map(g => g.id === id ? { ...g, pct: Math.min(100, g.pct + 8) } : g) }));
+    this.flash('Progress logged 🎉');
+  }
+  nudge(name) { this.flash('Reminder sent to ' + name + ' 🔔'); }
+
+  obGo(step) { this.setState({ ob: step }); }
+  obIntroNext() { const i = this.state.intro; if (i >= 2) this.setState({ ob: 'signup' }); else this.setState({ intro: i + 1 }); }
+  finishOnboard(msg) { this.setState({ onboard: false, sheet: null, tab: 'home' }); if (msg) this.flash(msg); }
+
+  openForm(type) {
+    const d = { event: { title:'', date:'', time:'', who:'you' }, bill: { name:'', amount:'', due:'', payer:'you' }, goal: { title:'', kind:'family', target:'' } }[type] || {};
+    this.setState({ sheet: 'form', form: type, fd: { ...d } });
+  }
+  setFd(k, v) { this.setState(s => ({ fd: { ...(s.fd || {}), [k]: v } })); }
+  submitForm() {
+    const f = this.state.form, d = this.state.fd || {};
+    if (f === 'event') {
+      if (!(d.title || '').trim()) return this.flash('Add a title first');
+      const m = this.state.members.find(x => x.id === d.who) || {};
+      const ev = { id: 'ev' + Date.now(), title: d.title, time: d.time || 'All', ampm: d.time ? '' : 'day', day: '', dateLabel: d.date || 'Upcoming', loc: 'For ' + (m.name || 'the family'), color: m.color || '#3B5BFF', illo: 'calendar' };
+      this.setState(s => ({ events: [...s.events, ev], sheet: null, tab: 'calendar' }));
+      this.flash('Event added ✓');
+    } else if (f === 'bill') {
+      if (!(d.name || '').trim()) return this.flash('Add a bill name');
+      const m = this.state.members.find(x => x.id === d.payer) || {};
+      const b = { id: 'bl' + Date.now(), name: d.name, cat: 'Other', amount: Number(d.amount) || 0, due: d.due || 'This month', status: 'unpaid', payer: m.name || 'Shared', color: '#3B5BFF', illo: 'wallet' };
+      this.setState(s => ({ bills: [...s.bills, b], sheet: null, tab: 'money' }));
+      this.flash('Bill added ✓');
+    } else if (f === 'goal') {
+      if (!(d.title || '').trim()) return this.flash('Add a goal title');
+      const fam = d.kind !== 'personal';
+      const t = Number(d.target) || 0;
+      const g = { id: 'gl' + Date.now(), kind: fam ? 'Family' : 'Sipho', tag: fam ? 'Goal' : 'Personal', title: d.title, sub: t ? ('R0 of R' + t.toLocaleString('en-ZA')) : 'Just getting started', pct: 0, color: '#3B5BFF' };
+      this.setState(s => ({ goals: [...s.goals, g], sheet: null, tab: 'tasks', plan: 'goals' }));
+      this.flash('Goal added ✓');
+    }
+  }
+
+  addShop() {
+    const v = (this.state.draftShop || '').trim();
+    if (!v) return;
+    this.setState(s => ({ shopping: [...s.shopping, { id: 'sx' + Date.now(), name: v, by: 'you', got: false }], draftShop: '' }));
+    this.flash('Added to shopping list ✓');
+  }
+  addTodo() {
+    const v = (this.state.draftTodo || '').trim();
+    if (!v) return;
+    this.setState(s => ({ tasks: [...s.tasks, { id: 'tx' + Date.now(), title: v, from: 'You', fromColor: '#3B5BFF', due: 'Today', dueKey: 'today', done: false, type: 'Task' }], draftTodo: '' }));
+    this.flash('To-do added ✓');
+  }
+
+  // FAB sheet routes you to the right place to add
+  route(kind) {
+    const map = {
+      Event:    { tab: 'calendar', flash: 'Tap a date to add an event' },
+      Todo:     { tab: 'tasks', plan: 'todos', flash: 'Type your to-do below ↓' },
+      Reminder: { tab: 'tasks', plan: 'todos', flash: 'Add a reminder below ↓' },
+      Shopping: { tab: 'tasks', plan: 'lists', flash: 'Add items to the list below ↓' },
+      Bill:     { tab: 'money', flash: 'Bill form coming soon' },
+      Goal:     { tab: 'tasks', plan: 'goals', flash: 'Goal form coming soon' },
+    };
+    const r = map[kind] || {};
+    this.setState(st => ({ tab: r.tab || st.tab, plan: r.plan || st.plan, sheet: null }));
+    if (r.flash) this.flash(r.flash);
+  }
+
+  money(n) { return 'R' + n.toLocaleString('en-ZA'); }
+
+  renderVals() {
+    const s = this.state;
+    const stop = (e) => { if (e && e.stopPropagation) e.stopPropagation(); };
+    const M = (n) => this.money(n);
+    const tint = { you:'#EAEEFF', naledi:'#FFE9F1', amara:'#FFF4E0', lwazi:'#E3F8F1' };
+    const mColor = {}; const mInit = {};
+    s.members.forEach(m => { mColor[m.id] = m.color; mInit[m.id] = m.initial; });
+
+    const openTasks = s.tasks.filter(t => !t.done);
+    const todayTasks = s.tasks.filter(t => t.dueKey === 'today' && !t.done);
+    const todayEvents = s.events.filter(e => e.day === 'today');
+    const unpaid = s.bills.filter(b => b.status !== 'paid');
+    const shoppingLeft = s.shopping.filter(x => !x.got).length;
+
+    const todayList = [
+      ...todayEvents.map(e => ({ id: e.id, illo: e.illo, color: e.color, time: e.time + ' ' + e.ampm, title: e.title, meta: e.loc, tappable: false, showTime: true })),
+      ...todayTasks.map(t => ({ id: t.id, illo: t.type === 'Reminder' ? 'bell' : 'todo', color: t.fromColor, title: t.title, meta: 'From ' + t.from + ' · ' + t.type, tappable: true, showTime: false, onToggle: () => this.toggleTask(t.id) })),
+    ];
+
+    const tc = (k) => s.tab === k ? '#3B5BFF' : '#A6AEC0';
+    const seg = (k) => ({ c: s.plan === k ? '#101426' : '#717A90', bg: s.plan === k ? '#FFFFFF' : 'transparent', sh: s.plan === k ? '0 1px 4px rgba(16,20,38,0.1)' : 'none' });
+    const st1 = seg('todos'), st2 = seg('lists'), st3 = seg('goals');
+
+    const billsView = s.bills.map(b => ({ ...b, amountStr: M(b.amount), isPaid: b.status === 'paid', notPaid: b.status !== 'paid', onPay: () => this.markPaid(b.id) }));
+    const paidSum = s.bills.filter(b => b.status === 'paid').reduce((a, b) => a + b.amount, 0);
+    const outSum = s.bills.filter(b => b.status !== 'paid').reduce((a, b) => a + b.amount, 0);
+    const totalSum = paidSum + outSum;
+
+    const budgetView = s.budget.map(c => {
+      const pct = Math.round(c.spent / c.limit * 100);
+      return { ...c, spentStr: M(c.spent), limitStr: M(c.limit), barWidth: Math.min(100, pct) + '%', barColor: c.spent > c.limit ? '#FF4D5E' : c.color };
+    });
+    const savingsView = s.savings.map(v => ({ ...v, savedStr: M(v.saved), targetStr: M(v.target), barWidth: Math.round(v.saved / v.target * 100) + '%' }));
+
+    const mapGoal = (g) => ({ ...g, pctWidth: g.pct + '%', pctStr: g.pct + '%', onBump: () => this.bumpGoal(g.id) });
+    const goalsFamily = s.goals.filter(g => g.kind === 'Family').map(mapGoal);
+    const goalsPersonal = s.goals.filter(g => g.kind !== 'Family').map(g => ({ ...mapGoal(g), whoLabel: g.kind }));
+
+    const tasksOpen = openTasks.map(t => ({ ...t, onToggle: () => this.toggleTask(t.id), chipColor: t.type === 'Reminder' ? '#C77800' : '#3B5BFF', chipBg: t.type === 'Reminder' ? '#FFF4E0' : '#EAEEFF', onNudge: () => this.nudge(t.from), dueColor: t.dueKey === 'over' ? '#FF4D5E' : '#717A90' }));
+    const tasksDone = s.tasks.filter(t => t.done).map(t => ({ ...t, onToggle: () => this.toggleTask(t.id) }));
+    const shoppingView = s.shopping.map(x => ({ ...x, onToggle: () => this.toggleShop(x.id), nameColor: x.got ? '#A6AEC0' : '#101426', deco: x.got ? 'line-through' : 'none', by: mColor[x.by] || '#3B5BFF', byBg: tint[x.by] || '#EAEEFF', byInitial: mInit[x.by] || '?' }));
+
+    const dotMap = { 8:'#FFB020', 9:'#FFB020', 10:'#FF5C8A', 11:'#FF5C8A', 13:'#16C098', 15:'#3B5BFF', 20:'#FF4D5E', 25:'#16C098' };
+    const cells = [];
+    for (let i = 28; i <= 30; i++) cells.push({ key:'p'+i, label:i, isToday:false, dot:'transparent', numColor:'#C4CBDA', bg:'transparent' });
+    for (let d = 1; d <= 31; d++) {
+      const today = d === 8;
+      cells.push({ key:'d'+d, label:d, isToday:today, dot: dotMap[d] || 'transparent', numColor: today ? '#fff' : '#101426', bg: today ? '#3B5BFF' : 'transparent' });
+    }
+    let nx = 1; while (cells.length % 7 !== 0) cells.push({ key:'n'+nx, label:nx++, isToday:false, dot:'transparent', numColor:'#C4CBDA', bg:'transparent' });
+
+    const notifView = s.notifications.map(n => ({ ...n }));
+
+    const addOptions = [
+      { key:'a1', label:'Calendar event', sub:'Appointment, birthday, school date', illo:'calendar', color:'#FFB020', onTap:() => this.openForm('event') },
+      { key:'a2', label:'To-do', sub:'A task for you or the family', illo:'todo', color:'#3B5BFF', onTap:() => this.route('Todo') },
+      { key:'a3', label:'Reminder for someone', sub:'Nudge a family member', illo:'bell', color:'#FF5C8A', onTap:() => this.route('Reminder') },
+      { key:'a4', label:'Shopping item', sub:'Add to the shared list', illo:'cart', color:'#16C098', onTap:() => this.route('Shopping') },
+      { key:'a5', label:'Bill', sub:'Track a payment', illo:'wallet', color:'#7A5CFF', onTap:() => this.openForm('bill') },
+      { key:'a6', label:'Goal', sub:'Family or personal', illo:'goal', color:'#FF6B5C', onTap:() => this.openForm('goal') },
+    ];
+
+    const memberRows = s.members.map(m => ({ ...m, onTap: () => this.flash(m.you ? "That's you 🙂" : 'Viewing ' + m.name + ' (demo)') }));
+    const accountRows = [
+      { key:'ar1', illo:'lock', iconColor:'#3B5BFF', label:'Face ID & passcode', detail:'On', dc:'#16C098', onTap:() => this.flash('Security settings (demo)') },
+      { key:'ar2', illo:'family', iconColor:'#3B5BFF', label:'Family unit & logins', detail:'4 members', dc:'#717A90', onTap:() => this.flash('Manage logins (demo)') },
+      { key:'ar3', illo:'shield', iconColor:'#3B5BFF', label:'Privacy & permissions', detail:'', dc:'#717A90', onTap:() => this.flash('Privacy (demo)') },
+      { key:'ar4', illo:'cloud', iconColor:'#3B5BFF', label:'Backup & sync', detail:'On', dc:'#16C098', onTap:() => this.flash('Backup (demo)') },
+    ];
+    const notifRows = [
+      { key:'nr1', illo:'bell', iconColor:'#3B5BFF', label:'Push notifications', detail:'On', dc:'#16C098', onTap:() => this.flash('Updated ✓') },
+      { key:'nr2', illo:'mail', iconColor:'#3B5BFF', label:'Email reminders', detail:'On', dc:'#16C098', onTap:() => this.flash('Updated ✓') },
+      { key:'nr3', illo:'calendar', iconColor:'#3B5BFF', label:'Apple Calendar', detail:'Connected', dc:'#16C098', onTap:() => this.flash('Calendar synced ✓') },
+      { key:'nr4', illo:'calendar', iconColor:'#FF6B5C', label:'Google Calendar', detail:'Connect', dc:'#3B5BFF', onTap:() => this.flash('Connecting… (demo)') },
+      { key:'nr5', illo:'alarm', iconColor:'#3B5BFF', label:'iPhone Reminders', detail:'On', dc:'#16C098', onTap:() => this.flash('Updated ✓') },
+    ];
+
+    const introTitles = ['Everything in one place', 'Never drop the ball', 'Money, handled together'];
+    const introBodies = [
+      'Dates, to-dos, lists, goals and bills — together, instead of scattered across chats.',
+      'Gentle reminders and push notifications, so nothing slips through the cracks.',
+      "See what's paid, what's still due, and who owes who — all at a glance.",
+    ];
+    const introArts = ['organize', 'remember', 'money'];
+    const dotBg = (i) => s.intro === i ? '#3B5BFF' : '#D3DAE8';
+    const dotW = (i) => s.intro === i ? '22px' : '7px';
+
+    const fd = s.fd || {};
+    const chip = (sel, color) => ({ bg: sel ? (color || '#3B5BFF') : '#EEF1F8', fg: sel ? '#fff' : '#101426' });
+    const whoChips = s.members.map(m => { const c = chip(fd.who === m.id, m.color); return { id: m.id, name: m.name, bg: c.bg, fg: c.fg, onSel: () => this.setFd('who', m.id) }; });
+    const payerChips = s.members.map(m => { const c = chip(fd.payer === m.id, m.color); return { id: m.id, name: m.name, bg: c.bg, fg: c.fg, onSel: () => this.setFd('payer', m.id) }; });
+    const kindChips = [{ k: 'family', l: 'Family' }, { k: 'personal', l: 'Personal' }].map(o => { const c = chip(fd.kind === o.k, '#3B5BFF'); return { l: o.l, bg: c.bg, fg: c.fg, onSel: () => this.setFd('kind', o.k) }; });
+
+    return {
+      isFormSheet: s.sheet === 'form', formEvent: s.form === 'event', formBill: s.form === 'bill', formGoal: s.form === 'goal',
+      formTitle: s.form === 'event' ? 'New event' : s.form === 'bill' ? 'New bill' : 'New goal',
+      fdTitle: fd.title || '', fdName: fd.name || '', fdAmount: fd.amount || '', fdDate: fd.date || '', fdTime: fd.time || '', fdDue: fd.due || '', fdTarget: fd.target || '',
+      onTitle: (e) => this.setFd('title', e.target.value), onName: (e) => this.setFd('name', e.target.value), onAmount: (e) => this.setFd('amount', e.target.value),
+      onDate: (e) => this.setFd('date', e.target.value), onTime: (e) => this.setFd('time', e.target.value), onDue: (e) => this.setFd('due', e.target.value), onTarget: (e) => this.setFd('target', e.target.value),
+      whoChips, payerChips, kindChips, submitForm: () => this.submitForm(),
+      noOpenTasks: tasksOpen.length === 0, hasOpenTasks: tasksOpen.length > 0, allBought: shoppingLeft === 0,
+      onboard: s.onboard,
+      obWelcome: s.ob === 'welcome', obIntro: s.ob === 'intro', obSignup: s.ob === 'signup', obLogin: s.ob === 'login', obFamily: s.ob === 'family', obNotify: s.ob === 'notify',
+      introArt: introArts[s.intro], introTitle: introTitles[s.intro], introBody: introBodies[s.intro],
+      introBtn: s.intro >= 2 ? 'Create my account' : 'Next',
+      dot0Bg: dotBg(0), dot1Bg: dotBg(1), dot2Bg: dotBg(2), dot0W: dotW(0), dot1W: dotW(1), dot2W: dotW(2),
+      startIntro: () => this.obGo('intro'), introNext: () => this.obIntroNext(),
+      goSignup: () => this.obGo('signup'), goLogin: () => this.obGo('login'), goWelcome: () => this.obGo('welcome'),
+      toFamily: () => this.obGo('family'), toNotify: () => this.obGo('notify'),
+      finishApp: () => this.finishOnboard(), enableNotifs: () => this.finishOnboard('Notifications turned on 🔔'),
+      memberRows, accountRows, notifRows,
+      isHome: s.tab === 'home', isCalendar: s.tab === 'calendar', isTasks: s.tab === 'tasks', isMoney: s.tab === 'money', isFamily: s.tab === 'family',
+      goHome: () => this.go('home'), goCalendar: () => this.go('calendar'), goTasks: () => this.go('tasks'), goMoney: () => this.go('money'), goFamily: () => this.go('family'),
+      goGoals: () => this.setState({ tab: 'tasks', plan: 'goals', sheet: null }),
+      cHome: tc('home'), cCal: tc('calendar'), cTasks: tc('tasks'), cMoney: tc('money'), cFamily: tc('family'),
+      plan: s.plan, isTodos: s.plan === 'todos', isLists: s.plan === 'lists', isGoals: s.plan === 'goals',
+      setTodos: () => this.setPlan('todos'), setLists: () => this.setPlan('lists'), setGoals: () => this.setPlan('goals'),
+      planTodosC: st1.c, planTodosBg: st1.bg, planTodosSh: st1.sh,
+      planListsC: st2.c, planListsBg: st2.bg, planListsSh: st2.sh,
+      planGoalsC: st3.c, planGoalsBg: st3.bg, planGoalsSh: st3.sh,
+      draftShop: s.draftShop, draftTodo: s.draftTodo,
+      onShopInput: (e) => this.setState({ draftShop: e.target.value }),
+      onShopKey: (e) => { if (e.key === 'Enter') this.addShop(); },
+      addShop: () => this.addShop(),
+      onTodoInput: (e) => this.setState({ draftTodo: e.target.value }),
+      onTodoKey: (e) => { if (e.key === 'Enter') this.addTodo(); },
+      addTodo: () => this.addTodo(),
+      openAdd: () => this.openSheet('add'), openNotifs: () => this.openSheet('notifs'),
+      showSheet: !!s.sheet, isAddSheet: s.sheet === 'add', isNotifSheet: s.sheet === 'notifs',
+      closeSheet: () => this.closeSheet(), stop,
+      toast: s.toast, hasUnread: s.notifications.some(n => n.unread),
+      markAllRead: () => { this.setState(st => ({ notifications: st.notifications.map(n => ({ ...n, unread: false })) })); this.flash('All caught up ✓'); },
+      todayCount: todayList.length, openCount: openTasks.length, unpaidCount: unpaid.length, shoppingLeft,
+      todayList, feed: s.feed, events: s.events,
+      billsView, paidStr: M(paidSum), outStr: M(outSum), totalStr: M(totalSum), paidPctW: Math.round(paidSum / totalSum * 100) + '%',
+      budgetView, savingsView, netStr: M(115),
+      settle: s.settle.map(x => ({ ...x, amountColor: x.dir === 'in' ? '#16C098' : '#FF5C8A', sign: x.dir === 'in' ? '+' : '−', btn: x.dir === 'in' ? 'Remind' : 'Settle up', onTap: () => this.nudge(x.who) })),
+      goalsFamily, goalsPersonal, tasksOpen, tasksDone, shoppingView, cells, notifView, addOptions,
+    };
+  }
+}
+</script>
+</body>
+</html>

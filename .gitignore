@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.local
+server/.env
+web/dist/
+.pgdata/
+*.log
+.DS_Store
+dev.db
+.shots/
