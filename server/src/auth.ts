@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { query, tx } from './db.js';
 import { seedHousehold } from './seed.js';
+import { rateLimit } from './rateLimit.js';
 import type { PoolClient } from 'pg';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
@@ -98,7 +99,8 @@ const signupSchema = z.object({
   household: z.string().max(80).optional(),
 });
 
-authRouter.post('/signup', async (req, res) => {
+// Per-IP throttles (shared store) to blunt credential-stuffing and spam signups.
+authRouter.post('/signup', rateLimit('signup', 10, 3600), async (req, res) => {
   const parsed = signupSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid details' });
@@ -129,7 +131,7 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-authRouter.post('/login', async (req, res) => {
+authRouter.post('/login', rateLimit('login', 20, 900), async (req, res) => {
   const parsed = loginSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: 'Enter your email and password' });
   const { email, password } = parsed.data;
@@ -186,7 +188,7 @@ const OAUTH_COOKIE = {
 };
 const b64url = (buf: Buffer) => buf.toString('base64url');
 
-authRouter.get('/google', (_req, res) => {
+authRouter.get('/google', rateLimit('google', 30, 900), (_req, res) => {
   if (!googleConfigured) {
     return res.status(501).json({
       error: 'Google sign-in is not configured yet. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.',

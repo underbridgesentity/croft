@@ -50,6 +50,15 @@ export async function tx<T>(fn: (c: pg.PoolClient) => Promise<T>): Promise<T> {
 const SCHEMA = `
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+-- Shared (cross-instance) fixed-window rate-limit counters. In-memory limiting
+-- is useless on serverless — each warm instance has its own memory — so the
+-- store lives in Postgres.
+CREATE TABLE IF NOT EXISTS rate_limits (
+  bucket   TEXT PRIMARY KEY,
+  count    INT NOT NULL,
+  reset_at TIMESTAMPTZ NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS households (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name        TEXT NOT NULL DEFAULT 'My Home',
