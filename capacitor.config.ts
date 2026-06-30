@@ -16,7 +16,7 @@ const config: CapacitorConfig = {
     // and migrate auth from the cookie to a bearer token (see APP_STORE.md →
     // "Bundled build & token auth"). Bundled assets load from capacitor://localhost,
     // which is cross-origin to the API and will not carry the SameSite=Lax cookie.
-    url: 'https://hearth-households.vercel.app',
+    url: 'https://croftapp.vercel.app',
     cleartext: false,
   },
   ios: {

@@ -102,7 +102,7 @@ offline-capable** app instead:
    - Send it as `Authorization: Bearer <jwt>`; have `requireAuth` accept the
      header in addition to the cookie.
    - Point the web API client at the absolute API URL
-     (`https://hearth-households.vercel.app/api`) when running in Capacitor
+     (`https://croftapp.vercel.app/api`) when running in Capacitor
      (`Capacitor.isNativePlatform()`).
 3. Google OAuth in a bundled app should use `@capacitor/browser` / an in-app
    browser tab and a custom-scheme redirect, rather than the web redirect.
