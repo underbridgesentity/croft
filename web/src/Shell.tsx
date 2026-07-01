@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from './store';
 import { api } from './lib/api';
 import Home from './screens/Home';
@@ -36,6 +36,14 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   const [sheet, setSheet] = useState<null | 'add' | 'notifs' | 'form'>(null);
   const [form, setForm] = useState<FormType>('event');
   const [fd, setFd] = useState<FormData>({});
+
+  // Close the bottom sheet on Escape (basic modal a11y).
+  useEffect(() => {
+    if (!sheet) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSheet(null);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [sheet]);
 
   if (!state) return null;
   const you = state.members.find((m) => m.you) || state.members[0];
@@ -78,11 +86,11 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ opacity: 0.35 }}><path d="M6 9l6 6 6-6" stroke="#101426" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={nav.openNotifs} style={{ position: 'relative', width: 42, height: 42, borderRadius: 13, border: 'none', background: '#fff', boxShadow: '0 1px 3px rgba(16,20,38,0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={nav.openNotifs} aria-label={`Notifications${hasUnread ? ' (unread)' : ''}`} style={{ position: 'relative', width: 42, height: 42, borderRadius: 13, border: 'none', background: '#fff', boxShadow: '0 1px 3px rgba(16,20,38,0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M18 9.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 15.5 18 9.5" stroke="#101426" strokeWidth="1.8" strokeLinejoin="round" /><path d="M10.2 20.5a2 2 0 0 0 3.6 0" stroke="#101426" strokeWidth="1.8" strokeLinecap="round" /></svg>
             {hasUnread && <span style={{ position: 'absolute', top: 9, right: 10, width: 9, height: 9, borderRadius: '50%', background: '#FF4D5E', border: '2px solid #fff' }} />}
           </button>
-          <button onClick={() => nav.goTab('family')} style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: you?.color || '#3B5BFF', color: '#fff', fontFamily: grotesk, fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 2px 8px rgba(59,91,255,0.32)' }}>
+          <button onClick={() => nav.goTab('family')} aria-label="Your profile & settings" style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: you?.color || '#3B5BFF', color: '#fff', fontFamily: grotesk, fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 2px 8px rgba(59,91,255,0.32)' }}>
             {you?.initial}
           </button>
         </div>
@@ -100,7 +108,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
       </div>
 
       {/* FAB */}
-      <button onClick={nav.openAdd} style={{ position: 'absolute', right: 18, bottom: 'calc(92px + env(safe-area-inset-bottom))', width: 56, height: 56, borderRadius: 18, border: 'none', background: '#3B5BFF', boxShadow: '0 10px 24px rgba(59,91,255,0.45)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 30 }}>
+      <button onClick={nav.openAdd} aria-label="Add something" style={{ position: 'absolute', right: 18, bottom: 'calc(92px + env(safe-area-inset-bottom))', width: 56, height: 56, borderRadius: 18, border: 'none', background: '#3B5BFF', boxShadow: '0 10px 24px rgba(59,91,255,0.45)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 30 }}>
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" /></svg>
       </button>
 
@@ -126,7 +134,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
       {/* Sheets */}
       {sheet && (
         <div onClick={nav.closeSheet} className="scrim-in" style={{ position: 'absolute', inset: 0, zIndex: 40, background: 'rgba(16,20,38,0.45)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-          <div onClick={(e) => e.stopPropagation()} className="sheet-up croft-scroll" style={{ background: '#F3F5FB', borderRadius: '28px 28px 0 0', padding: '10px 18px calc(30px + env(safe-area-inset-bottom))', maxHeight: '86%', overflowY: 'auto', boxShadow: '0 -8px 40px rgba(0,0,0,0.2)' }}>
+          <div role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()} className="sheet-up croft-scroll" style={{ background: '#F3F5FB', borderRadius: '28px 28px 0 0', padding: '10px 18px calc(30px + env(safe-area-inset-bottom))', maxHeight: '86%', overflowY: 'auto', boxShadow: '0 -8px 40px rgba(0,0,0,0.2)' }}>
             <div style={{ width: 40, height: 5, borderRadius: 100, background: '#D3DAE8', margin: '4px auto 16px' }} />
             {sheet === 'add' && <AddSheet nav={nav} />}
             {sheet === 'notifs' && <NotifSheet />}
@@ -137,7 +145,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
 
       {/* Toast */}
       {toast && (
-        <div className="toast-in" style={{ position: 'absolute', bottom: 110, left: '50%', zIndex: 60, background: '#101426', color: '#fff', padding: '12px 20px', borderRadius: 100, fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}>
+        <div role="status" aria-live="polite" className="toast-in" style={{ position: 'absolute', bottom: 110, left: '50%', zIndex: 60, background: '#101426', color: '#fff', padding: '12px 20px', borderRadius: 100, fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}>
           {toast}
         </div>
       )}

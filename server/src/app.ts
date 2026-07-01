@@ -3,6 +3,7 @@ import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import { authRouter, googleConfigured } from './auth.js';
 import { dataRouter } from './data.js';
+import { cronRouter } from './cron.js';
 
 // The configured Express app, with NO listen / static / schema work.
 // Used both by the local server (index.ts) and the Vercel function (api/).
@@ -28,6 +29,7 @@ function wrapAsyncRoutes(router: { stack?: any[] }) {
 }
 wrapAsyncRoutes(authRouter as unknown as { stack?: any[] });
 wrapAsyncRoutes(dataRouter as unknown as { stack?: any[] });
+wrapAsyncRoutes(cronRouter as unknown as { stack?: any[] });
 
 export const app = express();
 
@@ -39,6 +41,7 @@ app.use(cors({ origin: isProd ? true : APP_URL, credentials: true }));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, google: googleConfigured }));
 app.use('/api/auth', authRouter);
+app.use('/api/cron', cronRouter);
 app.use('/api', dataRouter);
 
 // Terminal error handler — keeps the API returning clean JSON on any failure

@@ -63,7 +63,7 @@ function Todos() {
         <div style={{ background: '#fff', borderRadius: 20, padding: '4px 14px', boxShadow: '0 2px 10px rgba(16,20,38,0.04)', marginBottom: 18 }}>
           {open.map((t) => (
             <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '13px 2px', borderBottom: '1px solid #F1F4FA' }}>
-              <button onClick={() => run(api.toggleTask(t.id, true), 'Nice — one less thing ✓')} style={checkbox} />
+              <button onClick={() => run(api.toggleTask(t.id, true), 'Nice — one less thing ✓')} role="checkbox" aria-checked={false} aria-label={`Mark "${t.title}" as done`} style={checkbox} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.25 }}>{t.title}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 5, flexWrap: 'wrap' }}>
@@ -71,7 +71,7 @@ function Todos() {
                   <span style={{ fontSize: 11.5, color: '#717A90' }}>From {t.from_name} · <b style={{ color: t.due_key === 'over' ? '#FF4D5E' : '#717A90', fontWeight: 700 }}>{t.due}</b></span>
                 </div>
               </div>
-              <button onClick={() => run(api.nudge(t.from_name), `Reminder sent to ${t.from_name} 🔔`)} title="Nudge" style={iconBtn}>
+              <button onClick={() => run(api.nudge(t.from_name), `Reminder sent to ${t.from_name} 🔔`)} title="Nudge" aria-label={`Nudge ${t.from_name}`} style={iconBtn}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 9.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 15.5 18 9.5" stroke="#3B5BFF" strokeWidth="1.8" strokeLinejoin="round" /><path d="M10.2 20.5a2 2 0 0 0 3.6 0" stroke="#3B5BFF" strokeWidth="1.8" strokeLinecap="round" /></svg>
               </button>
               <DeleteBtn onClick={() => run(api.delTask(t.id), 'Removed')} />
@@ -89,7 +89,7 @@ function Todos() {
           <div style={{ background: '#EEF1F8', borderRadius: 20, padding: '4px 14px' }}>
             {done.map((t) => (
               <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '12px 2px' }}>
-                <button onClick={() => run(api.toggleTask(t.id, false))} style={{ ...checkbox, border: 'none', background: '#16C098', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <button onClick={() => run(api.toggleTask(t.id, false))} role="checkbox" aria-checked={true} aria-label={`Mark "${t.title}" as not done`} style={{ ...checkbox, border: 'none', background: '#16C098', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
                 <div style={{ flex: 1, fontWeight: 600, fontSize: 14.5, color: '#9AA3B5', textDecoration: 'line-through' }}>{t.title}</div>
@@ -214,14 +214,14 @@ const iconBtn: React.CSSProperties = { flexShrink: 0, width: 36, height: 36, bor
 
 function AddBtn({ onClick }: { onClick: () => void }) {
   return (
-    <button onClick={onClick} style={{ width: 48, flexShrink: 0, border: 'none', background: '#3B5BFF', borderRadius: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 3px 10px rgba(59,91,255,0.3)' }}>
+    <button onClick={onClick} aria-label="Add" style={{ width: 48, flexShrink: 0, border: 'none', background: '#3B5BFF', borderRadius: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 3px 10px rgba(59,91,255,0.3)' }}>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 5.5v13M5.5 12h13" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" /></svg>
     </button>
   );
 }
 function DeleteBtn({ onClick }: { onClick: () => void }) {
   return (
-    <button onClick={onClick} title="Delete" style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 9, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <button onClick={onClick} title="Delete" aria-label="Delete" style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 9, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5h4v2M9 7l.7 12h8.6L19 7" stroke="#C4CBDA" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
     </button>
   );
