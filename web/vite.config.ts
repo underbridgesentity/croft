@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'illustrations/*.jpg'],
+      includeAssets: ['favicon.png', 'apple-touch-icon.png', 'illustrations/*.jpg'],
       manifest: {
         name: 'Croft — Family Hub',
         short_name: 'Croft',
