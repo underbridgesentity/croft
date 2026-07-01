@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../lib/api';
 
-const grotesk = "'Space Grotesk', sans-serif";
+const grotesk = "'Bricolage Grotesque', sans-serif";
 
 export default function LockScreen() {
   const { user, unlock, logout } = useStore();
@@ -36,13 +36,13 @@ export default function LockScreen() {
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
 
   return (
-    <div style={{ position: 'absolute', inset: 0, zIndex: 200, background: '#F3F5FB', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+    <div style={{ position: 'absolute', inset: 0, zIndex: 200, background: '#F5F4F1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
       <div style={{ width: '100%', maxWidth: 320, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         <span style={{ width: 52, height: 52, borderRadius: 16, background: '#3B5BFF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 18, boxShadow: '0 6px 16px rgba(59,91,255,0.32)' }}>
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5" stroke="#fff" strokeWidth="1.9" /><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5" stroke="#fff" strokeWidth="1.9" /></svg>
         </span>
         <h1 style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 22, margin: '0 0 4px' }}>{user?.name ? `Hi ${user.name.split(' ')[0]}` : 'Locked'}</h1>
-        <p style={{ fontSize: 14, color: err ? '#E23A54' : '#717A90', margin: '0 0 24px', fontWeight: err ? 700 : 500 }}>
+        <p style={{ fontSize: 14, color: err ? '#E23A54' : '#6F6C67', margin: '0 0 24px', fontWeight: err ? 700 : 500 }}>
           {err ? 'Incorrect passcode - try again' : 'Enter your passcode'}
         </p>
 
@@ -69,7 +69,7 @@ export default function LockScreen() {
         <button onClick={() => submit(pin)} disabled={busy || pin.length < 4} style={{ width: '100%', marginTop: 24, border: 'none', borderRadius: 16, padding: 15, background: '#3B5BFF', color: '#fff', fontFamily: grotesk, fontWeight: 700, fontSize: 15.5, cursor: 'pointer', opacity: busy || pin.length < 4 ? 0.5 : 1 }}>
           {busy ? 'Checking…' : 'Unlock'}
         </button>
-        <button onClick={() => logout()} style={{ border: 'none', background: 'none', color: '#9AA3B5', fontWeight: 700, fontSize: 13.5, padding: '14px 0 0', cursor: 'pointer' }}>Forgot passcode? Sign out</button>
+        <button onClick={() => logout()} style={{ border: 'none', background: 'none', color: '#9C968D', fontWeight: 700, fontSize: 13.5, padding: '14px 0 0', cursor: 'pointer' }}>Forgot passcode? Sign out</button>
       </div>
     </div>
   );
@@ -81,7 +81,7 @@ function keyStyle(filled: boolean): React.CSSProperties {
     border: 'none',
     borderRadius: 18,
     background: filled ? '#fff' : 'transparent',
-    color: '#101426',
+    color: '#181922',
     fontFamily: grotesk,
     fontWeight: 700,
     fontSize: filled ? 24 : 20,

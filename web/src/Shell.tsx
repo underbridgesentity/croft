@@ -27,7 +27,7 @@ export interface Nav {
   closeSheet: () => void;
 }
 
-const grotesk = "'Space Grotesk', sans-serif";
+const grotesk = "'Bricolage Grotesque', sans-serif";
 
 const NAV: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'home', label: 'Home', icon: <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" fill="none" /> },
@@ -103,7 +103,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
             onClick={(e) => e.stopPropagation()}
             className={`croft-scroll ${isDesktop ? 'scrim-in' : 'sheet-up'}`}
             style={{
-              background: '#F3F5FB',
+              background: '#F5F4F1',
               borderRadius: isDesktop ? 24 : '28px 28px 0 0',
               padding: isDesktop ? '20px 22px 26px' : '10px 18px calc(30px + env(safe-area-inset-bottom))',
               width: isDesktop ? '100%' : 'auto',
@@ -121,7 +121,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         </div>
       )}
       {toast && (
-        <div role="status" aria-live="polite" className="toast-in" style={{ position: 'absolute', bottom: isDesktop ? 28 : 110, left: '50%', zIndex: 60, background: '#101426', color: '#fff', padding: '12px 20px', borderRadius: 100, fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}>
+        <div role="status" aria-live="polite" className="toast-in" style={{ position: 'absolute', bottom: isDesktop ? 28 : 110, left: '50%', zIndex: 60, background: '#181922', color: '#fff', padding: '12px 20px', borderRadius: 100, fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}>
           {toast}
         </div>
       )}
@@ -133,7 +133,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
     return (
       <>
         <div style={{ display: 'flex', height: '100dvh' }}>
-          <aside style={{ width: 252, flexShrink: 0, background: '#fff', borderRight: '1px solid #E9EDF6', display: 'flex', flexDirection: 'column', padding: '24px 16px 18px' }}>
+          <aside style={{ width: 252, flexShrink: 0, background: '#fff', borderRight: '1px solid #E8E3DB', display: 'flex', flexDirection: 'column', padding: '24px 16px 18px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px', marginBottom: 22 }}>
               <img src="/icons/icon-192.png" width={34} height={34} alt="" style={{ borderRadius: 10, display: 'block', boxShadow: '0 4px 12px rgba(31,153,255,0.3)' }} />
               <span style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, letterSpacing: '-0.01em' }}>Croft</span>
@@ -148,7 +148,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
               {NAV.map((item) => {
                 const active = tab === item.key;
                 return (
-                  <button key={item.key} onClick={() => nav.goTab(item.key)} style={{ display: 'flex', alignItems: 'center', gap: 12, border: 'none', background: active ? 'rgba(59,91,255,0.1)' : 'transparent', color: active ? '#3B5BFF' : '#5A6472', fontWeight: 700, fontSize: 14.5, padding: '11px 12px', borderRadius: 12, cursor: 'pointer', textAlign: 'left' }}>
+                  <button key={item.key} onClick={() => nav.goTab(item.key)} style={{ display: 'flex', alignItems: 'center', gap: 12, border: 'none', background: active ? 'rgba(59,91,255,0.1)' : 'transparent', color: active ? '#3B5BFF' : '#655F57', fontWeight: 700, fontSize: 14.5, padding: '11px 12px', borderRadius: 12, cursor: 'pointer', textAlign: 'left' }}>
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">{item.icon}</svg>
                     {item.label}
                   </button>
@@ -158,7 +158,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
 
             <div style={{ flex: 1 }} />
 
-            <button onClick={nav.openNotifs} aria-label={`Notifications${hasUnread ? ' (unread)' : ''}`} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12, border: 'none', background: 'transparent', color: '#5A6472', fontWeight: 700, fontSize: 14, padding: '11px 12px', borderRadius: 12, cursor: 'pointer', textAlign: 'left' }}>
+            <button onClick={nav.openNotifs} aria-label={`Notifications${hasUnread ? ' (unread)' : ''}`} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 12, border: 'none', background: 'transparent', color: '#655F57', fontWeight: 700, fontSize: 14, padding: '11px 12px', borderRadius: 12, cursor: 'pointer', textAlign: 'left' }}>
               <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M18 9.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 15.5 18 9.5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M10.2 20.5a2 2 0 0 0 3.6 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
               Notifications
               {hasUnread && <span style={{ position: 'absolute', left: 26, top: 9, width: 8, height: 8, borderRadius: '50%', background: '#FF4D5E', border: '2px solid #fff' }} />}
@@ -168,12 +168,12 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
               <span style={{ width: 36, height: 36, flexShrink: 0, borderRadius: '50%', background: you?.color || '#3B5BFF', color: '#fff', fontFamily: grotesk, fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{you?.initial}</span>
               <span style={{ minWidth: 0 }}>
                 <span style={{ display: 'block', fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{you?.name}</span>
-                <span style={{ display: 'block', fontSize: 11.5, color: '#8A93A6', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{state.household.name}</span>
+                <span style={{ display: 'block', fontSize: 11.5, color: '#8C877E', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{state.household.name}</span>
               </span>
             </button>
           </aside>
 
-          <main className="croft-scroll" style={{ flex: 1, overflowY: 'auto', background: '#F3F5FB' }}>
+          <main className="croft-scroll" style={{ flex: 1, overflowY: 'auto', background: '#F5F4F1' }}>
             <div style={{ maxWidth: 880, margin: '0 auto', padding: '30px 40px 64px' }}>{screen}</div>
           </main>
         </div>
@@ -186,16 +186,16 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   return (
     <>
       <div style={{ flexShrink: 0, padding: '20px 18px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 8 }}>
-        <button onClick={() => nav.goTab('family')} style={{ display: 'flex', alignItems: 'center', gap: 9, border: 'none', background: '#fff', padding: '7px 14px 7px 9px', borderRadius: 100, boxShadow: '0 1px 3px rgba(16,20,38,0.06)', cursor: 'pointer' }}>
+        <button onClick={() => nav.goTab('family')} style={{ display: 'flex', alignItems: 'center', gap: 9, border: 'none', background: '#fff', padding: '7px 14px 7px 9px', borderRadius: 100, boxShadow: '0 1px 2px rgba(24,25,34,0.05), 0 8px 20px -12px rgba(24,25,34,0.12)', cursor: 'pointer' }}>
           <span style={{ width: 28, height: 28, borderRadius: 9, background: 'rgba(59,91,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3.5 11L12 4l8.5 7v8.2a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1z" stroke="#3B5BFF" strokeWidth="1.9" strokeLinejoin="round" /><path d="M9.5 20.5v-6h5v6" stroke="#3B5BFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </span>
           <span style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 14.5, letterSpacing: '-0.01em' }}>{state.household.name}</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ opacity: 0.35 }}><path d="M6 9l6 6 6-6" stroke="#101426" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ opacity: 0.35 }}><path d="M6 9l6 6 6-6" stroke="#181922" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={nav.openNotifs} aria-label={`Notifications${hasUnread ? ' (unread)' : ''}`} style={{ position: 'relative', width: 42, height: 42, borderRadius: 13, border: 'none', background: '#fff', boxShadow: '0 1px 3px rgba(16,20,38,0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M18 9.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 15.5 18 9.5" stroke="#101426" strokeWidth="1.8" strokeLinejoin="round" /><path d="M10.2 20.5a2 2 0 0 0 3.6 0" stroke="#101426" strokeWidth="1.8" strokeLinecap="round" /></svg>
+          <button onClick={nav.openNotifs} aria-label={`Notifications${hasUnread ? ' (unread)' : ''}`} style={{ position: 'relative', width: 42, height: 42, borderRadius: 13, border: 'none', background: '#fff', boxShadow: '0 1px 2px rgba(24,25,34,0.05), 0 8px 20px -12px rgba(24,25,34,0.12)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M18 9.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 15.5 18 9.5" stroke="#181922" strokeWidth="1.8" strokeLinejoin="round" /><path d="M10.2 20.5a2 2 0 0 0 3.6 0" stroke="#181922" strokeWidth="1.8" strokeLinecap="round" /></svg>
             {hasUnread && <span style={{ position: 'absolute', top: 9, right: 10, width: 9, height: 9, borderRadius: '50%', background: '#FF4D5E', border: '2px solid #fff' }} />}
           </button>
           <button onClick={() => nav.goTab('family')} aria-label="Your profile & settings" style={{ width: 42, height: 42, borderRadius: '50%', border: 'none', background: you?.color || '#3B5BFF', color: '#fff', fontFamily: grotesk, fontWeight: 700, fontSize: 16, cursor: 'pointer', boxShadow: '0 2px 8px rgba(59,91,255,0.32)' }}>
@@ -212,7 +212,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" /></svg>
       </button>
 
-      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 25, padding: '12px 10px max(16px, env(safe-area-inset-bottom))', background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderTop: '1px solid #EAEEF6', display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 25, padding: '12px 10px max(16px, env(safe-area-inset-bottom))', background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderTop: '1px solid #E8E3DB', display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
         {NAV.map((item) => (
           <button key={item.key} onClick={() => nav.goTab(item.key)} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, color: tab === item.key ? '#3B5BFF' : '#A6AEC0', width: 60 }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">{item.icon}</svg>

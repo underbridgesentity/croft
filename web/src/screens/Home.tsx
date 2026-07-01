@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 import type { Nav } from '../Shell';
 import Icon from '../components/Icon';
 
-const grotesk = "'Space Grotesk', sans-serif";
+const grotesk = "'Bricolage Grotesque', sans-serif";
 
 function greeting() {
   const h = new Date().getHours();
@@ -31,12 +31,12 @@ export default function Home({ nav }: { nav: Nav }) {
   const goal = state.goals.find((g) => g.kind === 'Family') || state.goals[0];
 
   return (
-    <div>
+    <div className="stagger">
       <div style={{ margin: '8px 2px 20px' }}>
-        <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 30, lineHeight: 1.1, letterSpacing: '-0.02em' }}>
+        <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 31, lineHeight: 1.08, letterSpacing: '-0.025em' }}>
           {greeting()},<br />{you?.name?.split(' ')[0]}.
         </div>
-        <div style={{ marginTop: 8, color: '#717A90', fontSize: 14, fontWeight: 500 }}>{today} · here's your day</div>
+        <div style={{ marginTop: 8, color: '#6F6C67', fontSize: 14, fontWeight: 500 }}>{today} · here's your day</div>
       </div>
 
       {/* quick stats */}
@@ -48,14 +48,14 @@ export default function Home({ nav }: { nav: Nav }) {
 
       {/* Today */}
       <Row title="Today" action="Calendar →" onAction={() => nav.goTab('calendar')} />
-      <div style={{ background: '#fff', borderRadius: 22, padding: '6px 14px', boxShadow: '0 2px 10px rgba(16,20,38,0.04)', marginBottom: 26 }}>
-        {todayList.length === 0 && <div style={{ padding: '18px 2px', color: '#717A90', fontSize: 13.5 }}>Nothing scheduled today - enjoy the calm.</div>}
+      <div style={{ background: '#fff', borderRadius: 22, padding: '6px 14px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 26 }}>
+        {todayList.length === 0 && <div style={{ padding: '18px 2px', color: '#6F6C67', fontSize: 13.5 }}>Nothing scheduled today - enjoy the calm.</div>}
         {todayList.map((it) => (
-          <div key={it.key} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '12px 2px', borderBottom: '1px solid #F1F4FA' }}>
+          <div key={it.key} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '12px 2px', borderBottom: '1px solid #EFEBE3' }}>
             <Icon name={it.illo} color={it.color} size={42} radius={13} glyph={22} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.25 }}>{it.title}</div>
-              <div style={{ fontSize: 12, color: '#717A90', marginTop: 2 }}>{it.meta}</div>
+              <div style={{ fontSize: 12, color: '#6F6C67', marginTop: 2 }}>{it.meta}</div>
             </div>
             {it.tappable ? (
               <button onClick={() => run(api.toggleTask((it as any).id, true), 'Nice - one less thing')} style={circleBtn} />
@@ -69,12 +69,12 @@ export default function Home({ nav }: { nav: Nav }) {
 
       {/* Family activity */}
       <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 12px' }}>Family activity</div>
-      <div style={{ background: '#fff', borderRadius: 22, padding: '6px 16px', boxShadow: '0 2px 10px rgba(16,20,38,0.04)', marginBottom: 26 }}>
+      <div style={{ background: '#fff', borderRadius: 22, padding: '6px 16px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 26 }}>
         {state.feed.slice(0, 6).map((f) => (
-          <div key={f.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderBottom: '1px solid #F1F4FA' }}>
+          <div key={f.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderBottom: '1px solid #EFEBE3' }}>
             <div style={{ flexShrink: 0, width: 32, height: 32, borderRadius: '50%', background: f.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: grotesk, fontWeight: 700, fontSize: 13 }}>{f.initial}</div>
-            <div style={{ flex: 1, fontSize: 13.5, color: '#2A3145', lineHeight: 1.4 }}><b style={{ fontWeight: 700, color: '#101426' }}>{f.who}</b> {f.txt}</div>
-            <div style={{ flexShrink: 0, fontSize: 11, color: '#9AA3B5', fontWeight: 600, paddingTop: 2 }}>{f.time_label}</div>
+            <div style={{ flex: 1, fontSize: 13.5, color: '#2A3145', lineHeight: 1.4 }}><b style={{ fontWeight: 700, color: '#181922' }}>{f.who}</b> {f.txt}</div>
+            <div style={{ flexShrink: 0, fontSize: 11, color: '#9C968D', fontWeight: 600, paddingTop: 2 }}>{f.time_label}</div>
           </div>
         ))}
         <div style={{ height: 6 }} />
@@ -108,7 +108,7 @@ function Stat({ onClick, value, color, label }: { onClick: () => void; value: nu
   return (
     <button onClick={onClick} style={{ textAlign: 'left', border: 'none', cursor: 'pointer', background: '#fff', borderRadius: 18, padding: '15px 13px', boxShadow: '0 2px 8px rgba(16,20,38,0.04)' }}>
       <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 25, color }}>{value}</div>
-      <div style={{ fontSize: 11.5, color: '#717A90', fontWeight: 600, marginTop: 3 }}>{label}</div>
+      <div style={{ fontSize: 11.5, color: '#6F6C67', fontWeight: 600, marginTop: 3 }}>{label}</div>
     </button>
   );
 }

@@ -151,8 +151,8 @@ export function Frame({ children, wide }: { children: React.ReactNode; wide?: bo
         margin: '0 auto',
         display: 'flex',
         flexDirection: 'column',
-        background: '#F3F5FB',
-        color: '#101426',
+        background: '#F5F4F1',
+        color: '#181922',
         overflow: 'hidden',
       }}
     >
@@ -165,7 +165,7 @@ function Logo() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
       <img src="/icons/icon-192.png" width={36} height={36} alt="" style={{ borderRadius: 10, display: 'block', boxShadow: '0 4px 12px rgba(31,153,255,0.32)' }} />
-      <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: '-0.01em' }}>
+      <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: '-0.01em' }}>
         Croft
       </span>
     </div>

@@ -1,13 +1,13 @@
-const grotesk = "'Space Grotesk', sans-serif";
+const grotesk = "'Bricolage Grotesque', sans-serif";
 const SUPPORT_EMAIL = 'info@underbridges.co.za';
 const OPERATOR = 'Underbridges';
 const UPDATED = '1 July 2026';
 
 function Wrap({ children }: { children: React.ReactNode }) {
   return (
-    <div className="croft-scroll" style={{ position: 'absolute', inset: 0, background: '#F3F5FB', overflowY: 'auto' }}>
+    <div className="croft-scroll" style={{ position: 'absolute', inset: 0, background: '#F5F4F1', overflowY: 'auto' }}>
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '48px 24px 72px' }}>
-        <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: '#101426', marginBottom: 28 }}>
+        <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: '#181922', marginBottom: 28 }}>
           <img src="/icons/icon-192.png" width={30} height={30} alt="" style={{ borderRadius: 8, display: 'block' }} />
           <span style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19 }}>Croft</span>
         </a>
@@ -18,10 +18,10 @@ function Wrap({ children }: { children: React.ReactNode }) {
 }
 
 const h1: React.CSSProperties = { fontFamily: grotesk, fontWeight: 700, fontSize: 30, letterSpacing: '-0.02em', margin: '0 0 6px' };
-const meta: React.CSSProperties = { color: '#8A93A6', fontSize: 13.5, margin: '0 0 28px' };
+const meta: React.CSSProperties = { color: '#8C877E', fontSize: 13.5, margin: '0 0 28px' };
 const h2: React.CSSProperties = { fontFamily: grotesk, fontWeight: 700, fontSize: 18, margin: '30px 0 8px' };
-const p: React.CSSProperties = { fontSize: 15, lineHeight: 1.65, color: '#3f4756', margin: '0 0 12px' };
-const li: React.CSSProperties = { fontSize: 15, lineHeight: 1.6, color: '#3f4756', marginBottom: 7 };
+const p: React.CSSProperties = { fontSize: 15, lineHeight: 1.65, color: '#403c36', margin: '0 0 12px' };
+const li: React.CSSProperties = { fontSize: 15, lineHeight: 1.6, color: '#403c36', marginBottom: 7 };
 const ulS: React.CSSProperties = { paddingLeft: 20, margin: '0 0 12px' };
 const mail = (
   <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: '#3B5BFF' }}>{SUPPORT_EMAIL}</a>

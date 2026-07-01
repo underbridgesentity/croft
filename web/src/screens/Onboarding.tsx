@@ -10,13 +10,13 @@ const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '15px 16px',
   borderRadius: 14,
-  border: '1.5px solid #E4E9F2',
+  border: '1.5px solid #E8E3DB',
   background: '#fff',
   fontSize: 15,
-  color: '#101426',
+  color: '#181922',
   outline: 'none',
 };
-const labelStyle: React.CSSProperties = { fontSize: 12.5, fontWeight: 700, color: '#717A90', marginBottom: 6 };
+const labelStyle: React.CSSProperties = { fontSize: 12.5, fontWeight: 700, color: '#6F6C67', marginBottom: 6 };
 const primaryBtn: React.CSSProperties = {
   width: '100%',
   padding: 16,
@@ -29,7 +29,7 @@ const primaryBtn: React.CSSProperties = {
   cursor: 'pointer',
   boxShadow: '0 10px 22px rgba(59,91,255,0.34)',
 };
-const grotesk = "'Space Grotesk', sans-serif";
+const grotesk = "'Bricolage Grotesque', sans-serif";
 
 const INTRO = [
   { art: 'organize', title: 'Everything in one place', body: 'Dates, to-dos, lists, goals and bills - together, instead of scattered across chats.' },
@@ -142,7 +142,7 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
           <h1 style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 29, lineHeight: 1.12, letterSpacing: '-0.02em', margin: '0 0 12px' }}>
             One calm home for<br />your whole family.
           </h1>
-          <p style={{ fontSize: 15, lineHeight: 1.5, color: '#717A90', margin: '0 8px 28px' }}>
+          <p style={{ fontSize: 15, lineHeight: 1.5, color: '#6F6C67', margin: '0 8px 28px' }}>
             Dates, reminders, lists, goals and money - all in one warm place, off your group chats.
           </p>
           <button style={primaryBtn} onClick={() => setStep('intro')}>Get started</button>
@@ -160,12 +160,12 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
       <Scroll>
         <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: '24px 26px 36px' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <button onClick={() => setStep('signup')} style={{ border: 'none', background: 'none', color: '#717A90', fontWeight: 700, fontSize: 14, cursor: 'pointer', padding: 8 }}>Skip</button>
+            <button onClick={() => setStep('signup')} style={{ border: 'none', background: 'none', color: '#6F6C67', fontWeight: 700, fontSize: 14, cursor: 'pointer', padding: 8 }}>Skip</button>
           </div>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
             <div style={{ marginBottom: 36 }}><Art name={slide.art} width={248} /></div>
             <h1 style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 26, letterSpacing: '-0.02em', margin: '0 0 12px' }}>{slide.title}</h1>
-            <p style={{ fontSize: 15, lineHeight: 1.55, color: '#717A90', margin: '0 6px', maxWidth: 320 }}>{slide.body}</p>
+            <p style={{ fontSize: 15, lineHeight: 1.55, color: '#6F6C67', margin: '0 6px', maxWidth: 320 }}>{slide.body}</p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginBottom: 22 }}>
             {[0, 1, 2].map((i) => (
@@ -200,14 +200,14 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
           <button style={{ ...primaryBtn, marginTop: 10, marginBottom: 12, opacity: busy ? 0.7 : 1 }} disabled={busy} onClick={doSignup}>
             {busy ? 'Creating…' : 'Create account'}
           </button>
-          <div style={{ fontSize: 12, color: '#9AA3B5', textAlign: 'center', marginBottom: 16, lineHeight: 1.5 }}>
-            By creating an account, you agree to our <a href="/terms" style={{ color: '#717A90', fontWeight: 700 }}>Terms</a> and <a href="/privacy" style={{ color: '#717A90', fontWeight: 700 }}>Privacy Policy</a>.
+          <div style={{ fontSize: 12, color: '#9C968D', textAlign: 'center', marginBottom: 16, lineHeight: 1.5 }}>
+            By creating an account, you agree to our <a href="/terms" style={{ color: '#6F6C67', fontWeight: 700 }}>Terms</a> and <a href="/privacy" style={{ color: '#6F6C67', fontWeight: 700 }}>Privacy Policy</a>.
           </div>
           <Divider />
           <button onClick={() => (window.location.href = api.googleUrl())} style={oauthBtn}>
             <GoogleMark />Continue with Google
           </button>
-          <div style={{ textAlign: 'center', marginTop: 'auto', paddingTop: 22, fontSize: 14, color: '#717A90' }}>
+          <div style={{ textAlign: 'center', marginTop: 'auto', paddingTop: 22, fontSize: 14, color: '#6F6C67' }}>
             Already have an account? <Link onClick={() => setStep('login')}>Log in</Link>
           </div>
         </div>
@@ -264,7 +264,7 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
           </button>
           <Divider />
           <button onClick={() => (window.location.href = api.googleUrl())} style={oauthBtn}><GoogleMark />Continue with Google</button>
-          <div style={{ textAlign: 'center', marginTop: 'auto', paddingTop: 22, fontSize: 14, color: '#717A90' }}>
+          <div style={{ textAlign: 'center', marginTop: 'auto', paddingTop: 22, fontSize: 14, color: '#6F6C67' }}>
             New here? <Link onClick={() => setStep('signup')}>Create account</Link>
           </div>
         </div>
@@ -285,11 +285,11 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
           <div style={{ ...labelStyle, marginTop: 8, marginBottom: 10 }}>Members</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
             {members.map((m) => (
-              <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fff', padding: '11px 14px', borderRadius: 16, boxShadow: '0 1px 3px rgba(16,20,38,0.05)' }}>
+              <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fff', padding: '11px 14px', borderRadius: 16, boxShadow: '0 1px 2px rgba(24,25,34,0.05), 0 8px 20px -12px rgba(24,25,34,0.12)' }}>
                 <Avatar color={m.color} initial={m.initial} size={38} />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 14.5 }}>{m.name}</div>
-                  <div style={{ fontSize: 12, color: '#717A90' }}>{m.role}</div>
+                  <div style={{ fontSize: 12, color: '#6F6C67' }}>{m.role}</div>
                 </div>
                 {m.you && <YouBadge />}
               </div>
@@ -310,12 +310,12 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
             <img src="/illustrations/in-sync.jpg" alt="Family staying in sync" style={{ width: '100%', maxWidth: 340, height: 'auto', mixBlendMode: 'multiply' }} />
           </div>
           <h1 style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 27, letterSpacing: '-0.02em', margin: '0 0 12px' }}>Stay in the loop</h1>
-          <p style={{ fontSize: 15, lineHeight: 1.55, color: '#717A90', margin: '0 8px', maxWidth: 320 }}>
+          <p style={{ fontSize: 15, lineHeight: 1.55, color: '#6F6C67', margin: '0 8px', maxWidth: 320 }}>
             Turn on push notifications so reminders, dates and nudges reach you and the family the moment they happen.
           </p>
         </div>
         <button style={primaryBtn} onClick={enableNotifs}>Turn on notifications</button>
-        <button onClick={onComplete} style={{ ...ghostBtn, color: '#717A90' }}>Maybe later</button>
+        <button onClick={onComplete} style={{ ...ghostBtn, color: '#6F6C67' }}>Maybe later</button>
       </div>
     </Scroll>
   );
@@ -323,13 +323,13 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
 
 // ---------- small pieces ----------
 const titleStyle: React.CSSProperties = { fontFamily: grotesk, fontWeight: 700, fontSize: 28, letterSpacing: '-0.02em', margin: '0 0 6px' };
-const subStyle: React.CSSProperties = { fontSize: 14.5, color: '#717A90', margin: '0 0 24px' };
+const subStyle: React.CSSProperties = { fontSize: 14.5, color: '#6F6C67', margin: '0 0 24px' };
 const ghostBtn: React.CSSProperties = { width: '100%', padding: 15, marginTop: 8, border: 'none', background: 'none', color: '#3B5BFF', fontWeight: 700, fontSize: 14.5, cursor: 'pointer' };
-const oauthBtn: React.CSSProperties = { width: '100%', padding: 14, borderRadius: 14, border: '1.5px solid #E4E9F2', background: '#fff', color: '#101426', fontWeight: 700, fontSize: 14.5, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 };
+const oauthBtn: React.CSSProperties = { width: '100%', padding: 14, borderRadius: 14, border: '1.5px solid #E8E3DB', background: '#fff', color: '#181922', fontWeight: 700, fontSize: 14.5, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 };
 
 function Scroll({ children }: { children: React.ReactNode }) {
   return (
-    <div className="croft-scroll" style={{ position: 'absolute', inset: 0, zIndex: 100, background: '#F3F5FB', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+    <div className="croft-scroll" style={{ position: 'absolute', inset: 0, zIndex: 100, background: '#F5F4F1', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
       {children}
     </div>
   );
@@ -344,8 +344,8 @@ function Wordmark() {
 }
 function BackBtn({ onClick }: { onClick: () => void }) {
   return (
-    <button onClick={onClick} style={{ width: 42, height: 42, borderRadius: 13, border: 'none', background: '#fff', boxShadow: '0 1px 3px rgba(16,20,38,0.06)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="#101426" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    <button onClick={onClick} style={{ width: 42, height: 42, borderRadius: 13, border: 'none', background: '#fff', boxShadow: '0 1px 2px rgba(24,25,34,0.05), 0 8px 20px -12px rgba(24,25,34,0.12)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="#181922" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
     </button>
   );
 }
@@ -359,7 +359,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 export function EyeBtn({ shown, onClick }: { shown: boolean; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} aria-label={shown ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', padding: 9, color: '#8A93A6', display: 'flex' }}>
+    <button type="button" onClick={onClick} aria-label={shown ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', padding: 9, color: '#8C877E', display: 'flex' }}>
       {shown ? (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A9.6 9.6 0 0 1 12 5c6 0 9 7 9 7a13.5 13.5 0 0 1-2.2 3.2M6.1 6.1A13.3 13.3 0 0 0 3 12s3 7 9 7a9.3 9.3 0 0 0 3.9-.8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
       ) : (
@@ -371,9 +371,9 @@ export function EyeBtn({ shown, onClick }: { shown: boolean; onClick: () => void
 function Divider() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '8px 0 16px' }}>
-      <div style={{ flex: 1, height: 1, background: '#E4E9F2' }} />
-      <span style={{ fontSize: 12, color: '#9AA3B5', fontWeight: 600 }}>or</span>
-      <div style={{ flex: 1, height: 1, background: '#E4E9F2' }} />
+      <div style={{ flex: 1, height: 1, background: '#E8E3DB' }} />
+      <span style={{ fontSize: 12, color: '#9C968D', fontWeight: 600 }}>or</span>
+      <div style={{ flex: 1, height: 1, background: '#E8E3DB' }} />
     </div>
   );
 }

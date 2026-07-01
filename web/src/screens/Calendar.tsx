@@ -2,7 +2,7 @@ import { useStore } from '../store';
 import type { Nav } from '../Shell';
 import Icon from '../components/Icon';
 
-const grotesk = "'Space Grotesk', sans-serif";
+const grotesk = "'Bricolage Grotesque', sans-serif";
 const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export default function Calendar({ nav }: { nav: Nav }) {
@@ -38,10 +38,10 @@ export default function Calendar({ nav }: { nav: Nav }) {
     <div>
       <div style={{ margin: '8px 2px 18px' }}>
         <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 30, letterSpacing: '-0.02em' }}>Calendar</div>
-        <div style={{ marginTop: 4, color: '#717A90', fontSize: 14, fontWeight: 500 }}>{monthLabel} · {state.events.length} important dates</div>
+        <div style={{ marginTop: 4, color: '#6F6C67', fontSize: 14, fontWeight: 500 }}>{monthLabel} · {state.events.length} important dates</div>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: 22, padding: '16px 12px 18px', boxShadow: '0 2px 10px rgba(16,20,38,0.04)', marginBottom: 24 }}>
+      <div style={{ background: '#fff', borderRadius: 22, padding: '16px 12px 18px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 24 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 8 }}>
           {DOW.map((d, i) => (
             <div key={i} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#A6AEC0' }}>{d}</div>
@@ -50,7 +50,7 @@ export default function Calendar({ nav }: { nav: Nav }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', rowGap: 2 }}>
           {cells.map((c) => (
             <div key={c.key} style={{ height: 42, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
-              <div style={{ width: 31, height: 31, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: grotesk, fontSize: 13.5, fontWeight: 600, background: c.today ? '#3B5BFF' : 'transparent', color: c.today ? '#fff' : c.faded ? '#C4CBDA' : '#101426' }}>
+              <div style={{ width: 31, height: 31, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: grotesk, fontSize: 13.5, fontWeight: 600, background: c.today ? '#3B5BFF' : 'transparent', color: c.today ? '#fff' : c.faded ? '#C4CBDA' : '#181922' }}>
                 {c.label || ''}
               </div>
               <div style={{ width: 5, height: 5, borderRadius: '50%', background: c.dot }} />
@@ -66,11 +66,11 @@ export default function Calendar({ nav }: { nav: Nav }) {
             <Icon name={e.illo} color={e.color} size={44} radius={14} glyph={23} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.25 }}>{e.title}</div>
-              <div style={{ fontSize: 12, color: '#717A90', marginTop: 2 }}>{e.date_label} · {e.loc}</div>
+              <div style={{ fontSize: 12, color: '#6F6C67', marginTop: 2 }}>{e.date_label} · {e.loc}</div>
             </div>
             <div style={{ flexShrink: 0, textAlign: 'right' }}>
               <div style={{ fontFamily: grotesk, fontWeight: 600, fontSize: 13 }}>{e.time}</div>
-              <div style={{ fontSize: 10, color: '#9AA3B5', fontWeight: 600 }}>{e.ampm}</div>
+              <div style={{ fontSize: 10, color: '#9C968D', fontWeight: 600 }}>{e.ampm}</div>
             </div>
           </div>
         ))}
@@ -82,6 +82,6 @@ export default function Calendar({ nav }: { nav: Nav }) {
 }
 
 const dashedAdd: React.CSSProperties = {
-  width: '100%', border: '1.5px dashed #CBD4E4', background: 'transparent', color: '#5B6B8C',
+  width: '100%', border: '1.5px dashed #CBD4E4', background: 'transparent', color: '#6B6459',
   fontWeight: 700, fontSize: 14, padding: 15, borderRadius: 16, cursor: 'pointer', marginTop: 14,
 };

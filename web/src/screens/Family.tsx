@@ -8,8 +8,8 @@ import type { Settings } from '../lib/types';
 import Icon from '../components/Icon';
 import { Avatar, YouBadge } from './Onboarding';
 
-const grotesk = "'Space Grotesk', sans-serif";
-const pwInput: React.CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1.5px solid #E4E9F2', background: '#fff', borderRadius: 12, padding: '12px 14px', fontSize: 14.5, outline: 'none', fontFamily: 'inherit', color: '#101426' };
+const grotesk = "'Bricolage Grotesque', sans-serif";
+const pwInput: React.CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1.5px solid #E8E3DB', background: '#fff', borderRadius: 12, padding: '12px 14px', fontSize: 14.5, outline: 'none', fontFamily: 'inherit', color: '#181922' };
 
 export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: () => void }) {
   const { state, user, run, flash, deleteAccount, setLockEnabled } = useStore();
@@ -180,17 +180,17 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
     <div>
       <div style={{ margin: '8px 2px 18px' }}>
         <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 30, letterSpacing: '-0.02em' }}>Family</div>
-        <div style={{ marginTop: 4, color: '#717A90', fontSize: 14, fontWeight: 500 }}>{state.household.name} · {state.members.length} members</div>
+        <div style={{ marginTop: 4, color: '#6F6C67', fontSize: 14, fontWeight: 500 }}>{state.household.name} · {state.members.length} members</div>
       </div>
 
       {/* members */}
-      <div style={{ background: '#fff', borderRadius: 22, padding: '4px 16px', boxShadow: '0 2px 10px rgba(16,20,38,0.04)', marginBottom: 14 }}>
+      <div style={{ background: '#fff', borderRadius: 22, padding: '4px 16px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 14 }}>
         {state.members.map((m) => (
-          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '13px 0', borderBottom: '1px solid #F1F4FA' }}>
+          <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '13px 0', borderBottom: '1px solid #EFEBE3' }}>
             <Avatar color={m.color} initial={m.initial} size={46} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 15.5 }}>{m.name}</div>
-              <div style={{ fontSize: 12.5, color: '#717A90' }}>{m.role}</div>
+              <div style={{ fontSize: 12.5, color: '#6F6C67' }}>{m.role}</div>
             </div>
             {m.you ? <YouBadge /> : (
               <button onClick={() => run(api.delMember(m.id), `${m.name} removed`)} title="Remove" style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 4 }}>
@@ -203,41 +203,41 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
       </div>
 
       {inviteLink ? (
-        <div style={{ background: '#fff', borderRadius: 18, padding: 16, boxShadow: '0 2px 10px rgba(16,20,38,0.04)', marginBottom: 26 }}>
+        <div style={{ background: '#fff', borderRadius: 18, padding: 16, boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 26 }}>
           <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 4 }}>Invite link ready</div>
-          <div style={{ fontSize: 12.5, color: '#717A90', marginBottom: 12 }}>Share this with the person you want to join {state.household.name}. It works once and expires in 14 days.</div>
-          <input readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} style={{ width: '100%', boxSizing: 'border-box', border: '1.5px solid #E4E9F2', background: '#F7F9FD', borderRadius: 12, padding: '11px 13px', fontSize: 12.5, color: '#3B5BFF', marginBottom: 10 }} />
+          <div style={{ fontSize: 12.5, color: '#6F6C67', marginBottom: 12 }}>Share this with the person you want to join {state.household.name}. It works once and expires in 14 days.</div>
+          <input readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} style={{ width: '100%', boxSizing: 'border-box', border: '1.5px solid #E8E3DB', background: '#F7F9FD', borderRadius: 12, padding: '11px 13px', fontSize: 12.5, color: '#3B5BFF', marginBottom: 10 }} />
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={copyLink} style={{ flex: 1, border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 14, padding: '11px', borderRadius: 12, cursor: 'pointer' }}>Copy link</button>
-            <button onClick={async () => { if (!(await nativeShare({ title: 'Join our home on Croft', url: inviteLink }))) (navigator as any).share?.({ title: 'Join our home on Croft', url: inviteLink }).catch(() => {}); }} style={{ flex: 1, border: '1.5px solid #E4E9F2', background: '#fff', color: '#101426', fontWeight: 700, fontSize: 14, padding: '11px', borderRadius: 12, cursor: 'pointer' }}>Share</button>
+            <button onClick={async () => { if (!(await nativeShare({ title: 'Join our home on Croft', url: inviteLink }))) (navigator as any).share?.({ title: 'Join our home on Croft', url: inviteLink }).catch(() => {}); }} style={{ flex: 1, border: '1.5px solid #E8E3DB', background: '#fff', color: '#181922', fontWeight: 700, fontSize: 14, padding: '11px', borderRadius: 12, cursor: 'pointer' }}>Share</button>
           </div>
-          <button onClick={() => setInviteLink(null)} style={{ width: '100%', border: 'none', background: 'none', color: '#9AA3B5', fontWeight: 700, fontSize: 13.5, padding: '12px 0 2px', cursor: 'pointer' }}>Done</button>
+          <button onClick={() => setInviteLink(null)} style={{ width: '100%', border: 'none', background: 'none', color: '#9C968D', fontWeight: 700, fontSize: 13.5, padding: '12px 0 2px', cursor: 'pointer' }}>Done</button>
         </div>
       ) : inviting ? (
         <div style={{ marginBottom: 26 }}>
           <div style={{ display: 'flex', gap: 8 }}>
-            <input autoFocus value={inviteName} onChange={(e) => setInviteName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && invite()} placeholder="Name (e.g. a young child)" style={{ flex: 1, border: '1.5px solid #E4E9F2', background: '#fff', borderRadius: 14, padding: '13px 16px', fontSize: 14.5, outline: 'none' }} />
+            <input autoFocus value={inviteName} onChange={(e) => setInviteName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && invite()} placeholder="Name (e.g. a young child)" style={{ flex: 1, border: '1.5px solid #E8E3DB', background: '#fff', borderRadius: 14, padding: '13px 16px', fontSize: 14.5, outline: 'none' }} />
             <button onClick={invite} style={{ border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 14, padding: '0 18px', borderRadius: 14, cursor: 'pointer' }}>Add</button>
           </div>
-          <button onClick={() => setInviting(false)} style={{ border: 'none', background: 'none', color: '#9AA3B5', fontWeight: 700, fontSize: 13, padding: '8px 2px 0', cursor: 'pointer' }}>Cancel</button>
+          <button onClick={() => setInviting(false)} style={{ border: 'none', background: 'none', color: '#9C968D', fontWeight: 700, fontSize: 13, padding: '8px 2px 0', cursor: 'pointer' }}>Cancel</button>
         </div>
       ) : (
         <div style={{ marginBottom: 26 }}>
           <div style={{ display: 'flex', gap: 8 }}>
-            <input value={inviteAddr} onChange={(e) => setInviteAddr(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendEmailInvite()} type="email" placeholder="Email address to invite" style={{ flex: 1, border: '1.5px solid #E4E9F2', background: '#fff', borderRadius: 14, padding: '13px 16px', fontSize: 14.5, outline: 'none' }} />
+            <input value={inviteAddr} onChange={(e) => setInviteAddr(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendEmailInvite()} type="email" placeholder="Email address to invite" style={{ flex: 1, border: '1.5px solid #E8E3DB', background: '#fff', borderRadius: 14, padding: '13px 16px', fontSize: 14.5, outline: 'none' }} />
             <button onClick={sendEmailInvite} disabled={emailBusy} style={{ border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 14, padding: '0 20px', borderRadius: 14, cursor: 'pointer', opacity: emailBusy ? 0.6 : 1 }}>{emailBusy ? '…' : 'Invite'}</button>
           </div>
           <button onClick={makeInviteLink} disabled={linkBusy} style={{ width: '100%', border: 'none', background: 'none', color: '#3B5BFF', fontWeight: 700, fontSize: 13.5, padding: '11px 0 0', cursor: 'pointer' }}>
             {linkBusy ? 'Creating link…' : 'or copy an invite link to share'}
           </button>
-          <button onClick={() => setInviting(true)} style={{ width: '100%', border: 'none', background: 'none', color: '#9AA3B5', fontWeight: 700, fontSize: 13, padding: '8px 0 0', cursor: 'pointer' }}>Add someone without an account</button>
+          <button onClick={() => setInviting(true)} style={{ width: '100%', border: 'none', background: 'none', color: '#9C968D', fontWeight: 700, fontSize: 13, padding: '8px 0 0', cursor: 'pointer' }}>Add someone without an account</button>
         </div>
       )}
 
       {/* notifications & reminders */}
       <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 4px' }}>Notifications & reminders</div>
-      <div style={{ fontSize: 12.5, color: '#717A90', margin: '0 2px 12px' }}>How Croft reaches you and the family</div>
-      <div style={{ background: '#fff', borderRadius: 22, padding: '4px 16px', boxShadow: '0 2px 10px rgba(16,20,38,0.04)', marginBottom: 26 }}>
+      <div style={{ fontSize: 12.5, color: '#6F6C67', margin: '0 2px 12px' }}>How Croft reaches you and the family</div>
+      <div style={{ background: '#fff', borderRadius: 22, padding: '4px 16px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 26 }}>
         {notifRows.map((r) => (
           <SettingRow key={r.key} illo={r.illo} iconColor={(r as any).iconColor} label={r.label} detail={r.detail} good={r.good} onClick={() => (r.key === 'push' ? togglePush() : toggle(r.key, 'Updated'))} />
         ))}
@@ -246,19 +246,19 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
 
       {/* calendar subscription */}
       <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 4px' }}>Calendar</div>
-      <div style={{ fontSize: 12.5, color: '#717A90', margin: '0 2px 12px' }}>See Croft events in Apple or Google Calendar</div>
-      <div style={{ background: '#fff', borderRadius: 22, padding: 16, boxShadow: '0 2px 10px rgba(16,20,38,0.04)', marginBottom: 26 }}>
+      <div style={{ fontSize: 12.5, color: '#6F6C67', margin: '0 2px 12px' }}>See Croft events in Apple or Google Calendar</div>
+      <div style={{ background: '#fff', borderRadius: 22, padding: 16, boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 26 }}>
         {cal ? (
           <>
-            <div style={{ fontSize: 13, color: '#717A90', lineHeight: 1.5, marginBottom: 12 }}>Subscribe once and your family’s events stay in sync in your calendar app - new events appear automatically.</div>
+            <div style={{ fontSize: 13, color: '#6F6C67', lineHeight: 1.5, marginBottom: 12 }}>Subscribe once and your family’s events stay in sync in your calendar app - new events appear automatically.</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <a href={cal.webcal} style={{ flex: 1, minWidth: 150, textAlign: 'center', textDecoration: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 13.5, padding: '11px', borderRadius: 12 }}>Add to Apple Calendar</a>
-              <button onClick={copyCal} style={{ flex: 1, minWidth: 150, border: '1.5px solid #E4E9F2', background: '#fff', color: '#101426', fontWeight: 700, fontSize: 13.5, padding: '11px', borderRadius: 12, cursor: 'pointer' }}>Copy link for Google</button>
+              <button onClick={copyCal} style={{ flex: 1, minWidth: 150, border: '1.5px solid #E8E3DB', background: '#fff', color: '#181922', fontWeight: 700, fontSize: 13.5, padding: '11px', borderRadius: 12, cursor: 'pointer' }}>Copy link for Google</button>
             </div>
-            <div style={{ fontSize: 11.5, color: '#9AA3B5', marginTop: 10, lineHeight: 1.45 }}>Google Calendar → “Other calendars” + → “From URL” → paste the copied link.</div>
+            <div style={{ fontSize: 11.5, color: '#9C968D', marginTop: 10, lineHeight: 1.45 }}>Google Calendar → “Other calendars” + → “From URL” → paste the copied link.</div>
           </>
         ) : (
-          <button onClick={loadCal} disabled={calBusy} style={{ width: '100%', border: '1.5px dashed #CBD4E4', background: 'transparent', color: '#5B6B8C', fontWeight: 700, fontSize: 14, padding: 14, borderRadius: 14, cursor: 'pointer', opacity: calBusy ? 0.6 : 1 }}>
+          <button onClick={loadCal} disabled={calBusy} style={{ width: '100%', border: '1.5px dashed #CBD4E4', background: 'transparent', color: '#6B6459', fontWeight: 700, fontSize: 14, padding: 14, borderRadius: 14, cursor: 'pointer', opacity: calBusy ? 0.6 : 1 }}>
             {calBusy ? 'Getting your link…' : 'Subscribe in your calendar'}
           </button>
         )}
@@ -266,7 +266,7 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
 
       {/* account & security */}
       <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 12px' }}>Account & security</div>
-      <div style={{ background: '#fff', borderRadius: 22, padding: '4px 16px', boxShadow: '0 2px 10px rgba(16,20,38,0.04)', marginBottom: 12 }}>
+      <div style={{ background: '#fff', borderRadius: 22, padding: '4px 16px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 12 }}>
         <SettingRow illo="lock" label="Change password" detail="" onClick={() => setPwOpen((v) => !v)} />
         <SettingRow illo="cloud" label="Auto-backup & sync" detail="On" good onClick={() => flash('Your data backs up and syncs automatically')} />
         <SettingRow illo="lock" label="App lock (passcode)" detail={locked ? 'On' : 'Off'} good={locked} onClick={() => { setLockOpen((v) => !v); setPinA(''); setPinB(''); }} />
@@ -274,44 +274,44 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
       </div>
 
       {lockOpen && (
-        <div style={{ background: '#fff', borderRadius: 18, padding: 16, boxShadow: '0 2px 10px rgba(16,20,38,0.04)', marginBottom: 12 }}>
+        <div style={{ background: '#fff', borderRadius: 18, padding: 16, boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 12 }}>
           <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 4 }}>{locked ? 'Turn off app lock' : 'Set a passcode'}</div>
-          <div style={{ fontSize: 12.5, color: '#717A90', marginBottom: 12, lineHeight: 1.45 }}>
+          <div style={{ fontSize: 12.5, color: '#6F6C67', marginBottom: 12, lineHeight: 1.45 }}>
             {locked ? 'Enter your current passcode to turn off the lock.' : 'A 4-8 digit code you’ll enter each time you open Croft. Forgot it? Sign out and back in to reset.'}
           </div>
           <input inputMode="numeric" type="password" maxLength={8} value={pinA} onChange={(e) => setPinA(e.target.value.replace(/\D/g, ''))} placeholder={locked ? 'Passcode' : 'New passcode (4-8 digits)'} style={pwInput} />
           {!locked && <input inputMode="numeric" type="password" maxLength={8} value={pinB} onChange={(e) => setPinB(e.target.value.replace(/\D/g, ''))} placeholder="Confirm passcode" style={{ ...pwInput, marginTop: 8 }} />}
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button onClick={locked ? disableLock : enableLock} disabled={lockBusy} style={{ flex: 1, border: 'none', background: locked ? '#E23A54' : '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 14, padding: 11, borderRadius: 12, cursor: 'pointer', opacity: lockBusy ? 0.6 : 1 }}>{lockBusy ? '…' : locked ? 'Turn off' : 'Turn on lock'}</button>
-            <button onClick={() => { setLockOpen(false); setPinA(''); setPinB(''); }} style={{ border: '1.5px solid #E4E9F2', background: '#fff', color: '#101426', fontWeight: 700, fontSize: 14, padding: '11px 18px', borderRadius: 12, cursor: 'pointer' }}>Cancel</button>
+            <button onClick={() => { setLockOpen(false); setPinA(''); setPinB(''); }} style={{ border: '1.5px solid #E8E3DB', background: '#fff', color: '#181922', fontWeight: 700, fontSize: 14, padding: '11px 18px', borderRadius: 12, cursor: 'pointer' }}>Cancel</button>
           </div>
         </div>
       )}
 
       {pwOpen && (
-        <div style={{ background: '#fff', borderRadius: 18, padding: 16, boxShadow: '0 2px 10px rgba(16,20,38,0.04)', marginBottom: 12 }}>
+        <div style={{ background: '#fff', borderRadius: 18, padding: 16, boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 12 }}>
           <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 12 }}>Change password</div>
           <input type="password" value={curPw} onChange={(e) => setCurPw(e.target.value)} placeholder="Current password (blank if you use Google)" style={pwInput} />
           <input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} placeholder="New password (8+ characters)" style={{ ...pwInput, marginTop: 8 }} />
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
             <button onClick={changePassword} disabled={pwBusy} style={{ flex: 1, border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 14, padding: 11, borderRadius: 12, cursor: 'pointer', opacity: pwBusy ? 0.6 : 1 }}>{pwBusy ? 'Saving…' : 'Save'}</button>
-            <button onClick={() => { setPwOpen(false); setCurPw(''); setNewPw(''); }} style={{ border: '1.5px solid #E4E9F2', background: '#fff', color: '#101426', fontWeight: 700, fontSize: 14, padding: '11px 18px', borderRadius: 12, cursor: 'pointer' }}>Cancel</button>
+            <button onClick={() => { setPwOpen(false); setCurPw(''); setNewPw(''); }} style={{ border: '1.5px solid #E8E3DB', background: '#fff', color: '#181922', fontWeight: 700, fontSize: 14, padding: '11px 18px', borderRadius: 12, cursor: 'pointer' }}>Cancel</button>
           </div>
         </div>
       )}
 
-      <button onClick={onSignOut} style={{ width: '100%', border: 'none', background: 'transparent', color: '#9AA3B5', fontWeight: 700, fontSize: 14, padding: 12, cursor: 'pointer' }}>Sign out</button>
+      <button onClick={onSignOut} style={{ width: '100%', border: 'none', background: 'transparent', color: '#9C968D', fontWeight: 700, fontSize: 14, padding: 12, cursor: 'pointer' }}>Sign out</button>
 
       {/* danger zone */}
       {confirmDelete ? (
         <div style={{ background: '#fff', border: '1.5px solid #FBD9DE', borderRadius: 18, padding: 16, marginTop: 8 }}>
           <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 4 }}>Delete your account?</div>
-          <div style={{ fontSize: 12.5, color: '#717A90', marginBottom: 12, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 12.5, color: '#6F6C67', marginBottom: 12, lineHeight: 1.5 }}>
             This removes you from {state.household.name}. If you’re the last member, the household and all its data are permanently deleted. This can’t be undone.
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={doDelete} disabled={delBusy} style={{ flex: 1, border: 'none', background: '#E23A54', color: '#fff', fontWeight: 700, fontSize: 14, padding: 11, borderRadius: 12, cursor: 'pointer', opacity: delBusy ? 0.6 : 1 }}>{delBusy ? 'Deleting…' : 'Yes, delete my account'}</button>
-            <button onClick={() => setConfirmDelete(false)} style={{ border: '1.5px solid #E4E9F2', background: '#fff', color: '#101426', fontWeight: 700, fontSize: 14, padding: '11px 18px', borderRadius: 12, cursor: 'pointer' }}>Cancel</button>
+            <button onClick={() => setConfirmDelete(false)} style={{ border: '1.5px solid #E8E3DB', background: '#fff', color: '#181922', fontWeight: 700, fontSize: 14, padding: '11px 18px', borderRadius: 12, cursor: 'pointer' }}>Cancel</button>
           </div>
         </div>
       ) : (
@@ -323,10 +323,10 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
 
 function SettingRow({ illo, iconColor = '#3B5BFF', label, detail, good, onClick }: { illo: string; iconColor?: string; label: string; detail: string; good?: boolean; onClick: () => void }) {
   return (
-    <div onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '12px 0', borderBottom: '1px solid #F1F4FA', cursor: 'pointer' }}>
+    <div onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '12px 0', borderBottom: '1px solid #EFEBE3', cursor: 'pointer' }}>
       <Icon name={illo} color={iconColor} size={38} radius={11} glyph={20} />
       <div style={{ flex: 1, fontWeight: 600, fontSize: 14.5 }}>{label}</div>
-      <span style={{ fontSize: 12.5, fontWeight: 700, color: good ? '#16C098' : '#717A90' }}>{detail}</span>
+      <span style={{ fontSize: 12.5, fontWeight: 700, color: good ? '#16C098' : '#6F6C67' }}>{detail}</span>
       <svg width="8" height="14" viewBox="0 0 8 14" style={{ flexShrink: 0 }}><path d="M1 1l6 6-6 6" stroke="#C4CBDA" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
     </div>
   );

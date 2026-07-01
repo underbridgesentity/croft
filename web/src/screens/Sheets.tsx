@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 import type { FormData, FormType, Nav } from '../Shell';
 import Icon from '../components/Icon';
 
-const grotesk = "'Space Grotesk', sans-serif";
+const grotesk = "'Bricolage Grotesque', sans-serif";
 
 // ---------------- ADD MENU ----------------
 export function AddSheet({ nav }: { nav: Nav }) {
@@ -25,14 +25,14 @@ export function AddSheet({ nav }: { nav: Nav }) {
   return (
     <div>
       <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 22, margin: '0 2px 4px' }}>Add to Croft</div>
-      <div style={{ fontSize: 13, color: '#717A90', margin: '0 2px 16px' }}>What would you like to add?</div>
+      <div style={{ fontSize: 13, color: '#6F6C67', margin: '0 2px 16px' }}>What would you like to add?</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {options.map((o) => (
-          <button key={o.label} onClick={o.onTap} style={{ display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', border: 'none', background: '#fff', padding: '13px 15px', borderRadius: 18, cursor: 'pointer', boxShadow: '0 1px 4px rgba(16,20,38,0.05)' }}>
+          <button key={o.label} onClick={o.onTap} style={{ display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left', border: 'none', background: '#fff', padding: '13px 15px', borderRadius: 18, cursor: 'pointer', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 8px 22px -14px rgba(24,25,34,0.12)' }}>
             <Icon name={o.illo} color={o.color} size={44} radius={14} glyph={23} />
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: 15 }}>{o.label}</div>
-              <div style={{ fontSize: 12, color: '#717A90', marginTop: 1 }}>{o.sub}</div>
+              <div style={{ fontSize: 12, color: '#6F6C67', marginTop: 1 }}>{o.sub}</div>
             </div>
             <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="#C4CBDA" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
@@ -53,14 +53,14 @@ export function NotifSheet() {
         <button onClick={() => run(api.markAllRead(), 'All caught up')} style={{ border: 'none', background: 'none', color: '#3B5BFF', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Mark all read</button>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {state.notifications.length === 0 && <div style={{ color: '#717A90', fontSize: 13.5, padding: '8px 2px' }}>No notifications yet.</div>}
+        {state.notifications.length === 0 && <div style={{ color: '#6F6C67', fontSize: 13.5, padding: '8px 2px' }}>No notifications yet.</div>}
         {state.notifications.map((n) => (
-          <div key={n.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 13, background: '#fff', padding: '14px 15px', borderRadius: 18, boxShadow: '0 1px 4px rgba(16,20,38,0.05)', position: 'relative' }}>
+          <div key={n.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 13, background: '#fff', padding: '14px 15px', borderRadius: 18, boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 8px 22px -14px rgba(24,25,34,0.12)', position: 'relative' }}>
             <Icon name={n.illo} color={n.color} size={40} radius={12} glyph={21} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>{n.title}</div>
-              <div style={{ fontSize: 12.5, color: '#717A90', marginTop: 2, lineHeight: 1.35 }}>{n.body}</div>
-              <div style={{ fontSize: 11, color: '#9AA3B5', fontWeight: 600, marginTop: 5 }}>{n.time_label}</div>
+              <div style={{ fontSize: 12.5, color: '#6F6C67', marginTop: 2, lineHeight: 1.35 }}>{n.body}</div>
+              <div style={{ fontSize: 11, color: '#9C968D', fontWeight: 600, marginTop: 5 }}>{n.time_label}</div>
             </div>
             {n.unread && <span style={{ position: 'absolute', top: 14, right: 14, width: 9, height: 9, borderRadius: '50%', background: '#FF4D5E' }} />}
           </div>
@@ -99,8 +99,8 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 2px 18px' }}>
         <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 22 }}>{title}</div>
-        <button onClick={nav.closeSheet} style={{ width: 34, height: 34, borderRadius: 11, border: 'none', background: '#EEF1F8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#101426" strokeWidth="2.2" strokeLinecap="round" /></svg>
+        <button onClick={nav.closeSheet} style={{ width: 34, height: 34, borderRadius: 11, border: 'none', background: '#EBE7DF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#181922" strokeWidth="2.2" strokeLinecap="round" /></svg>
         </button>
       </div>
 
@@ -136,7 +136,7 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
             <div style={{ display: 'flex', gap: 8 }}>
               {[{ k: 'family', l: 'Family' }, { k: 'personal', l: 'Personal' }].map((o) => {
                 const sel = (fd.kind || 'family') === o.k;
-                return <button key={o.k} onClick={() => set('kind', o.k)} style={{ flex: 1, border: 'none', cursor: 'pointer', padding: '11px 0', borderRadius: 12, fontWeight: 700, fontSize: 13.5, background: sel ? '#3B5BFF' : '#EEF1F8', color: sel ? '#fff' : '#101426' }}>{o.l}</button>;
+                return <button key={o.k} onClick={() => set('kind', o.k)} style={{ flex: 1, border: 'none', cursor: 'pointer', padding: '11px 0', borderRadius: 12, fontWeight: 700, fontSize: 13.5, background: sel ? '#3B5BFF' : '#EBE7DF', color: sel ? '#fff' : '#181922' }}>{o.l}</button>;
               })}
             </div>
           </div>
@@ -149,9 +149,9 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
   );
 }
 
-const inp: React.CSSProperties = { width: '100%', padding: '14px 16px', borderRadius: 14, border: '1.5px solid #E4E9F2', background: '#fff', fontSize: 15, color: '#101426', outline: 'none' };
+const inp: React.CSSProperties = { width: '100%', padding: '14px 16px', borderRadius: 14, border: '1.5px solid #E8E3DB', background: '#fff', fontSize: 15, color: '#181922', outline: 'none' };
 function Lbl({ children }: { children: React.ReactNode }) {
-  return <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#717A90', marginBottom: 8 }}>{children}</label>;
+  return <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#6F6C67', marginBottom: 8 }}>{children}</label>;
 }
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div style={{ marginBottom: 16 }}><Lbl>{label}</Lbl>{children}</div>;
@@ -161,7 +161,7 @@ function Chips({ items, value, onPick }: { items: { id: string; label: string; c
     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
       {items.map((c) => {
         const sel = value === c.id;
-        return <button key={c.id} onClick={() => onPick(c.id)} style={{ border: 'none', cursor: 'pointer', padding: '9px 14px', borderRadius: 100, fontWeight: 700, fontSize: 13, background: sel ? c.color : '#EEF1F8', color: sel ? '#fff' : '#101426' }}>{c.label}</button>;
+        return <button key={c.id} onClick={() => onPick(c.id)} style={{ border: 'none', cursor: 'pointer', padding: '9px 14px', borderRadius: 100, fontWeight: 700, fontSize: 13, background: sel ? c.color : '#EBE7DF', color: sel ? '#fff' : '#181922' }}>{c.label}</button>;
       })}
     </div>
   );

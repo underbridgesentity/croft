@@ -3,12 +3,12 @@ import { useStore } from '../store';
 import { api } from '../lib/api';
 import { EyeBtn } from './Onboarding';
 
-const grotesk = "'Space Grotesk', sans-serif";
+const grotesk = "'Bricolage Grotesque', sans-serif";
 
-const inputStyle: React.CSSProperties = { width: '100%', padding: '13px 15px', borderRadius: 14, border: '1.5px solid #E4E9F2', background: '#fff', fontSize: 15, boxSizing: 'border-box', fontFamily: 'inherit', color: '#101426' };
+const inputStyle: React.CSSProperties = { width: '100%', padding: '13px 15px', borderRadius: 14, border: '1.5px solid #E8E3DB', background: '#fff', fontSize: 15, boxSizing: 'border-box', fontFamily: 'inherit', color: '#181922' };
 const primaryBtn: React.CSSProperties = { width: '100%', padding: 15, borderRadius: 14, border: 'none', background: '#3B5BFF', color: '#fff', fontFamily: grotesk, fontWeight: 700, fontSize: 15.5, cursor: 'pointer', boxShadow: '0 8px 22px rgba(59,91,255,0.4)' };
-const oauthBtn: React.CSSProperties = { width: '100%', padding: 14, borderRadius: 14, border: '1.5px solid #E4E9F2', background: '#fff', color: '#101426', fontWeight: 700, fontSize: 14.5, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 };
-const labelStyle: React.CSSProperties = { fontSize: 12.5, fontWeight: 700, color: '#717A90', margin: '0 2px 6px' };
+const oauthBtn: React.CSSProperties = { width: '100%', padding: 14, borderRadius: 14, border: '1.5px solid #E8E3DB', background: '#fff', color: '#181922', fontWeight: 700, fontSize: 14.5, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 };
+const labelStyle: React.CSSProperties = { fontSize: 12.5, fontWeight: 700, color: '#6F6C67', margin: '0 2px 6px' };
 
 function GoogleMark() {
   return (
@@ -71,7 +71,7 @@ export default function JoinInvite({ token, onJoined, onCancel }: { token: strin
   };
 
   return (
-    <div className="croft-scroll" style={{ position: 'absolute', inset: 0, zIndex: 100, background: '#F3F5FB', overflowY: 'auto' }}>
+    <div className="croft-scroll" style={{ position: 'absolute', inset: 0, zIndex: 100, background: '#F5F4F1', overflowY: 'auto' }}>
       <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: '64px 26px 40px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 30 }}>
           <img src="/icons/icon-192.png" width={36} height={36} alt="" style={{ borderRadius: 10, display: 'block', boxShadow: '0 4px 12px rgba(31,153,255,0.32)' }} />
@@ -79,11 +79,11 @@ export default function JoinInvite({ token, onJoined, onCancel }: { token: strin
         </div>
 
         {loading ? (
-          <p style={{ textAlign: 'center', color: '#717A90', marginTop: 40 }}>Loading invite…</p>
+          <p style={{ textAlign: 'center', color: '#6F6C67', marginTop: 40 }}>Loading invite…</p>
         ) : !info ? (
           <div style={{ textAlign: 'center', marginTop: 30 }}>
             <h1 style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 24, letterSpacing: '-0.02em' }}>Invite not valid</h1>
-            <p style={{ fontSize: 14.5, color: '#717A90', margin: '10px 0 26px', lineHeight: 1.5 }}>
+            <p style={{ fontSize: 14.5, color: '#6F6C67', margin: '10px 0 26px', lineHeight: 1.5 }}>
               This invite link is invalid or has expired. Ask whoever invited you to send a fresh one.
             </p>
             <button style={{ ...oauthBtn, maxWidth: 240, margin: '0 auto' }} onClick={onCancel}>Go to sign in</button>
@@ -93,7 +93,7 @@ export default function JoinInvite({ token, onJoined, onCancel }: { token: strin
             <h1 style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 27, letterSpacing: '-0.02em', margin: '0 0 6px', textAlign: 'center' }}>
               Join {info.household_name}
             </h1>
-            <p style={{ fontSize: 14.5, color: '#717A90', margin: '0 0 26px', textAlign: 'center' }}>
+            <p style={{ fontSize: 14.5, color: '#6F6C67', margin: '0 0 26px', textAlign: 'center' }}>
               {info.inviter_name ? `${info.inviter_name} invited you` : 'You’ve been invited'} to share this home on Croft. Create your account to join.
             </p>
             <div style={{ marginBottom: 14 }}>
@@ -124,14 +124,14 @@ export default function JoinInvite({ token, onJoined, onCancel }: { token: strin
               {busy ? 'Joining…' : `Join ${info.household_name}`}
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '18px 0' }}>
-              <div style={{ flex: 1, height: 1, background: '#E4E9F2' }} />
+              <div style={{ flex: 1, height: 1, background: '#E8E3DB' }} />
               <span style={{ fontSize: 12.5, color: '#A6AEC0', fontWeight: 600 }}>or</span>
-              <div style={{ flex: 1, height: 1, background: '#E4E9F2' }} />
+              <div style={{ flex: 1, height: 1, background: '#E8E3DB' }} />
             </div>
             <button onClick={() => (window.location.href = api.googleInviteUrl(token))} style={oauthBtn}>
               <GoogleMark />Continue with Google
             </button>
-            <div style={{ textAlign: 'center', marginTop: 22, fontSize: 14, color: '#717A90' }}>
+            <div style={{ textAlign: 'center', marginTop: 22, fontSize: 14, color: '#6F6C67' }}>
               Not you? <button onClick={onCancel} style={{ border: 'none', background: 'none', color: '#3B5BFF', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Go to sign in</button>
             </div>
           </>

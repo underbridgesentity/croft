@@ -1,9 +1,9 @@
 import { useIsDesktop } from '../lib/useMedia';
 
-const grotesk = "'Space Grotesk', sans-serif";
-const INK = '#101426';
+const grotesk = "'Bricolage Grotesque', sans-serif";
+const INK = '#181922';
 const BLUE = '#3B5BFF';
-const MUTED = '#5A6472';
+const MUTED = '#655F57';
 
 function Logo({ size = 34 }: { size?: number }) {
   return (
@@ -24,7 +24,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
   const maxW = 1080;
 
   const primaryBtn: React.CSSProperties = { border: 'none', background: BLUE, color: '#fff', fontFamily: grotesk, fontWeight: 700, fontSize: 15.5, padding: '13px 24px', borderRadius: 14, cursor: 'pointer', boxShadow: '0 8px 22px rgba(59,91,255,0.34)' };
-  const ghostBtn: React.CSSProperties = { border: '1.5px solid #E4E9F2', background: '#fff', color: INK, fontFamily: grotesk, fontWeight: 700, fontSize: 15.5, padding: '12px 22px', borderRadius: 14, cursor: 'pointer' };
+  const ghostBtn: React.CSSProperties = { border: '1.5px solid #E8E3DB', background: '#fff', color: INK, fontFamily: grotesk, fontWeight: 700, fontSize: 15.5, padding: '12px 22px', borderRadius: 14, cursor: 'pointer' };
 
   const feature = (title: string, body: string, bullets: string[], img: string, flip: boolean) => (
     <div style={{ display: 'flex', flexDirection: desktop ? 'row' : 'column', alignItems: 'center', gap: desktop ? 56 : 24, margin: desktop ? '68px 0' : '44px 0' }}>
@@ -69,7 +69,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
   return (
     <div className="croft-scroll" style={{ position: 'absolute', inset: 0, overflowY: 'auto', background: '#fff', color: INK }}>
       {/* NAV */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid #EEF1F7' }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid #EBE7DF' }}>
         <div style={{ maxWidth: maxW, margin: '0 auto', padding: pad, height: 66, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Logo size={30} />
           <div style={{ display: 'flex', alignItems: 'center', gap: desktop ? 10 : 8 }}>
@@ -80,7 +80,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
       </div>
 
       {/* HERO */}
-      <div style={{ background: 'linear-gradient(180deg,#F5F7FD 0%,#fff 100%)' }}>
+      <div style={{ background: 'linear-gradient(180deg,#F1EFEA 0%,#fff 100%)' }}>
         <div style={{ maxWidth: maxW, margin: '0 auto', padding: pad }}>
           <div style={{ display: 'flex', flexDirection: desktop ? 'row' : 'column', alignItems: 'center', gap: desktop ? 40 : 8, paddingTop: desktop ? 56 : 32, paddingBottom: desktop ? 40 : 8 }}>
             <div style={{ flex: 1 }}>
@@ -97,7 +97,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
                 <button onClick={onStart} style={{ ...primaryBtn, fontSize: 16 }}>Get started - it’s free</button>
                 <a href="#features" style={{ ...ghostBtn, textDecoration: 'none', display: 'inline-block' }}>See how it works</a>
               </div>
-              <div style={{ marginTop: 18, fontSize: 13.5, color: '#8A93A6', fontWeight: 500 }}>No credit card · Works on any device</div>
+              <div style={{ marginTop: 18, fontSize: 13.5, color: '#8C877E', fontWeight: 500 }}>No credit card · Works on any device</div>
             </div>
             <div style={{ flex: 1, width: '100%' }}>
               <Illus src="/illustrations/hero-home.jpg" alt="A family and their home" />
@@ -141,7 +141,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
       </div>
 
       {/* HOW IT WORKS */}
-      <div style={{ background: '#F5F7FD' }}>
+      <div style={{ background: '#F1EFEA' }}>
         <div style={{ maxWidth: maxW, margin: '0 auto', padding: `${desktop ? 60 : 44}px ${desktop ? 40 : 22}px` }}>
           <h2 style={{ fontFamily: grotesk, fontWeight: 700, fontSize: desktop ? 32 : 26, letterSpacing: '-0.02em', textAlign: 'center', margin: '0 0 34px' }}>Up and running in minutes</h2>
           <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(3,1fr)' : '1fr', gap: 18 }}>
@@ -150,7 +150,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
               { n: '2', t: 'Invite your family', d: 'Send a link or email - everyone gets their own login.' },
               { n: '3', t: 'Stay in sync', d: 'Add dates, tasks and bills - updates reach everyone live.' },
             ].map((s) => (
-              <div key={s.n} style={{ background: '#fff', borderRadius: 20, padding: 24, boxShadow: '0 2px 12px rgba(16,20,38,0.05)' }}>
+              <div key={s.n} style={{ background: '#fff', borderRadius: 20, padding: 24, boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 14px 34px -18px rgba(24,25,34,0.16)' }}>
                 <div style={{ width: 40, height: 40, borderRadius: 12, background: BLUE, color: '#fff', fontFamily: grotesk, fontWeight: 700, fontSize: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14 }}>{s.n}</div>
                 <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 18, marginBottom: 6 }}>{s.t}</div>
                 <div style={{ fontSize: 14.5, color: MUTED, lineHeight: 1.55 }}>{s.d}</div>
@@ -164,7 +164,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
       <div style={{ maxWidth: maxW, margin: '0 auto', padding: `${desktop ? 62 : 44}px ${desktop ? 40 : 22}px` }}>
         <div style={{ display: 'grid', gridTemplateColumns: desktop ? 'repeat(3,1fr)' : '1fr', gap: 16 }}>
           {smallFeatures.map((f) => (
-            <div key={f.t} style={{ border: '1px solid #EEF1F7', borderRadius: 18, padding: 22 }}>
+            <div key={f.t} style={{ border: '1px solid #EBE7DF', borderRadius: 18, padding: 22 }}>
               <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 17, marginBottom: 6 }}>{f.t}</div>
               <div style={{ fontSize: 14.5, color: MUTED, lineHeight: 1.55 }}>{f.d}</div>
             </div>
@@ -173,7 +173,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
       </div>
 
       {/* FAMILY */}
-      <div style={{ background: '#F5F7FD' }}>
+      <div style={{ background: '#F1EFEA' }}>
         <div style={{ maxWidth: maxW, margin: '0 auto', padding: `${desktop ? 62 : 44}px ${desktop ? 40 : 22}px`, display: 'flex', flexDirection: desktop ? 'row' : 'column', alignItems: 'center', gap: desktop ? 48 : 24 }}>
           <div style={{ flex: 1, width: '100%', borderRadius: 24, overflow: 'hidden', boxShadow: '0 12px 34px rgba(16,20,38,0.10)' }}>
             <img src="/illustrations/family-together.jpg" alt="A family together at home" loading="lazy" style={{ width: '100%', height: 'auto', display: 'block' }} />
@@ -191,7 +191,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
         <h2 style={{ fontFamily: grotesk, fontWeight: 700, fontSize: desktop ? 32 : 26, letterSpacing: '-0.02em', textAlign: 'center', margin: '0 0 30px' }}>Questions, answered</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {faqs.map((f) => (
-            <div key={f.q} style={{ background: '#fff', border: '1px solid #EEF1F7', borderRadius: 16, padding: '18px 20px' }}>
+            <div key={f.q} style={{ background: '#fff', border: '1px solid #EBE7DF', borderRadius: 16, padding: '18px 20px' }}>
               <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 16.5, marginBottom: 6 }}>{f.q}</div>
               <div style={{ fontSize: 15, color: MUTED, lineHeight: 1.6 }}>{f.a}</div>
             </div>
@@ -209,11 +209,11 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
       </div>
 
       {/* FOOTER */}
-      <div style={{ borderTop: '1px solid #EEF1F7' }}>
+      <div style={{ borderTop: '1px solid #EBE7DF' }}>
         <div style={{ maxWidth: maxW, margin: '0 auto', padding: `${desktop ? 34 : 26}px ${desktop ? 40 : 22}px`, display: 'flex', flexDirection: desktop ? 'row' : 'column', alignItems: desktop ? 'center' : 'flex-start', justifyContent: 'space-between', gap: 16 }}>
           <div>
             <Logo size={26} />
-            <div style={{ fontSize: 13, color: '#8A93A6', marginTop: 8 }}>Plan together. Stay organized. Live better.</div>
+            <div style={{ fontSize: 13, color: '#8C877E', marginTop: 8 }}>Plan together. Stay organized. Live better.</div>
           </div>
           <div style={{ display: 'flex', gap: 22, fontSize: 14, fontWeight: 600 }}>
             <a href="/privacy" style={{ color: MUTED, textDecoration: 'none' }}>Privacy</a>

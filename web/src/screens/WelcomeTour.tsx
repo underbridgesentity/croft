@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 
-const grotesk = "'Space Grotesk', sans-serif";
+const grotesk = "'Bricolage Grotesque', sans-serif";
 
 type Step = { color: string; title: string; body: string; icon: React.ReactNode };
 
@@ -87,7 +87,7 @@ export default function WelcomeTour() {
         position: 'absolute',
         inset: 0,
         zIndex: 80,
-        background: '#F3F5FB',
+        background: '#F5F4F1',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -100,7 +100,7 @@ export default function WelcomeTour() {
         {!last && (
           <button
             onClick={completeOnboarding}
-            style={{ border: 'none', background: 'none', color: '#8A93A6', fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: 6 }}
+            style={{ border: 'none', background: 'none', color: '#8C877E', fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: 6 }}
           >
             Skip
           </button>
@@ -169,7 +169,7 @@ export default function WelcomeTour() {
         style={{
           border: 'none',
           background: 'none',
-          color: i === 0 ? 'transparent' : '#8A93A6',
+          color: i === 0 ? 'transparent' : '#8C877E',
           fontSize: 14,
           fontWeight: 600,
           cursor: i === 0 ? 'default' : 'pointer',

@@ -5,13 +5,16 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: #e7ebf4;
+  /* warm neutral surround (desktop letterboxing) */
+  background: #eae7e1;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 body {
   font-family: 'Manrope', system-ui, -apple-system, sans-serif;
-  color: #101426;
+  color: #171821;
+  letter-spacing: -0.005em;
 }
 input,
 button,
@@ -19,11 +22,17 @@ textarea {
   font-family: 'Manrope', system-ui, sans-serif;
 }
 input::placeholder {
-  color: #9aa3b5;
+  color: #a3a09a;
 }
 button {
   font-family: inherit;
+  transition: transform 0.14s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.18s ease, background 0.18s ease, opacity 0.18s ease;
 }
+/* tactile press for opted-in buttons */
+.tap:active {
+  transform: scale(0.965);
+}
+
 /* hide scrollbars on app scroll areas */
 .croft-scroll::-webkit-scrollbar {
   display: none;
@@ -32,11 +41,12 @@ button {
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-/* gentle entry fade for screens */
+
+/* screen entry */
 @keyframes croftFade {
   from {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(8px);
   }
   to {
     opacity: 1;
@@ -44,18 +54,46 @@ button {
   }
 }
 .croft-fade {
-  animation: croftFade 0.26s ease both;
+  animation: croftFade 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-@keyframes sheetUp {
+
+/* staggered rise: children fade up in sequence */
+@keyframes rise {
   from {
-    transform: translateY(100%);
+    opacity: 0;
+    transform: translateY(14px);
   }
   to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.stagger > * {
+  animation: rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 0.02s; }
+.stagger > *:nth-child(2) { animation-delay: 0.07s; }
+.stagger > *:nth-child(3) { animation-delay: 0.12s; }
+.stagger > *:nth-child(4) { animation-delay: 0.17s; }
+.stagger > *:nth-child(5) { animation-delay: 0.22s; }
+.stagger > *:nth-child(6) { animation-delay: 0.27s; }
+.stagger > *:nth-child(7) { animation-delay: 0.32s; }
+.stagger > *:nth-child(8) { animation-delay: 0.37s; }
+
+/* bottom sheet with a soft spring overshoot */
+@keyframes sheetUp {
+  0% {
+    transform: translateY(100%);
+  }
+  70% {
+    transform: translateY(-1.5%);
+  }
+  100% {
     transform: translateY(0);
   }
 }
 .sheet-up {
-  animation: sheetUp 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: sheetUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 @keyframes scrimIn {
   from {
@@ -66,18 +104,29 @@ button {
   }
 }
 .scrim-in {
-  animation: scrimIn 0.2s ease both;
+  animation: scrimIn 0.22s ease both;
 }
 @keyframes toastIn {
   from {
     opacity: 0;
-    transform: translate(-50%, 8px);
+    transform: translate(-50%, 10px) scale(0.96);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, 0);
+    transform: translate(-50%, 0) scale(1);
   }
 }
 .toast-in {
-  animation: toastIn 0.2s ease both;
+  animation: toastIn 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  .croft-fade,
+  .stagger > *,
+  .sheet-up,
+  .toast-in {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
