@@ -22,7 +22,7 @@ export default function Plans({ nav }: { nav: Nav }) {
         <Seg label="Goals" active={nav.plan === 'goals'} onClick={() => nav.goPlan('goals')} />
       </div>
 
-      {nav.plan === 'todos' && <Todos />}
+      {nav.plan === 'todos' && <Todos nav={nav} />}
       {nav.plan === 'lists' && <Lists />}
       {nav.plan === 'goals' && <Goals />}
     </div>
@@ -38,12 +38,14 @@ function Seg({ label, active, onClick }: { label: string; active: boolean; onCli
 }
 
 // ---------------- TO-DOS ----------------
-function Todos() {
+function Todos({ nav }: { nav: Nav }) {
   const { state, run } = useStore();
   const [draft, setDraft] = useState('');
   if (!state) return null;
   const open = state.tasks.filter((t) => !t.done);
   const done = state.tasks.filter((t) => t.done);
+  const namesFor = (ids?: string[] | null) =>
+    (ids || []).map((id) => state.members.find((m) => m.id === id)?.name).filter(Boolean).join(', ');
 
   const add = () => {
     const v = draft.trim();
@@ -51,6 +53,9 @@ function Todos() {
     run(api.addTask({ title: v }), 'To-do added');
     setDraft('');
   };
+
+  const edit = (t: (typeof open)[number]) =>
+    nav.openForm('task', { editId: t.id, title: t.title, type: t.type, assignees: t.assignee_ids || [] });
 
   return (
     <div>
@@ -64,11 +69,21 @@ function Todos() {
           {open.map((t) => (
             <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '13px 2px', borderBottom: '1px solid #EFEBE3' }}>
               <button onClick={() => run(api.toggleTask(t.id, true), 'Nice - one less thing')} role="checkbox" aria-checked={false} aria-label={`Mark "${t.title}" as done`} style={checkbox} />
-              <div style={{ flex: 1, minWidth: 0 }}>
+              <div
+                role="button"
+                tabIndex={0}
+                aria-label={`Edit "${t.title}"`}
+                onClick={() => edit(t)}
+                onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); edit(t); } }}
+                style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+              >
                 <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.25 }}>{t.title}</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginTop: 5, flexWrap: 'wrap' }}>
                   <span style={{ fontSize: 10.5, fontWeight: 700, color: t.type === 'Reminder' ? '#C77800' : '#3B5BFF', background: t.type === 'Reminder' ? '#FFF4E0' : '#EAEEFF', padding: '2px 9px', borderRadius: 100 }}>{t.type}</span>
-                  <span style={{ fontSize: 11.5, color: '#6F6C67' }}>From {t.from_name} · <b style={{ color: t.due_key === 'over' ? '#FF4D5E' : '#6F6C67', fontWeight: 700 }}>{t.due}</b></span>
+                  <span style={{ fontSize: 11.5, color: '#6F6C67' }}>
+                    {namesFor(t.assignee_ids) ? <>For <b style={{ fontWeight: 700 }}>{namesFor(t.assignee_ids)}</b> · </> : <>From {t.from_name} · </>}
+                    <b style={{ color: t.due_key === 'over' ? '#FF4D5E' : '#6F6C67', fontWeight: 700 }}>{t.due}</b>
+                  </span>
                 </div>
               </div>
               <button onClick={() => run(api.nudge(t.from_name), `Reminder sent to ${t.from_name}`)} title="Nudge" aria-label={`Nudge ${t.from_name}`} style={iconBtn}>

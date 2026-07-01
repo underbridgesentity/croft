@@ -42,7 +42,14 @@ export default function Money({ nav }: { nav: Nav }) {
         {state.bills.map((b) => (
           <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '13px 14px', background: '#fff', borderRadius: 18, boxShadow: '0 2px 8px rgba(16,20,38,0.04)' }}>
             <Icon name={b.illo} color={b.color} size={42} radius={13} glyph={22} />
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label={`Edit ${b.name}`}
+              onClick={() => nav.openForm('bill', { editId: b.id, name: b.name, amount: String(b.amount || ''), due: b.due_date || '', payer: b.assignee_ids || [] })}
+              onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); nav.openForm('bill', { editId: b.id, name: b.name, amount: String(b.amount || ''), due: b.due_date || '', payer: b.assignee_ids || [] }); } }}
+              style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+            >
               <div style={{ fontWeight: 700, fontSize: 14.5 }}>{b.name}</div>
               <div style={{ fontSize: 11.5, color: '#6F6C67', marginTop: 1 }}>{b.payer} · {b.cat} · due {b.due}</div>
             </div>

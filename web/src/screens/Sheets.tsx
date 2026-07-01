@@ -16,8 +16,8 @@ export function AddSheet({ nav }: { nav: Nav }) {
   };
   const options = [
     { label: 'Calendar event', sub: 'Appointment, birthday, school date', illo: 'calendar', color: '#FFB020', onTap: () => nav.openForm('event') },
-    { label: 'To-do', sub: 'A task for you or the family', illo: 'todo', color: '#3B5BFF', onTap: () => route('tasks', 'todos', 'Type your to-do below') },
-    { label: 'Reminder for someone', sub: 'Nudge a family member', illo: 'bell', color: '#FF5C8A', onTap: () => route('tasks', 'todos', 'Add a reminder below') },
+    { label: 'To-do', sub: 'A task for anyone in the family', illo: 'todo', color: '#3B5BFF', onTap: () => nav.openForm('task') },
+    { label: 'Reminder for someone', sub: 'Nudge one or more people', illo: 'bell', color: '#FF5C8A', onTap: () => nav.openForm('task', { title: '', type: 'Reminder', assignees: [] }) },
     { label: 'Shopping item', sub: 'Add to the shared list', illo: 'cart', color: '#16C098', onTap: () => route('tasks', 'lists', 'Add items to the list below') },
     { label: 'Bill', sub: 'Track a payment', illo: 'wallet', color: '#7A5CFF', onTap: () => nav.openForm('bill') },
     { label: 'Goal', sub: 'Family or personal', illo: 'goal', color: '#FF6B5C', onTap: () => nav.openForm('goal') },
@@ -75,23 +75,43 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
   const { state, run, flash } = useStore();
   if (!state) return null;
   const set = (k: keyof FormData, v: string) => setFd({ ...fd, [k]: v });
-  const title = form === 'event' ? 'New event' : form === 'bill' ? 'New bill' : 'New goal';
+  const toggle = (k: 'who' | 'payer' | 'assignees', id: string) => {
+    const cur = fd[k] || [];
+    setFd({ ...fd, [k]: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] });
+  };
+  const editing = !!fd.editId;
+  const noun = form === 'event' ? 'event' : form === 'bill' ? 'bill' : form === 'task' ? 'to-do' : 'goal';
+  const title = `${editing ? 'Edit' : 'New'} ${noun}`;
+  const memberChips = state.members.map((m) => ({ id: m.id, label: m.name, color: m.color }));
 
   const submit = async () => {
     if (form === 'event') {
       if (!fd.title?.trim()) return flash('Add a title first');
-      await run(api.addEvent({ title: fd.title, date: fd.date, time: fd.time, who: fd.who }), 'Event added');
-      nav.goTab('calendar');
+      const d = { title: fd.title, date: fd.date, time: fd.time, who: fd.who };
+      await run(editing ? api.updEvent(fd.editId!, d) : api.addEvent(d), editing ? 'Event updated' : 'Event added');
+      if (!editing) nav.goTab('calendar');
     } else if (form === 'bill') {
       if (!fd.name?.trim()) return flash('Add a bill name');
-      await run(api.addBill({ name: fd.name, amount: fd.amount, due: fd.due, payer: fd.payer }), 'Bill added');
-      nav.goTab('money');
+      const d = { name: fd.name, amount: fd.amount, due: fd.due, payer: fd.payer };
+      await run(editing ? api.updBill(fd.editId!, d) : api.addBill(d), editing ? 'Bill updated' : 'Bill added');
+      if (!editing) nav.goTab('money');
+    } else if (form === 'task') {
+      if (!fd.title?.trim()) return flash('Type a to-do');
+      const d = { title: fd.title, type: fd.type, assignees: fd.assignees };
+      await run(editing ? api.updTask(fd.editId!, d) : api.addTask(d), editing ? 'To-do updated' : 'To-do added');
+      if (!editing) { nav.goTab('tasks'); nav.goPlan('todos'); }
     } else {
       if (!fd.title?.trim()) return flash('Add a goal title');
       await run(api.addGoal({ title: fd.title, kind: fd.kind, target: fd.target }), 'Goal added');
       nav.goTab('tasks');
       nav.goPlan('goals');
     }
+    nav.closeSheet();
+  };
+
+  const remove = async () => {
+    const del = form === 'event' ? api.delEvent : form === 'bill' ? api.delBill : api.delTask;
+    await run(del(fd.editId!), 'Removed');
     nav.closeSheet();
   };
 
@@ -111,8 +131,25 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
             <div style={{ flex: 1, minWidth: 0 }}><Lbl>Date</Lbl><input style={inp} type="date" value={fd.date || ''} onChange={(e) => set('date', e.target.value)} /></div>
             <div style={{ flex: 1, minWidth: 0 }}><Lbl>Time</Lbl><input style={inp} type="time" value={fd.time || ''} onChange={(e) => set('time', e.target.value)} /></div>
           </div>
-          <Lbl>Who's it for</Lbl>
-          <Chips items={state.members.map((m) => ({ id: m.id, label: m.name, color: m.color }))} value={fd.who} onPick={(id) => set('who', id)} />
+          <Lbl>Who's it for - pick any</Lbl>
+          <Chips items={memberChips} value={fd.who || []} onToggle={(id) => toggle('who', id)} emptyHint="Nobody picked = the whole family" />
+        </div>
+      )}
+
+      {form === 'task' && (
+        <div>
+          <Field label="What needs doing"><input style={inp} value={fd.title || ''} onChange={(e) => set('title', e.target.value)} placeholder="e.g. Take out the recycling" /></Field>
+          <div style={{ marginBottom: 16 }}>
+            <Lbl>Type</Lbl>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[{ k: 'Task', l: 'To-do' }, { k: 'Reminder', l: 'Reminder' }].map((o) => {
+                const sel = (fd.type || 'Task') === o.k;
+                return <button key={o.k} onClick={() => set('type', o.k)} style={{ flex: 1, border: 'none', cursor: 'pointer', padding: '11px 0', borderRadius: 12, fontWeight: 700, fontSize: 13.5, background: sel ? '#3B5BFF' : '#EBE7DF', color: sel ? '#fff' : '#181922' }}>{o.l}</button>;
+              })}
+            </div>
+          </div>
+          <Lbl>Who's responsible - pick any</Lbl>
+          <Chips items={memberChips} value={fd.assignees || []} onToggle={(id) => toggle('assignees', id)} emptyHint="Nobody picked = anyone can do it" />
         </div>
       )}
 
@@ -123,8 +160,8 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
             <div style={{ flex: 1, minWidth: 0 }}><Lbl>Amount (R)</Lbl><input style={inp} type="number" value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="0" /></div>
             <div style={{ flex: 1, minWidth: 0 }}><Lbl>Due date</Lbl><input style={inp} type="date" value={fd.due || ''} onChange={(e) => set('due', e.target.value)} /></div>
           </div>
-          <Lbl>Paid by</Lbl>
-          <Chips items={state.members.map((m) => ({ id: m.id, label: m.name, color: m.color }))} value={fd.payer} onPick={(id) => set('payer', id)} />
+          <Lbl>Paid by - pick any</Lbl>
+          <Chips items={memberChips} value={fd.payer || []} onToggle={(id) => toggle('payer', id)} emptyHint="Nobody picked = shared" />
         </div>
       )}
 
@@ -144,25 +181,37 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
         </div>
       )}
 
-      <button onClick={submit} style={{ width: '100%', padding: 16, borderRadius: 16, border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 15.5, cursor: 'pointer', boxShadow: '0 8px 20px rgba(59,91,255,0.32)', marginTop: 22 }}>Add</button>
+      <button onClick={submit} style={{ width: '100%', padding: 16, borderRadius: 16, border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 15.5, cursor: 'pointer', boxShadow: '0 8px 20px rgba(59,91,255,0.32)', marginTop: 22 }}>{editing ? 'Save changes' : 'Add'}</button>
+      {editing && form !== 'goal' && (
+        <button onClick={remove} style={{ width: '100%', border: 'none', background: 'none', color: '#FF4D5E', fontWeight: 700, fontSize: 13.5, padding: '14px 0 2px', cursor: 'pointer' }}>Delete this {noun}</button>
+      )}
     </div>
   );
 }
 
-const inp: React.CSSProperties = { width: '100%', minWidth: 0, maxWidth: '100%', boxSizing: 'border-box', padding: '14px 16px', borderRadius: 14, border: '1.5px solid #E8E3DB', background: '#fff', fontSize: 15, color: '#181922', outline: 'none', WebkitAppearance: 'none', appearance: 'none' };
+const inp: React.CSSProperties = { width: '100%', minWidth: 0, maxWidth: '100%', height: 51, boxSizing: 'border-box', padding: '14px 16px', borderRadius: 14, border: '1.5px solid #E8E3DB', background: '#fff', fontSize: 15, color: '#181922', outline: 'none', WebkitAppearance: 'none', appearance: 'none' };
 function Lbl({ children }: { children: React.ReactNode }) {
   return <label style={{ display: 'block', fontSize: 12.5, fontWeight: 700, color: '#6F6C67', marginBottom: 8 }}>{children}</label>;
 }
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div style={{ marginBottom: 16 }}><Lbl>{label}</Lbl>{children}</div>;
 }
-function Chips({ items, value, onPick }: { items: { id: string; label: string; color: string }[]; value?: string; onPick: (id: string) => void }) {
+/** Multi-select member chips: tap to toggle any number of people in or out. */
+function Chips({ items, value, onToggle, emptyHint }: { items: { id: string; label: string; color: string }[]; value: string[]; onToggle: (id: string) => void; emptyHint?: string }) {
   return (
-    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-      {items.map((c) => {
-        const sel = value === c.id;
-        return <button key={c.id} onClick={() => onPick(c.id)} style={{ border: 'none', cursor: 'pointer', padding: '9px 14px', borderRadius: 100, fontWeight: 700, fontSize: 13, background: sel ? c.color : '#EBE7DF', color: sel ? '#fff' : '#181922' }}>{c.label}</button>;
-      })}
+    <div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {items.map((c) => {
+          const sel = value.includes(c.id);
+          return (
+            <button key={c.id} onClick={() => onToggle(c.id)} role="checkbox" aria-checked={sel} style={{ display: 'flex', alignItems: 'center', gap: 6, border: 'none', cursor: 'pointer', padding: '9px 14px', borderRadius: 100, fontWeight: 700, fontSize: 13, background: sel ? c.color : '#EBE7DF', color: sel ? '#fff' : '#181922' }}>
+              {sel && <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#fff" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+              {c.label}
+            </button>
+          );
+        })}
+      </div>
+      {emptyHint && value.length === 0 && <div style={{ fontSize: 11.5, color: '#7D776E', marginTop: 8 }}>{emptyHint}</div>}
     </div>
   );
 }

@@ -71,12 +71,16 @@ export const api = {
   state: () => req<AppState>('/state'),
 
   // ---- mutations (each returns fresh state) ----
-  addEvent: (d: { title: string; date?: string; time?: string; who?: string }) =>
+  addEvent: (d: { title: string; date?: string; time?: string; who?: string[] }) =>
     req<AppState>('/events', { method: 'POST', body: JSON.stringify(d) }),
+  updEvent: (id: string, d: { title: string; date?: string; time?: string; who?: string[] }) =>
+    req<AppState>(`/events/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   delEvent: (id: string) => req<AppState>(`/events/${id}`, { method: 'DELETE' }),
 
-  addTask: (d: { title: string; type?: string }) =>
+  addTask: (d: { title: string; type?: string; assignees?: string[] }) =>
     req<AppState>('/tasks', { method: 'POST', body: JSON.stringify(d) }),
+  updTask: (id: string, d: { title: string; type?: string; assignees?: string[] }) =>
+    req<AppState>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   toggleTask: (id: string, done: boolean) =>
     req<AppState>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ done }) }),
   delTask: (id: string) => req<AppState>(`/tasks/${id}`, { method: 'DELETE' }),
@@ -90,8 +94,10 @@ export const api = {
   bumpGoal: (id: string) => req<AppState>(`/goals/${id}`, { method: 'PATCH', body: '{}' }),
   delGoal: (id: string) => req<AppState>(`/goals/${id}`, { method: 'DELETE' }),
 
-  addBill: (d: { name: string; amount?: string; due?: string; payer?: string }) =>
+  addBill: (d: { name: string; amount?: string; due?: string; payer?: string[] }) =>
     req<AppState>('/bills', { method: 'POST', body: JSON.stringify(d) }),
+  updBill: (id: string, d: { name: string; amount?: string; due?: string; payer?: string[] }) =>
+    req<AppState>(`/bills/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   payBill: (id: string) => req<AppState>(`/bills/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'paid' }) }),
   delBill: (id: string) => req<AppState>(`/bills/${id}`, { method: 'DELETE' }),
 

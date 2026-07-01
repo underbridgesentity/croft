@@ -10,11 +10,15 @@ import { AddSheet, NotifSheet, FormSheet } from './screens/Sheets';
 
 export type Tab = 'home' | 'calendar' | 'tasks' | 'money' | 'family';
 export type Plan = 'todos' | 'lists' | 'goals';
-export type FormType = 'event' | 'bill' | 'goal';
+export type FormType = 'event' | 'bill' | 'goal' | 'task';
 
 export interface FormData {
   title?: string; name?: string; amount?: string; date?: string;
-  time?: string; due?: string; target?: string; who?: string; payer?: string; kind?: string;
+  time?: string; due?: string; target?: string; kind?: string; type?: string;
+  // Multi-select member assignment (member ids).
+  who?: string[]; payer?: string[]; assignees?: string[];
+  // Present when the form edits an existing item instead of creating one.
+  editId?: string;
 }
 
 export interface Nav {
@@ -23,7 +27,8 @@ export interface Nav {
   goPlan: (p: Plan) => void;
   openAdd: () => void;
   openNotifs: () => void;
-  openForm: (f: FormType) => void;
+  /** Open a create form, or - when `data.editId` is set - an edit form. */
+  openForm: (f: FormType, data?: FormData) => void;
   closeSheet: () => void;
 }
 
@@ -92,14 +97,15 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
     goPlan: (p) => setPlan(p),
     openAdd: () => setSheet('add'),
     openNotifs: () => setSheet('notifs'),
-    openForm: (f) => {
+    openForm: (f, data) => {
       const defaults: Record<FormType, FormData> = {
-        event: { title: '', date: '', time: '', who: you?.id },
-        bill: { name: '', amount: '', due: '', payer: you?.id },
+        event: { title: '', date: '', time: '', who: you ? [you.id] : [] },
+        bill: { name: '', amount: '', due: '', payer: you ? [you.id] : [] },
         goal: { title: '', kind: 'family', target: '' },
+        task: { title: '', type: 'Task', assignees: [] },
       };
       setForm(f);
-      setFd(defaults[f]);
+      setFd(data || defaults[f]);
       setSheet('form');
     },
     closeSheet: () => setSheet(null),

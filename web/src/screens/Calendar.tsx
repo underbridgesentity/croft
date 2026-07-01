@@ -62,7 +62,16 @@ export default function Calendar({ nav }: { nav: Nav }) {
       <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 12px' }}>Important dates</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {state.events.map((e) => (
-          <div key={e.id} style={{ display: 'flex', gap: 13, padding: 14, background: '#fff', borderRadius: 18, boxShadow: '0 2px 8px rgba(16,20,38,0.04)', alignItems: 'center' }}>
+          <div
+            key={e.id}
+            role="button"
+            tabIndex={0}
+            aria-label={`Edit ${e.title}`}
+            onClick={() => nav.openForm('event', { editId: e.id, title: e.title, date: e.event_date || '', time: e.event_time || '', who: e.assignee_ids || [] })}
+            onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); nav.openForm('event', { editId: e.id, title: e.title, date: e.event_date || '', time: e.event_time || '', who: e.assignee_ids || [] }); } }}
+            className="tap"
+            style={{ display: 'flex', gap: 13, padding: 14, background: '#fff', borderRadius: 18, boxShadow: '0 2px 8px rgba(16,20,38,0.04)', alignItems: 'center', cursor: 'pointer' }}
+          >
             <Icon name={e.illo} color={e.color} size={44} radius={14} glyph={23} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.25 }}>{e.title}</div>
@@ -72,6 +81,7 @@ export default function Calendar({ nav }: { nav: Nav }) {
               <div style={{ fontFamily: grotesk, fontWeight: 600, fontSize: 13 }}>{e.time}</div>
               <div style={{ fontSize: 10, color: '#7D776E', fontWeight: 600 }}>{e.ampm}</div>
             </div>
+            <svg width="8" height="14" viewBox="0 0 8 14" style={{ flexShrink: 0 }} aria-hidden="true"><path d="M1 1l6 6-6 6" stroke="#C9C3B9" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </div>
         ))}
       </div>

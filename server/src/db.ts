@@ -200,6 +200,12 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS event_date DATE;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS event_time TEXT;
 ALTER TABLE bills ADD COLUMN IF NOT EXISTS due_date DATE;
 
+-- Multi-member assignment (JSONB array of member ids). Display text (loc/payer)
+-- stays denormalized for the feed; these ids are the editable source of truth.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS assignee_ids JSONB;
+ALTER TABLE bills ADD COLUMN IF NOT EXISTS assignee_ids JSONB;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assignee_ids JSONB;
+
 CREATE TABLE IF NOT EXISTS budget (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,

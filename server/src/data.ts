@@ -30,11 +30,11 @@ async function assembleState(householdId: string, meMemberId?: string) {
   ] = await Promise.all([
     query(`SELECT name, settings FROM households WHERE id = $1`, [householdId]),
     query(`SELECT id, name, role, initial, color, is_you, sort FROM members WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
-    query(`SELECT id, title, time, ampm, day, date_label, loc, color, illo, to_char(event_date,'YYYY-MM-DD') AS event_date, event_time FROM events WHERE household_id=$1 ORDER BY event_date NULLS LAST, sort, created_at`, [householdId]),
-    query(`SELECT id, title, from_name, from_color, due, due_key, done, type FROM tasks WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
+    query(`SELECT id, title, time, ampm, day, date_label, loc, color, illo, to_char(event_date,'YYYY-MM-DD') AS event_date, event_time, assignee_ids FROM events WHERE household_id=$1 ORDER BY event_date NULLS LAST, sort, created_at`, [householdId]),
+    query(`SELECT id, title, from_name, from_color, due, due_key, done, type, assignee_ids FROM tasks WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
     query(`SELECT id, name, by_member, got FROM shopping WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
     query(`SELECT id, kind, tag, title, sub, pct, color, target FROM goals WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
-    query(`SELECT id, name, cat, amount, due, status, payer, color, illo, to_char(due_date,'YYYY-MM-DD') AS due_date FROM bills WHERE household_id=$1 ORDER BY due_date NULLS LAST, sort, created_at`, [householdId]),
+    query(`SELECT id, name, cat, amount, due, status, payer, color, illo, to_char(due_date,'YYYY-MM-DD') AS due_date, assignee_ids FROM bills WHERE household_id=$1 ORDER BY due_date NULLS LAST, sort, created_at`, [householdId]),
     query(`SELECT id, name, spent, budget_limit, color FROM budget WHERE household_id=$1 ORDER BY sort`, [householdId]),
     query(`SELECT id, name, saved, target, color FROM savings WHERE household_id=$1 ORDER BY sort`, [householdId]),
     query(`SELECT id, txt, detail, amount, dir, who, settled FROM settle WHERE household_id=$1 ORDER BY sort`, [householdId]),
@@ -114,20 +114,69 @@ async function meMember(householdId: string, memberId?: string) {
   return r.rows[0] || { name: 'You', color: '#3B5BFF', initial: 'Y' };
 }
 
+// Accept a single id or an array of ids from the client; normalize to string[].
+const idsSchema = z.union([z.string(), z.array(z.string())]).optional();
+const toIds = (v: string | string[] | undefined) => ([] as string[]).concat(v || []).filter(Boolean);
+
+/** Resolve member ids to household-scoped members, preserving the given order.
+ * Unknown/foreign ids are silently dropped (scoping guard). */
+async function membersByIds(householdId: string, ids: string[]) {
+  if (!ids.length) return [] as { id: string; name: string; color: string }[];
+  const r = await query<{ id: string; name: string; color: string }>(
+    `SELECT id, name, color FROM members WHERE household_id=$1 AND id = ANY($2::uuid[])`,
+    [householdId, ids]
+  );
+  return ids.map((id) => r.rows.find((m) => m.id === id)).filter(Boolean) as typeof r.rows;
+}
+
+/** "A" / "A & B" / "A, B & C" */
+function joinNames(names: string[]) {
+  if (names.length <= 1) return names[0] || '';
+  return names.slice(0, -1).join(', ') + ' & ' + names[names.length - 1];
+}
+
+/** Derive the denormalized event/bill fields from a date + assignees. */
+function dateBits(date?: string, time?: string) {
+  const iso = date && isoRe.test(date) ? date : null;
+  const timeStr = (time || '').trim();
+  return {
+    iso,
+    timeStr,
+    label: iso ? formatDateLabel(iso) : 'Upcoming',
+    displayTime: timeStr || 'All',
+    ampm: timeStr ? '' : 'day',
+    dayFlag: iso && iso === sastToday() ? 'today' : '',
+  };
+}
+
 // ---------------- EVENTS ----------------
+const eventSchema = z.object({ title: z.string().min(1), date: z.string().optional(), time: z.string().optional(), who: idsSchema });
+
 dataRouter.post('/events', async (req: AuthedRequest, res) => {
-  const b = z.object({ title: z.string().min(1), date: z.string().optional(), time: z.string().optional(), who: z.string().optional() }).safeParse(req.body);
+  const b = eventSchema.safeParse(req.body);
   if (!b.success) return res.status(400).json({ error: 'Add a title first' });
-  const m = (await query(`SELECT name, color FROM members WHERE id=$1 AND household_id=$2`, [b.data.who, hh(req)])).rows[0];
-  const iso = b.data.date && isoRe.test(b.data.date) ? b.data.date : null;
-  const timeStr = (b.data.time || '').trim();
-  const label = iso ? formatDateLabel(iso) : 'Upcoming';
-  const displayTime = timeStr || 'All';
-  const dayFlag = iso && iso === sastToday() ? 'today' : '';
+  const ms = await membersByIds(hh(req), toIds(b.data.who));
+  const d = dateBits(b.data.date, b.data.time);
   await query(
-    `INSERT INTO events (household_id, title, time, ampm, day, date_label, event_date, event_time, loc, color, illo, sort)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'calendar',${nextSort('events')})`,
-    [hh(req), b.data.title, displayTime, timeStr ? '' : 'day', dayFlag, label, iso, timeStr, 'For ' + (m?.name || 'the family'), m?.color || '#3B5BFF']
+    `INSERT INTO events (household_id, title, time, ampm, day, date_label, event_date, event_time, loc, color, illo, assignee_ids, sort)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'calendar',$11,${nextSort('events')})`,
+    [hh(req), b.data.title, d.displayTime, d.ampm, d.dayFlag, d.label, d.iso, d.timeStr,
+     'For ' + (ms.length ? joinNames(ms.map((m) => m.name)) : 'the family'),
+     ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id))]
+  );
+  await sendState(req, res);
+});
+dataRouter.patch('/events/:id', async (req: AuthedRequest, res) => {
+  const b = eventSchema.safeParse(req.body);
+  if (!b.success) return res.status(400).json({ error: 'Add a title first' });
+  const ms = await membersByIds(hh(req), toIds(b.data.who));
+  const d = dateBits(b.data.date, b.data.time);
+  await query(
+    `UPDATE events SET title=$1, time=$2, ampm=$3, day=$4, date_label=$5, event_date=$6, event_time=$7, loc=$8, color=$9, assignee_ids=$10
+      WHERE id=$11 AND household_id=$12`,
+    [b.data.title, d.displayTime, d.ampm, d.dayFlag, d.label, d.iso, d.timeStr,
+     'For ' + (ms.length ? joinNames(ms.map((m) => m.name)) : 'the family'),
+     ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), req.params.id, hh(req)]
   );
   await sendState(req, res);
 });
@@ -138,17 +187,30 @@ dataRouter.delete('/events/:id', async (req: AuthedRequest, res) => {
 
 // ---------------- TASKS ----------------
 dataRouter.post('/tasks', async (req: AuthedRequest, res) => {
-  const b = z.object({ title: z.string().min(1), type: z.string().optional() }).safeParse(req.body);
+  const b = z.object({ title: z.string().min(1), type: z.string().optional(), assignees: idsSchema }).safeParse(req.body);
   if (!b.success) return res.status(400).json({ error: 'Type a to-do' });
   const me = await meMember(hh(req), req.memberId);
+  const ms = await membersByIds(hh(req), toIds(b.data.assignees));
   await query(
-    `INSERT INTO tasks (household_id, title, from_name, from_color, due, due_key, done, type, sort)
-     VALUES ($1,$2,$3,$4,'Today','today',false,$5,${nextSort('tasks')})`,
-    [hh(req), b.data.title, me.name, me.color, b.data.type || 'Task']
+    `INSERT INTO tasks (household_id, title, from_name, from_color, due, due_key, done, type, assignee_ids, sort)
+     VALUES ($1,$2,$3,$4,'Today','today',false,$5,$6,${nextSort('tasks')})`,
+    [hh(req), b.data.title, me.name, me.color, b.data.type || 'Task', JSON.stringify(ms.map((m) => m.id))]
   );
   await sendState(req, res);
 });
+// One PATCH, two shapes: `{done}` toggles completion (checkboxes); a body with
+// `title` edits the task's fields.
 dataRouter.patch('/tasks/:id', async (req: AuthedRequest, res) => {
+  if (typeof req.body?.title === 'string') {
+    const b = z.object({ title: z.string().min(1), type: z.string().optional(), assignees: idsSchema }).safeParse(req.body);
+    if (!b.success) return res.status(400).json({ error: 'Type a to-do' });
+    const ms = await membersByIds(hh(req), toIds(b.data.assignees));
+    await query(
+      `UPDATE tasks SET title=$1, type=COALESCE($2, type), assignee_ids=$3 WHERE id=$4 AND household_id=$5`,
+      [b.data.title, b.data.type || null, JSON.stringify(ms.map((m) => m.id)), req.params.id, hh(req)]
+    );
+    return sendState(req, res);
+  }
   const done = !!req.body?.done;
   await query(`UPDATE tasks SET done=$1 WHERE id=$2 AND household_id=$3`, [done, req.params.id, hh(req)]);
   if (done) {
@@ -212,21 +274,43 @@ dataRouter.delete('/goals/:id', async (req: AuthedRequest, res) => {
 });
 
 // ---------------- BILLS ----------------
+const billSchema = z.object({ name: z.string().min(1), amount: z.union([z.string(), z.number()]).optional(), due: z.string().optional(), payer: idsSchema });
+
 dataRouter.post('/bills', async (req: AuthedRequest, res) => {
-  const b = z.object({ name: z.string().min(1), amount: z.union([z.string(), z.number()]).optional(), due: z.string().optional(), payer: z.string().optional() }).safeParse(req.body);
+  const b = billSchema.safeParse(req.body);
   if (!b.success) return res.status(400).json({ error: 'Add a bill name' });
-  const m = (await query(`SELECT name FROM members WHERE id=$1 AND household_id=$2`, [b.data.payer, hh(req)])).rows[0];
+  const ms = await membersByIds(hh(req), toIds(b.data.payer));
   const iso = b.data.due && isoRe.test(b.data.due) ? b.data.due : null;
   const dueLabel = iso ? formatDateLabel(iso) : (String(b.data.due || '').trim() || 'This month');
   const status = iso && iso < sastToday() ? 'overdue' : 'unpaid';
   await query(
-    `INSERT INTO bills (household_id, name, cat, amount, due, due_date, status, payer, color, illo, sort)
-     VALUES ($1,$2,'Other',$3,$4,$5,$6,$7,'#3B5BFF','wallet',${nextSort('bills')})`,
-    [hh(req), b.data.name, Number(b.data.amount) || 0, dueLabel, iso, status, m?.name || 'Shared']
+    `INSERT INTO bills (household_id, name, cat, amount, due, due_date, status, payer, color, illo, assignee_ids, sort)
+     VALUES ($1,$2,'Other',$3,$4,$5,$6,$7,$8,'wallet',$9,${nextSort('bills')})`,
+    [hh(req), b.data.name, Number(b.data.amount) || 0, dueLabel, iso, status,
+     ms.length ? joinNames(ms.map((m) => m.name)) : 'Shared',
+     ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id))]
   );
   await sendState(req, res);
 });
+// One PATCH, two shapes: `{status}` marks paid/unpaid (and the cron's overdue
+// sweep); a body with `name` edits the bill's fields.
 dataRouter.patch('/bills/:id', async (req: AuthedRequest, res) => {
+  if (typeof req.body?.name === 'string') {
+    const b = billSchema.safeParse(req.body);
+    if (!b.success) return res.status(400).json({ error: 'Add a bill name' });
+    const ms = await membersByIds(hh(req), toIds(b.data.payer));
+    const iso = b.data.due && isoRe.test(b.data.due) ? b.data.due : null;
+    const dueLabel = iso ? formatDateLabel(iso) : (String(b.data.due || '').trim() || 'This month');
+    await query(
+      `UPDATE bills SET name=$1, amount=$2, due=$3, due_date=$4, payer=$5, color=$6, assignee_ids=$7,
+              status = CASE WHEN status='paid' THEN 'paid' WHEN $4::date IS NOT NULL AND $4::date < $8::date THEN 'overdue' ELSE 'unpaid' END
+        WHERE id=$9 AND household_id=$10`,
+      [b.data.name, Number(b.data.amount) || 0, dueLabel, iso,
+       ms.length ? joinNames(ms.map((m) => m.name)) : 'Shared',
+       ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), sastToday(), req.params.id, hh(req)]
+    );
+    return sendState(req, res);
+  }
   const parsed = z.enum(['paid', 'unpaid', 'overdue']).safeParse(req.body?.status);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid bill status' });
   await query(`UPDATE bills SET status=$1 WHERE id=$2 AND household_id=$3`, [parsed.data, req.params.id, hh(req)]);
