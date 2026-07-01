@@ -5,7 +5,14 @@ import Shell from './Shell';
 import WelcomeTour from './screens/WelcomeTour';
 import JoinInvite from './screens/JoinInvite';
 import ResetPassword from './screens/ResetPassword';
+import LegalPage from './screens/LegalPage';
 
+function readLegal(): 'privacy' | 'support' | null {
+  const p = window.location.pathname;
+  if (p === '/privacy' || p === '/privacy/') return 'privacy';
+  if (p === '/support' || p === '/support/') return 'support';
+  return null;
+}
 function readJoinToken(): string | null {
   const m = window.location.pathname.match(/^\/join\/(.+)$/);
   if (m) return decodeURIComponent(m[1]);
@@ -42,6 +49,17 @@ export default function App() {
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, [flash]);
+
+  // Public legal pages — reachable without a session (App Store review, Google
+  // consent screen), independent of auth state.
+  const legal = readLegal();
+  if (legal) {
+    return (
+      <Frame wide>
+        <LegalPage page={legal} />
+      </Frame>
+    );
+  }
 
   if (!ready) {
     return (

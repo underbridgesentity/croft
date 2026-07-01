@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../lib/api';
 import { enablePush, disablePush } from '../lib/push';
+import { nativeShare } from '../lib/native';
 import type { Nav } from '../Shell';
 import type { Settings } from '../lib/types';
 import Icon from '../components/Icon';
@@ -67,7 +68,8 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
       const { token } = await api.createInvite();
       const url = `${window.location.origin}/join/${token}`;
       setInviteLink(url);
-      if (navigator.share) {
+      const shared = await nativeShare({ title: 'Join our home on Croft', text: `Join ${state.household.name} on Croft`, url });
+      if (!shared && navigator.share) {
         navigator.share({ title: 'Join our home on Croft', text: `Join ${state.household.name} on Croft`, url }).catch(() => {});
       }
     } catch (e: any) {
@@ -156,9 +158,7 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
           <input readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} style={{ width: '100%', boxSizing: 'border-box', border: '1.5px solid #E4E9F2', background: '#F7F9FD', borderRadius: 12, padding: '11px 13px', fontSize: 12.5, color: '#3B5BFF', marginBottom: 10 }} />
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={copyLink} style={{ flex: 1, border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 14, padding: '11px', borderRadius: 12, cursor: 'pointer' }}>Copy link</button>
-            {typeof navigator !== 'undefined' && (navigator as any).share && (
-              <button onClick={() => (navigator as any).share({ title: 'Join our home on Croft', url: inviteLink }).catch(() => {})} style={{ flex: 1, border: '1.5px solid #E4E9F2', background: '#fff', color: '#101426', fontWeight: 700, fontSize: 14, padding: '11px', borderRadius: 12, cursor: 'pointer' }}>Share</button>
-            )}
+            <button onClick={async () => { if (!(await nativeShare({ title: 'Join our home on Croft', url: inviteLink }))) (navigator as any).share?.({ title: 'Join our home on Croft', url: inviteLink }).catch(() => {}); }} style={{ flex: 1, border: '1.5px solid #E4E9F2', background: '#fff', color: '#101426', fontWeight: 700, fontSize: 14, padding: '11px', borderRadius: 12, cursor: 'pointer' }}>Share</button>
           </div>
           <button onClick={() => setInviteLink(null)} style={{ width: '100%', border: 'none', background: 'none', color: '#9AA3B5', fontWeight: 700, fontSize: 13.5, padding: '12px 0 2px', cursor: 'pointer' }}>Done</button>
         </div>

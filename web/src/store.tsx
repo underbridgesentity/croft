@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api } from './lib/api';
+import { tapHaptic, onNativeResume } from './lib/native';
 import type { AppState, User } from './lib/types';
 
 interface Store {
@@ -52,6 +53,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     window.addEventListener('croft:unauthorized', onExpired);
     return () => window.removeEventListener('croft:unauthorized', onExpired);
   }, [flash]);
+
+  // Native app: refresh household state when returning to the foreground.
+  useEffect(() => onNativeResume(() => { refreshState().catch(() => {}); }), [refreshState]);
 
   // initial session check
   useEffect(() => {
@@ -130,6 +134,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         const s = await p;
         setState(s);
+        tapHaptic();
         if (msg) flash(msg);
       } catch (e: any) {
         flash(e?.message || 'Something went wrong');
