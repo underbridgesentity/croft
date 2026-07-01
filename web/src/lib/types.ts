@@ -37,4 +37,5 @@ export interface User {
   household_id: string | null;
   household_name: string | null;
   onboarded?: boolean;
+  locked?: boolean;
 }

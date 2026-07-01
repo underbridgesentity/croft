@@ -86,6 +86,9 @@ CREATE TABLE IF NOT EXISTS users (
 -- Whether the user has seen the first-run welcome walkthrough (per-user).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarded BOOLEAN NOT NULL DEFAULT false;
 
+-- Optional per-user app-lock passcode (bcrypt hash; NULL = no lock).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS lock_pin TEXT;
+
 -- Real dates (source of truth for reminders); display labels are derived from these.
 ALTER TABLE events ADD COLUMN IF NOT EXISTS event_date DATE;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS event_time TEXT;

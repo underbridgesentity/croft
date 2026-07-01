@@ -38,7 +38,8 @@ function setAuthCookie(res: Response, userId: string) {
 
 async function loadUser(userId: string) {
   const r = await query(
-    `SELECT u.id, u.email, u.name, u.household_id, u.member_id, u.onboarded, h.name AS household_name
+    `SELECT u.id, u.email, u.name, u.household_id, u.member_id, u.onboarded,
+            (u.lock_pin IS NOT NULL) AS locked, h.name AS household_name
        FROM users u LEFT JOIN households h ON h.id = u.household_id
       WHERE u.id = $1`,
     [userId]
@@ -355,6 +356,36 @@ authRouter.post('/delete-account', requireAuth, async (req: AuthedRequest, res) 
     if (remaining === 0) await c.query(`DELETE FROM households WHERE id=$1`, [householdId]);
   });
   res.clearCookie(COOKIE);
+  res.json({ ok: true });
+});
+
+// ---- App lock (per-user passcode) ----
+const pinSchema = z.object({ pin: z.string().regex(/^\d{4,8}$/) });
+
+authRouter.post('/lock/set', requireAuth, async (req: AuthedRequest, res) => {
+  const p = pinSchema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: 'Passcode must be 4–8 digits.' });
+  const hash = await bcrypt.hash(p.data.pin, 10);
+  await query(`UPDATE users SET lock_pin=$1 WHERE id=$2`, [hash, req.userId]);
+  res.json({ ok: true });
+});
+
+authRouter.post('/lock/verify', rateLimit('lockpin', 10, 900), requireAuth, async (req: AuthedRequest, res) => {
+  const p = pinSchema.safeParse(req.body);
+  if (!p.success) return res.json({ ok: false });
+  const row = (await query(`SELECT lock_pin FROM users WHERE id=$1`, [req.userId])).rows[0];
+  if (!row?.lock_pin) return res.json({ ok: true });
+  res.json({ ok: await bcrypt.compare(p.data.pin, row.lock_pin) });
+});
+
+authRouter.post('/lock/disable', rateLimit('lockpin', 10, 900), requireAuth, async (req: AuthedRequest, res) => {
+  const p = pinSchema.safeParse(req.body);
+  if (!p.success) return res.status(400).json({ error: 'Enter your passcode.' });
+  const row = (await query(`SELECT lock_pin FROM users WHERE id=$1`, [req.userId])).rows[0];
+  if (row?.lock_pin && !(await bcrypt.compare(p.data.pin, row.lock_pin))) {
+    return res.status(401).json({ error: 'Incorrect passcode.' });
+  }
+  await query(`UPDATE users SET lock_pin=NULL WHERE id=$1`, [req.userId]);
   res.json({ ok: true });
 });
 

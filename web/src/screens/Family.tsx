@@ -12,7 +12,7 @@ const grotesk = "'Space Grotesk', sans-serif";
 const pwInput: React.CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1.5px solid #E4E9F2', background: '#fff', borderRadius: 12, padding: '12px 14px', fontSize: 14.5, outline: 'none', fontFamily: 'inherit', color: '#101426' };
 
 export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: () => void }) {
-  const { state, run, flash, deleteAccount } = useStore();
+  const { state, user, run, flash, deleteAccount, setLockEnabled } = useStore();
   const [inviting, setInviting] = useState(false);
   const [inviteName, setInviteName] = useState('');
   const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -27,7 +27,12 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
   const [delBusy, setDelBusy] = useState(false);
   const [cal, setCal] = useState<{ url: string; webcal: string } | null>(null);
   const [calBusy, setCalBusy] = useState(false);
+  const [lockOpen, setLockOpen] = useState(false);
+  const [pinA, setPinA] = useState('');
+  const [pinB, setPinB] = useState('');
+  const [lockBusy, setLockBusy] = useState(false);
   if (!state) return null;
+  const locked = !!user?.locked;
   const s: Settings = state.household.settings || {};
 
   const changePassword = async () => {
@@ -62,6 +67,35 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
       flash('Calendar link copied ✓');
     } catch {
       flash('Could not copy — long-press to copy');
+    }
+  };
+  const enableLock = async () => {
+    if (!/^\d{4,8}$/.test(pinA)) return flash('Passcode must be 4–8 digits');
+    if (pinA !== pinB) return flash('Passcodes don’t match');
+    setLockBusy(true);
+    try {
+      await api.lockSet(pinA);
+      setLockEnabled(true);
+      flash('App lock turned on ✓');
+      setLockOpen(false); setPinA(''); setPinB('');
+    } catch (e: any) {
+      flash(e?.message || 'Could not set passcode');
+    } finally {
+      setLockBusy(false);
+    }
+  };
+  const disableLock = async () => {
+    if (!/^\d{4,8}$/.test(pinA)) return flash('Enter your passcode');
+    setLockBusy(true);
+    try {
+      await api.lockDisable(pinA);
+      setLockEnabled(false);
+      flash('App lock turned off');
+      setLockOpen(false); setPinA('');
+    } catch (e: any) {
+      flash(e?.message || 'Incorrect passcode');
+    } finally {
+      setLockBusy(false);
     }
   };
   const doDelete = async () => {
@@ -235,9 +269,24 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
       <div style={{ background: '#fff', borderRadius: 22, padding: '4px 16px', boxShadow: '0 2px 10px rgba(16,20,38,0.04)', marginBottom: 12 }}>
         <SettingRow illo="lock" label="Change password" detail="" onClick={() => setPwOpen((v) => !v)} />
         <SettingRow illo="cloud" label="Auto-backup & sync" detail="On" good onClick={() => flash('Your data backs up and syncs automatically ✓')} />
-        <SettingRow illo="shield" label="Face ID & passcode" detail={onOff('faceId')} good={!!s.faceId} onClick={() => toggle('faceId', 'Updated ✓')} />
+        <SettingRow illo="lock" label="App lock (passcode)" detail={locked ? 'On' : 'Off'} good={locked} onClick={() => { setLockOpen((v) => !v); setPinA(''); setPinB(''); }} />
         <div style={{ height: 4 }} />
       </div>
+
+      {lockOpen && (
+        <div style={{ background: '#fff', borderRadius: 18, padding: 16, boxShadow: '0 2px 10px rgba(16,20,38,0.04)', marginBottom: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 4 }}>{locked ? 'Turn off app lock' : 'Set a passcode'}</div>
+          <div style={{ fontSize: 12.5, color: '#717A90', marginBottom: 12, lineHeight: 1.45 }}>
+            {locked ? 'Enter your current passcode to turn off the lock.' : 'A 4–8 digit code you’ll enter each time you open Croft. Forgot it? Sign out and back in to reset.'}
+          </div>
+          <input inputMode="numeric" type="password" maxLength={8} value={pinA} onChange={(e) => setPinA(e.target.value.replace(/\D/g, ''))} placeholder={locked ? 'Passcode' : 'New passcode (4–8 digits)'} style={pwInput} />
+          {!locked && <input inputMode="numeric" type="password" maxLength={8} value={pinB} onChange={(e) => setPinB(e.target.value.replace(/\D/g, ''))} placeholder="Confirm passcode" style={{ ...pwInput, marginTop: 8 }} />}
+          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <button onClick={locked ? disableLock : enableLock} disabled={lockBusy} style={{ flex: 1, border: 'none', background: locked ? '#E23A54' : '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 14, padding: 11, borderRadius: 12, cursor: 'pointer', opacity: lockBusy ? 0.6 : 1 }}>{lockBusy ? '…' : locked ? 'Turn off' : 'Turn on lock'}</button>
+            <button onClick={() => { setLockOpen(false); setPinA(''); setPinB(''); }} style={{ border: '1.5px solid #E4E9F2', background: '#fff', color: '#101426', fontWeight: 700, fontSize: 14, padding: '11px 18px', borderRadius: 12, cursor: 'pointer' }}>Cancel</button>
+          </div>
+        </div>
+      )}
 
       {pwOpen && (
         <div style={{ background: '#fff', borderRadius: 18, padding: 16, boxShadow: '0 2px 10px rgba(16,20,38,0.04)', marginBottom: 12 }}>

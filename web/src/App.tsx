@@ -6,6 +6,7 @@ import WelcomeTour from './screens/WelcomeTour';
 import JoinInvite from './screens/JoinInvite';
 import ResetPassword from './screens/ResetPassword';
 import LegalPage from './screens/LegalPage';
+import LockScreen from './screens/LockScreen';
 
 function readLegal(): 'privacy' | 'support' | null {
   const p = window.location.pathname;
@@ -24,7 +25,7 @@ function readResetToken(): string | null {
 }
 
 export default function App() {
-  const { ready, user, state, flash } = useStore();
+  const { ready, user, state, flash, appUnlocked } = useStore();
   const [entered, setEntered] = useState(false);
   const [joinToken, setJoinToken] = useState<string | null>(() => readJoinToken());
   const [resetToken, setResetToken] = useState<string | null>(() => readResetToken());
@@ -67,6 +68,15 @@ export default function App() {
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Logo />
         </div>
+      </Frame>
+    );
+  }
+
+  // App-lock: an authenticated user with a passcode set must unlock first.
+  if (user && user.locked && !appUnlocked) {
+    return (
+      <Frame wide>
+        <LockScreen />
       </Frame>
     );
   }

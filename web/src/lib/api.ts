@@ -47,6 +47,9 @@ export const api = {
   changePassword: (d: { currentPassword?: string; newPassword: string }) =>
     req<{ ok: true }>('/auth/change-password', { method: 'POST', body: JSON.stringify(d) }),
   deleteAccount: () => req<{ ok: true }>('/auth/delete-account', { method: 'POST' }),
+  lockSet: (pin: string) => req<{ ok: true }>('/auth/lock/set', { method: 'POST', body: JSON.stringify({ pin }) }),
+  lockVerify: (pin: string) => req<{ ok: boolean }>('/auth/lock/verify', { method: 'POST', body: JSON.stringify({ pin }) }),
+  lockDisable: (pin: string) => req<{ ok: true }>('/auth/lock/disable', { method: 'POST', body: JSON.stringify({ pin }) }),
 
   // ---- push ----
   calendarFeed: () => req<{ url: string; webcal: string }>('/calendar-feed'),

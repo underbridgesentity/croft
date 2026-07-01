@@ -18,6 +18,9 @@ interface Store {
   deleteAccount: () => Promise<void>;
   logout: () => Promise<void>;
   completeOnboarding: () => void;
+  appUnlocked: boolean;
+  unlock: () => void;
+  setLockEnabled: (locked: boolean) => void;
   refreshState: () => Promise<void>;
   // generic apply (mutations return fresh state)
   run: (p: Promise<AppState>, msg?: string) => Promise<void>;
@@ -30,6 +33,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [state, setState] = useState<AppState | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [appUnlocked, setAppUnlocked] = useState(true);
   const tRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flash = useCallback((msg: string) => {
@@ -54,8 +58,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('croft:unauthorized', onExpired);
   }, [flash]);
 
-  // Native app: refresh household state when returning to the foreground.
-  useEffect(() => onNativeResume(() => { refreshState().catch(() => {}); }), [refreshState]);
+  // Native app: refresh state and re-lock (if a passcode is set) on foreground.
+  useEffect(() => onNativeResume(() => { refreshState().catch(() => {}); setAppUnlocked(false); }), [refreshState]);
 
   // initial session check
   useEffect(() => {
@@ -63,6 +67,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         const { user } = await api.me();
         setUser(user);
+        setAppUnlocked(!(user && user.locked));
         if (user?.household_id) {
           try {
             setState(await api.state());
@@ -80,6 +85,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const afterAuth = useCallback(async (u: User) => {
     setUser(u);
+    // An explicit login (full credentials) unlocks this session; the passcode
+    // only re-gates on a cold reopen/resume. This is also the recovery path for
+    // a forgotten passcode (sign out → log in).
+    setAppUnlocked(true);
     setState(await api.state());
   }, []);
 
@@ -129,6 +138,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     api.markOnboarded().catch(() => {});
   }, []);
 
+  const unlock = useCallback(() => setAppUnlocked(true), []);
+  const setLockEnabled = useCallback((locked: boolean) => {
+    setUser((u) => (u ? { ...u, locked } : u));
+    if (!locked) setAppUnlocked(true);
+  }, []);
+
   const run = useCallback(
     async (p: Promise<AppState>, msg?: string) => {
       try {
@@ -143,7 +158,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [flash]
   );
 
-  const value: Store = { ready, user, state, toast, flash, signup, login, acceptInvite, resetPassword, deleteAccount, logout, completeOnboarding, refreshState, run };
+  const value: Store = { ready, user, state, toast, flash, signup, login, acceptInvite, resetPassword, deleteAccount, logout, completeOnboarding, appUnlocked, unlock, setLockEnabled, refreshState, run };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
