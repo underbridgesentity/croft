@@ -28,6 +28,8 @@ export default defineConfig({
       workbox: {
         navigateFallbackDenylist: [/^\/api/],
         globPatterns: ['**/*.{js,css,html,svg,png,jpg,woff2}'],
+        // Pull in the push + notificationclick handlers (served from /public).
+        importScripts: ['push-sw.js'],
       },
     }),
   ],

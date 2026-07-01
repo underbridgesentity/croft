@@ -48,6 +48,11 @@ export const api = {
     req<{ ok: true }>('/auth/change-password', { method: 'POST', body: JSON.stringify(d) }),
   deleteAccount: () => req<{ ok: true }>('/auth/delete-account', { method: 'POST' }),
 
+  // ---- push ----
+  pushKey: () => req<{ publicKey: string }>('/push/key'),
+  pushSubscribe: (sub: unknown) => req<{ ok: true }>('/push/subscribe', { method: 'POST', body: JSON.stringify(sub) }),
+  pushUnsubscribe: (endpoint: string) => req<{ ok: true }>('/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) }),
+
   // ---- invites ----
   createInvite: (memberId?: string) =>
     req<{ token: string }>('/invites', { method: 'POST', body: JSON.stringify(memberId ? { memberId } : {}) }),

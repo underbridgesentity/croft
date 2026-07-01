@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { z } from 'zod';
 import { query } from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
+import { vapidPublicKey, saveSubscription, removeSubscription, pushToHousehold, pushToSub } from './push.js';
 
 export const dataRouter = Router();
 dataRouter.use(requireAuth);
@@ -244,7 +245,28 @@ dataRouter.post('/nudge', async (req: AuthedRequest, res) => {
      VALUES ($1,'bell','#FF5C8A',$2,$3,'just now',true)`,
     [hh(req), `Reminder for ${name}`, 'A nudge was sent — don’t forget!']
   );
+  // Fire a real push to the rest of the household (best-effort; never blocks).
+  pushToHousehold(hh(req), { title: `Reminder for ${name}`, body: 'A nudge was sent — don’t forget!', url: '/' }, req.userId).catch(() => {});
   await sendState(req, res);
+});
+
+// ---------------- PUSH SUBSCRIPTIONS ----------------
+dataRouter.get('/push/key', (_req, res) => {
+  res.json({ publicKey: vapidPublicKey });
+});
+dataRouter.post('/push/subscribe', async (req: AuthedRequest, res) => {
+  const sub = req.body;
+  if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) {
+    return res.status(400).json({ error: 'Invalid subscription' });
+  }
+  await saveSubscription(hh(req), req.userId, sub);
+  // Immediate confirmation so the user sees push working right away.
+  pushToSub(sub, { title: 'Croft notifications are on ✓', body: 'Reminders and nudges will appear here.', url: '/' }).catch(() => {});
+  res.json({ ok: true });
+});
+dataRouter.post('/push/unsubscribe', async (req: AuthedRequest, res) => {
+  if (req.body?.endpoint) await removeSubscription(String(req.body.endpoint));
+  res.json({ ok: true });
 });
 
 // ---------------- SETTLE ----------------

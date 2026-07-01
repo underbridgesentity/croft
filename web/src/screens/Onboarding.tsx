@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../lib/api';
+import { enablePush } from '../lib/push';
 import Art from '../components/Art';
 
 type Step = 'welcome' | 'intro' | 'signup' | 'login' | 'forgot' | 'family' | 'notify';
@@ -105,17 +106,16 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
 
   const enableNotifs = async () => {
     try {
-      if ('Notification' in window && Notification.permission === 'default') {
-        const perm = await Notification.requestPermission();
-        if (perm === 'granted') {
-          await run(api.setSetting('push', true));
-          new Notification('Croft', { body: "You're all set — we'll keep the family in sync." });
-        }
+      const ok = await enablePush();
+      if (ok) {
+        await run(api.setSetting('push', true));
+        flash('Notifications turned on 🔔');
+      } else {
+        flash('You can turn on notifications later in Family');
       }
     } catch {
-      /* ignore */
+      flash('You can turn on notifications later in Family');
     }
-    flash('Notifications turned on 🔔');
     onComplete();
   };
 

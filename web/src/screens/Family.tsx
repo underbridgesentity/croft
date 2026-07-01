@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../lib/api';
+import { enablePush, disablePush } from '../lib/push';
 import type { Nav } from '../Shell';
 import type { Settings } from '../lib/types';
 import Icon from '../components/Icon';
@@ -87,6 +88,17 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
   const conn = (key: keyof Settings) => (s[key] ? 'Connected' : 'Connect');
   const toggle = (key: keyof Settings, msg?: string) => run(api.setSetting(key, !s[key]), msg);
 
+  const togglePush = async () => {
+    if (!s.push) {
+      const ok = await enablePush();
+      if (!ok) return flash('Allow notifications in your browser/device settings');
+      run(api.setSetting('push', true), 'Push notifications on ✓');
+    } else {
+      await disablePush();
+      run(api.setSetting('push', false), 'Push notifications off');
+    }
+  };
+
   const notifRows = [
     { key: 'push' as const, illo: 'bell', label: 'Push notifications', detail: onOff('push'), good: !!s.push },
     { key: 'email' as const, illo: 'mail', label: 'Email reminders', detail: onOff('email'), good: !!s.email },
@@ -156,7 +168,7 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
       <div style={{ fontSize: 12.5, color: '#717A90', margin: '0 2px 12px' }}>How Croft reaches you and the family</div>
       <div style={{ background: '#fff', borderRadius: 22, padding: '4px 16px', boxShadow: '0 2px 10px rgba(16,20,38,0.04)', marginBottom: 26 }}>
         {notifRows.map((r) => (
-          <SettingRow key={r.key} illo={r.illo} iconColor={(r as any).iconColor} label={r.label} detail={r.detail} good={r.good} onClick={() => toggle(r.key, 'Updated ✓')} />
+          <SettingRow key={r.key} illo={r.illo} iconColor={(r as any).iconColor} label={r.label} detail={r.detail} good={r.good} onClick={() => (r.key === 'push' ? togglePush() : toggle(r.key, 'Updated ✓'))} />
         ))}
         <div style={{ height: 4 }} />
       </div>

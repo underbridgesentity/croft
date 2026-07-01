@@ -94,6 +94,16 @@ CREATE TABLE IF NOT EXISTS password_resets (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  user_id      UUID REFERENCES users(id) ON DELETE CASCADE,
+  endpoint     TEXT UNIQUE NOT NULL,
+  p256dh       TEXT NOT NULL,
+  auth         TEXT NOT NULL,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE IF NOT EXISTS members (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
@@ -252,6 +262,7 @@ CREATE TABLE IF NOT EXISTS invites (
 CREATE INDEX IF NOT EXISTS idx_notifications_hh ON notifications(household_id);
 CREATE INDEX IF NOT EXISTS idx_feed_hh ON feed(household_id);
 CREATE INDEX IF NOT EXISTS idx_invites_hh ON invites(household_id);
+CREATE INDEX IF NOT EXISTS idx_push_hh ON push_subscriptions(household_id);
 CREATE INDEX IF NOT EXISTS idx_budget_hh ON budget(household_id);
 CREATE INDEX IF NOT EXISTS idx_savings_hh ON savings(household_id);
 CREATE INDEX IF NOT EXISTS idx_settle_hh ON settle(household_id);
