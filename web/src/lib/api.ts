@@ -15,6 +15,12 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
     /* no body */
   }
   if (!res.ok) {
+    // A 401 from a non-auth (data) route means the session expired mid-use —
+    // signal the app to reset to the sign-in screen. Login/me 401s are handled
+    // inline by their callers and must not trigger a global sign-out.
+    if (res.status === 401 && !path.startsWith('/auth/')) {
+      window.dispatchEvent(new CustomEvent('croft:unauthorized'));
+    }
     const err = new Error(body?.error || `Request failed (${res.status})`) as Error & { status?: number };
     err.status = res.status;
     throw err;

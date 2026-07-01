@@ -21,7 +21,13 @@ const needsSsl = /neon\.tech|sslmode=require/i.test(connectionString) ||
 export const pool = new Pool({
   connectionString,
   ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
-  max: 10,
+  // Serverless-friendly sizing: keep few connections per warm instance and
+  // release them quickly so idle functions don't hold Neon's connection slots.
+  // (The connection string is already Neon's pooled/PgBouncer endpoint.)
+  max: 5,
+  idleTimeoutMillis: 10_000,
+  connectionTimeoutMillis: 10_000,
+  allowExitOnIdle: true,
 });
 
 export async function query<T extends pg.QueryResultRow = any>(
@@ -224,8 +230,13 @@ CREATE INDEX IF NOT EXISTS idx_goals_hh ON goals(household_id);
 CREATE INDEX IF NOT EXISTS idx_bills_hh ON bills(household_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_hh ON notifications(household_id);
 CREATE INDEX IF NOT EXISTS idx_feed_hh ON feed(household_id);
+CREATE INDEX IF NOT EXISTS idx_budget_hh ON budget(household_id);
+CREATE INDEX IF NOT EXISTS idx_savings_hh ON savings(household_id);
+CREATE INDEX IF NOT EXISTS idx_settle_hh ON settle(household_id);
 `;
 
 export async function initSchema() {
   await pool.query(SCHEMA);
+  // Opportunistic cleanup of expired rate-limit buckets (runs on cold start).
+  await pool.query(`DELETE FROM rate_limits WHERE reset_at < now() - interval '1 hour'`).catch(() => {});
 }

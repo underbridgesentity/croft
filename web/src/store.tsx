@@ -39,6 +39,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState(s);
   }, []);
 
+  // Session expired mid-use (a data request returned 401) → reset to sign-in.
+  useEffect(() => {
+    const onExpired = () => {
+      setUser(null);
+      setState(null);
+      flash('Your session expired — please sign in again');
+    };
+    window.addEventListener('croft:unauthorized', onExpired);
+    return () => window.removeEventListener('croft:unauthorized', onExpired);
+  }, [flash]);
+
   // initial session check
   useEffect(() => {
     (async () => {

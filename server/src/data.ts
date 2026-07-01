@@ -111,7 +111,7 @@ dataRouter.patch('/tasks/:id', async (req: AuthedRequest, res) => {
   const done = !!req.body?.done;
   await query(`UPDATE tasks SET done=$1 WHERE id=$2 AND household_id=$3`, [done, req.params.id, hh(req)]);
   if (done) {
-    const t = (await query(`SELECT title FROM tasks WHERE id=$1`, [req.params.id])).rows[0];
+    const t = (await query(`SELECT title FROM tasks WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)])).rows[0];
     const me = await meMember(hh(req));
     if (t) await addFeed(hh(req), 'You', me.color, me.initial, `completed "${t.title}"`);
   }
@@ -181,8 +181,9 @@ dataRouter.post('/bills', async (req: AuthedRequest, res) => {
   await sendState(req, res);
 });
 dataRouter.patch('/bills/:id', async (req: AuthedRequest, res) => {
-  const status = z.enum(['paid', 'unpaid', 'overdue']).catch('paid').parse(req.body?.status);
-  await query(`UPDATE bills SET status=$1 WHERE id=$2 AND household_id=$3`, [status, req.params.id, hh(req)]);
+  const parsed = z.enum(['paid', 'unpaid', 'overdue']).safeParse(req.body?.status);
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid bill status' });
+  await query(`UPDATE bills SET status=$1 WHERE id=$2 AND household_id=$3`, [parsed.data, req.params.id, hh(req)]);
   await sendState(req, res);
 });
 dataRouter.delete('/bills/:id', async (req: AuthedRequest, res) => {
