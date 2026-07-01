@@ -21,6 +21,7 @@ if (isProd && !process.env.JWT_SECRET) {
 export interface AuthedRequest extends Request {
   userId?: string;
   householdId?: string;
+  memberId?: string;
 }
 
 function setAuthCookie(res: Response, userId: string) {
@@ -57,6 +58,7 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
     }
     req.userId = user.id;
     req.householdId = user.household_id;
+    req.memberId = user.member_id;
     next();
   } catch {
     return res.status(401).json({ error: 'Invalid session' });
@@ -88,6 +90,63 @@ async function provisionHousehold(
 /** Stand-alone household creation (its own transaction) for existing users. */
 async function createHouseholdFor(userId: string, userName: string, householdName?: string) {
   return tx((c) => provisionHousehold(c, userId, userName, householdName));
+}
+
+interface Invite {
+  id: string;
+  household_id: string;
+  member_id: string | null;
+  role: string;
+  created_by: string | null;
+}
+
+/** Return the invite if it exists, is unaccepted and unexpired; else null. */
+async function loadValidInvite(token: string): Promise<Invite | null> {
+  if (!token) return null;
+  const r = await query(
+    `SELECT id, household_id, member_id, role, created_by, expires_at, accepted_at
+       FROM invites WHERE token = $1`,
+    [token]
+  );
+  const inv = r.rows[0];
+  if (!inv || inv.accepted_at) return null;
+  if (new Date(inv.expires_at).getTime() < Date.now()) return null;
+  return inv;
+}
+
+const MEMBER_PALETTE = ['#7A5CFF', '#16C098', '#FF6B5C', '#FFB020', '#3B5BFF', '#FF5C8A'];
+
+/** Link a user to an invited household inside a transaction: claim the targeted
+ *  placeholder member (or create a fresh member), point the user at it, and mark
+ *  the invite accepted. */
+async function joinHousehold(c: PoolClient, invite: Invite, userId: string, userName: string) {
+  let memberId: string | null = invite.member_id;
+  if (memberId) {
+    const upd = await c.query(
+      `UPDATE members SET user_id=$1, name=$2 WHERE id=$3 AND household_id=$4 AND user_id IS NULL RETURNING id`,
+      [userId, userName, memberId, invite.household_id]
+    );
+    if (!upd.rows.length) memberId = null; // already claimed/removed → create fresh
+  }
+  if (!memberId) {
+    const cnt = Number(
+      (await c.query(`SELECT COUNT(*) FROM members WHERE household_id=$1`, [invite.household_id])).rows[0].count
+    );
+    const ins = await c.query(
+      `INSERT INTO members (household_id, name, role, initial, color, is_you, user_id, sort)
+       VALUES ($1,$2,$3,$4,$5,false,$6,$7) RETURNING id`,
+      [invite.household_id, userName, invite.role || 'Family', (userName || '?').charAt(0).toUpperCase(), MEMBER_PALETTE[cnt % MEMBER_PALETTE.length], userId, cnt]
+    );
+    memberId = ins.rows[0].id;
+  }
+  await c.query(`UPDATE users SET household_id=$1, member_id=$2 WHERE id=$3`, [invite.household_id, memberId, userId]);
+  await c.query(`UPDATE invites SET accepted_at=now(), accepted_by=$1 WHERE id=$2`, [userId, invite.id]);
+  await c.query(
+    `INSERT INTO feed (household_id, who, color, initial, txt, time_label)
+     VALUES ($1,$2,'#3B5BFF',$3,'joined the household','just now')`,
+    [invite.household_id, userName, (userName || '?').charAt(0).toUpperCase()]
+  );
+  return memberId;
 }
 
 export const authRouter = Router();
@@ -166,6 +225,47 @@ authRouter.get('/me', async (req: AuthedRequest, res) => {
   }
 });
 
+// ---- Invites (join an existing household) ----
+authRouter.get('/invite/:token', async (req, res) => {
+  const invite = await loadValidInvite(req.params.token);
+  if (!invite) return res.status(410).json({ error: 'This invite is invalid or has expired.' });
+  const hhName = (await query(`SELECT name FROM households WHERE id=$1`, [invite.household_id])).rows[0]?.name || 'a household';
+  const inviter = invite.created_by
+    ? (await query(`SELECT name FROM users WHERE id=$1`, [invite.created_by])).rows[0]?.name || null
+    : null;
+  res.json({ household_name: hhName, inviter_name: inviter, role: invite.role || null });
+});
+
+const acceptSchema = z.object({
+  name: z.string().min(1).max(80),
+  email: z.string().email().max(160),
+  password: z.string().min(8).max(200),
+});
+
+authRouter.post('/invite/:token/accept', rateLimit('signup', 10, 3600), async (req, res) => {
+  const invite = await loadValidInvite(req.params.token);
+  if (!invite) return res.status(410).json({ error: 'This invite is invalid or has expired.' });
+  const parsed = acceptSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Invalid details' });
+  const { name, email, password } = parsed.data;
+  const existing = await query(`SELECT id FROM users WHERE email = $1`, [email.toLowerCase()]);
+  if (existing.rows.length) {
+    return res.status(409).json({ error: 'That email already has an account. Log in first, then open the invite link.' });
+  }
+  const hash = await bcrypt.hash(password, 10);
+  const userId = await tx(async (c) => {
+    const ins = await c.query(
+      `INSERT INTO users (email, password_hash, name) VALUES ($1,$2,$3) RETURNING id`,
+      [email.toLowerCase(), hash, name]
+    );
+    const uid = ins.rows[0].id as string;
+    await joinHousehold(c, invite, uid, name);
+    return uid;
+  });
+  setAuthCookie(res, userId);
+  res.json({ user: await loadUser(userId) });
+});
+
 // ---- Google OAuth (real when env is configured) ----
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
@@ -188,7 +288,7 @@ const OAUTH_COOKIE = {
 };
 const b64url = (buf: Buffer) => buf.toString('base64url');
 
-authRouter.get('/google', rateLimit('google', 30, 900), (_req, res) => {
+authRouter.get('/google', rateLimit('google', 30, 900), (req, res) => {
   if (!googleConfigured) {
     return res.status(501).json({
       error: 'Google sign-in is not configured yet. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.',
@@ -199,6 +299,10 @@ authRouter.get('/google', rateLimit('google', 30, 900), (_req, res) => {
   const codeChallenge = b64url(crypto.createHash('sha256').update(codeVerifier).digest());
   res.cookie('g_state', state, OAUTH_COOKIE);
   res.cookie('g_verifier', codeVerifier, OAUTH_COOKIE);
+  // Carry an invite token through the OAuth round-trip so a Google sign-in from a
+  // /join link joins that household instead of creating a new one.
+  const invite = String((req.query.invite as string) || '');
+  if (invite) res.cookie('g_invite', invite, OAUTH_COOKIE);
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID!,
     redirect_uri: GOOGLE_REDIRECT,
@@ -219,9 +323,11 @@ authRouter.get('/google/callback', async (req, res) => {
   const returnedState = String(req.query.state || '');
   const savedState = req.cookies?.g_state;
   const codeVerifier = req.cookies?.g_verifier;
+  const inviteToken = req.cookies?.g_invite as string | undefined;
   // One-time cookies — clear regardless of outcome.
   res.clearCookie('g_state', { path: '/api/auth' });
   res.clearCookie('g_verifier', { path: '/api/auth' });
+  res.clearCookie('g_invite', { path: '/api/auth' });
   // Anti-CSRF: the callback must carry the same state we issued to this browser.
   if (!code || !returnedState || !savedState || returnedState !== savedState) {
     return res.redirect(`${APP_URL}/?auth=google_error`);
@@ -261,17 +367,21 @@ authRouter.get('/google/callback', async (req, res) => {
       googleId,
     ]);
     let userId: string;
+    // If arriving from a valid invite link, join that household; else create one.
+    const invite = inviteToken ? await loadValidInvite(inviteToken) : null;
+    const provision = (uid: string) =>
+      invite ? tx((c) => joinHousehold(c, invite, uid, name)) : createHouseholdFor(uid, name);
     if (r.rows.length) {
       userId = r.rows[0].id;
       await query(`UPDATE users SET google_id = $1 WHERE id = $2`, [googleId, userId]);
-      if (!r.rows[0].household_id) await createHouseholdFor(userId, name);
+      if (!r.rows[0].household_id) await provision(userId);
     } else {
       const ins = await query(
         `INSERT INTO users (email, name, google_id) VALUES ($1,$2,$3) RETURNING id`,
         [email, name, googleId]
       );
       userId = ins.rows[0].id;
-      await createHouseholdFor(userId, name);
+      await provision(userId);
     }
     setAuthCookie(res, userId);
     res.redirect(`${APP_URL}/?auth=google_ok`);

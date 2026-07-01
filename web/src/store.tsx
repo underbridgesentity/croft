@@ -12,6 +12,7 @@ interface Store {
   // auth
   signup: (d: { name: string; email: string; password: string; household?: string }) => Promise<void>;
   login: (d: { email: string; password: string }) => Promise<void>;
+  acceptInvite: (token: string, d: { name: string; email: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
   completeOnboarding: () => void;
   refreshState: () => Promise<void>;
@@ -90,6 +91,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     [afterAuth]
   );
+  const acceptInvite = useCallback(
+    async (token: string, d: { name: string; email: string; password: string }) => {
+      const { user } = await api.acceptInvite(token, d);
+      await afterAuth(user);
+    },
+    [afterAuth]
+  );
   const logout = useCallback(async () => {
     await api.logout();
     setUser(null);
@@ -116,7 +124,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [flash]
   );
 
-  const value: Store = { ready, user, state, toast, flash, signup, login, logout, completeOnboarding, refreshState, run };
+  const value: Store = { ready, user, state, toast, flash, signup, login, acceptInvite, logout, completeOnboarding, refreshState, run };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

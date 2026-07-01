@@ -12,6 +12,8 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
   const { state, run, flash } = useStore();
   const [inviting, setInviting] = useState(false);
   const [inviteName, setInviteName] = useState('');
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [linkBusy, setLinkBusy] = useState(false);
   if (!state) return null;
   const s: Settings = state.household.settings || {};
 
@@ -21,6 +23,31 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
     run(api.addMember({ name: v }), `${v} added to the family ✓`);
     setInviteName('');
     setInviting(false);
+  };
+
+  const makeInviteLink = async () => {
+    setLinkBusy(true);
+    try {
+      const { token } = await api.createInvite();
+      const url = `${window.location.origin}/join/${token}`;
+      setInviteLink(url);
+      if (navigator.share) {
+        navigator.share({ title: 'Join our home on Croft', text: `Join ${state.household.name} on Croft`, url }).catch(() => {});
+      }
+    } catch (e: any) {
+      flash(e?.message || 'Could not create invite');
+    } finally {
+      setLinkBusy(false);
+    }
+  };
+  const copyLink = async () => {
+    if (!inviteLink) return;
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      flash('Invite link copied ✓');
+    } catch {
+      flash('Could not copy — long-press to copy');
+    }
   };
 
   const onOff = (key: keyof Settings) => (s[key] ? 'On' : 'Off');
@@ -61,13 +88,34 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
         <div style={{ height: 4 }} />
       </div>
 
-      {inviting ? (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 26 }}>
-          <input autoFocus value={inviteName} onChange={(e) => setInviteName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && invite()} placeholder="Family member's name" style={{ flex: 1, border: '1.5px solid #E4E9F2', background: '#fff', borderRadius: 14, padding: '13px 16px', fontSize: 14.5, outline: 'none' }} />
-          <button onClick={invite} style={{ border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 14, padding: '0 18px', borderRadius: 14, cursor: 'pointer' }}>Add</button>
+      {inviteLink ? (
+        <div style={{ background: '#fff', borderRadius: 18, padding: 16, boxShadow: '0 2px 10px rgba(16,20,38,0.04)', marginBottom: 26 }}>
+          <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 4 }}>Invite link ready</div>
+          <div style={{ fontSize: 12.5, color: '#717A90', marginBottom: 12 }}>Share this with the person you want to join {state.household.name}. It works once and expires in 14 days.</div>
+          <input readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} style={{ width: '100%', boxSizing: 'border-box', border: '1.5px solid #E4E9F2', background: '#F7F9FD', borderRadius: 12, padding: '11px 13px', fontSize: 12.5, color: '#3B5BFF', marginBottom: 10 }} />
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={copyLink} style={{ flex: 1, border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 14, padding: '11px', borderRadius: 12, cursor: 'pointer' }}>Copy link</button>
+            {typeof navigator !== 'undefined' && (navigator as any).share && (
+              <button onClick={() => (navigator as any).share({ title: 'Join our home on Croft', url: inviteLink }).catch(() => {})} style={{ flex: 1, border: '1.5px solid #E4E9F2', background: '#fff', color: '#101426', fontWeight: 700, fontSize: 14, padding: '11px', borderRadius: 12, cursor: 'pointer' }}>Share</button>
+            )}
+          </div>
+          <button onClick={() => setInviteLink(null)} style={{ width: '100%', border: 'none', background: 'none', color: '#9AA3B5', fontWeight: 700, fontSize: 13.5, padding: '12px 0 2px', cursor: 'pointer' }}>Done</button>
+        </div>
+      ) : inviting ? (
+        <div style={{ marginBottom: 26 }}>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input autoFocus value={inviteName} onChange={(e) => setInviteName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && invite()} placeholder="Name (e.g. a young child)" style={{ flex: 1, border: '1.5px solid #E4E9F2', background: '#fff', borderRadius: 14, padding: '13px 16px', fontSize: 14.5, outline: 'none' }} />
+            <button onClick={invite} style={{ border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 14, padding: '0 18px', borderRadius: 14, cursor: 'pointer' }}>Add</button>
+          </div>
+          <button onClick={() => setInviting(false)} style={{ border: 'none', background: 'none', color: '#9AA3B5', fontWeight: 700, fontSize: 13, padding: '8px 2px 0', cursor: 'pointer' }}>Cancel</button>
         </div>
       ) : (
-        <button onClick={() => setInviting(true)} style={{ width: '100%', border: '1.5px dashed #CBD4E4', background: 'transparent', color: '#5B6B8C', fontWeight: 700, fontSize: 14, padding: 15, borderRadius: 16, cursor: 'pointer', marginBottom: 26 }}>+ Invite a family member</button>
+        <div style={{ marginBottom: 26 }}>
+          <button onClick={makeInviteLink} disabled={linkBusy} style={{ width: '100%', border: '1.5px dashed #CBD4E4', background: 'transparent', color: '#5B6B8C', fontWeight: 700, fontSize: 14, padding: 15, borderRadius: 16, cursor: 'pointer', opacity: linkBusy ? 0.6 : 1 }}>
+            {linkBusy ? 'Creating link…' : '+ Invite someone to Croft'}
+          </button>
+          <button onClick={() => setInviting(true)} style={{ width: '100%', border: 'none', background: 'none', color: '#9AA3B5', fontWeight: 700, fontSize: 13, padding: '10px 0 0', cursor: 'pointer' }}>Add someone without an account</button>
+        </div>
       )}
 
       {/* notifications & reminders */}

@@ -228,8 +228,22 @@ CREATE INDEX IF NOT EXISTS idx_tasks_hh ON tasks(household_id);
 CREATE INDEX IF NOT EXISTS idx_shopping_hh ON shopping(household_id);
 CREATE INDEX IF NOT EXISTS idx_goals_hh ON goals(household_id);
 CREATE INDEX IF NOT EXISTS idx_bills_hh ON bills(household_id);
+CREATE TABLE IF NOT EXISTS invites (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  token        TEXT UNIQUE NOT NULL,
+  member_id    UUID,          -- optional: an existing placeholder member to claim
+  role         TEXT NOT NULL DEFAULT '',
+  created_by   UUID,
+  expires_at   TIMESTAMPTZ NOT NULL,
+  accepted_at  TIMESTAMPTZ,
+  accepted_by  UUID,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_notifications_hh ON notifications(household_id);
 CREATE INDEX IF NOT EXISTS idx_feed_hh ON feed(household_id);
+CREATE INDEX IF NOT EXISTS idx_invites_hh ON invites(household_id);
 CREATE INDEX IF NOT EXISTS idx_budget_hh ON budget(household_id);
 CREATE INDEX IF NOT EXISTS idx_savings_hh ON savings(household_id);
 CREATE INDEX IF NOT EXISTS idx_settle_hh ON settle(household_id);

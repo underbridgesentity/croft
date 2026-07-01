@@ -1,4 +1,5 @@
 import { Router, type Response } from 'express';
+import crypto from 'node:crypto';
 import { z } from 'zod';
 import { query } from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
@@ -8,8 +9,9 @@ dataRouter.use(requireAuth);
 
 const num = (v: any) => (v == null ? 0 : Number(v));
 
-/** Assemble the whole app state for a household (raw rows; client formats). */
-async function assembleState(householdId: string) {
+/** Assemble the whole app state for a household (raw rows; client formats).
+ *  `meMemberId` marks which member is "you" for the requesting user. */
+async function assembleState(householdId: string, meMemberId?: string) {
   const [
     hh, members, events, tasks, shopping, goals, bills, budget, savings, settle, notifications, feed,
   ] = await Promise.all([
@@ -31,7 +33,8 @@ async function assembleState(householdId: string) {
   return {
     household: { name: household.name, settings: household.settings || {} },
     members: members.rows.map((m) => ({
-      id: m.id, name: m.name, role: m.role, initial: m.initial, color: m.color, you: m.is_you,
+      id: m.id, name: m.name, role: m.role, initial: m.initial, color: m.color,
+      you: meMemberId ? m.id === meMemberId : m.is_you,
     })),
     events: events.rows,
     tasks: tasks.rows,
@@ -48,7 +51,7 @@ async function assembleState(householdId: string) {
 
 /** Return fresh state — every mutation ends with this. */
 async function sendState(req: AuthedRequest, res: Response) {
-  res.json(await assembleState(req.householdId!));
+  res.json(await assembleState(req.householdId!, req.memberId));
 }
 
 const hh = (req: AuthedRequest) => req.householdId!;
@@ -56,7 +59,7 @@ const nextSort = (table: string) =>
   `(SELECT COALESCE(MAX(sort),0)+1 FROM ${table} WHERE household_id=$1)`;
 
 dataRouter.get('/state', async (req: AuthedRequest, res) => {
-  res.json(await assembleState(hh(req)));
+  res.json(await assembleState(hh(req), req.memberId));
 });
 
 // Mark the first-run welcome walkthrough as seen for this user.
@@ -206,6 +209,27 @@ dataRouter.post('/members', async (req: AuthedRequest, res) => {
 dataRouter.delete('/members/:id', async (req: AuthedRequest, res) => {
   await query(`DELETE FROM members WHERE id=$1 AND household_id=$2 AND is_you=false`, [req.params.id, hh(req)]);
   await sendState(req, res);
+});
+
+// ---------------- INVITES ----------------
+// Create a shareable invite for this household. Optionally targets an existing
+// placeholder member so the invitee "claims" that member. Returns a token the
+// client turns into a /join/<token> link.
+dataRouter.post('/invites', async (req: AuthedRequest, res) => {
+  const b = z.object({ memberId: z.string().uuid().optional(), role: z.string().max(40).optional() }).safeParse(req.body || {});
+  if (!b.success) return res.status(400).json({ error: 'Invalid invite' });
+  if (b.data.memberId) {
+    const m = (await query(`SELECT id, user_id FROM members WHERE id=$1 AND household_id=$2`, [b.data.memberId, hh(req)])).rows[0];
+    if (!m) return res.status(404).json({ error: 'Member not found' });
+    if (m.user_id) return res.status(409).json({ error: 'That member has already joined.' });
+  }
+  const token = crypto.randomBytes(24).toString('base64url');
+  await query(
+    `INSERT INTO invites (household_id, token, member_id, role, created_by, expires_at)
+     VALUES ($1,$2,$3,$4,$5, now() + interval '14 days')`,
+    [hh(req), token, b.data.memberId || null, b.data.role || '', req.userId]
+  );
+  res.json({ token });
 });
 
 // ---------------- NOTIFICATIONS / NUDGE ----------------

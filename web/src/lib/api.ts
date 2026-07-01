@@ -38,6 +38,15 @@ export const api = {
   logout: () => req<{ ok: true }>('/auth/logout', { method: 'POST' }),
   markOnboarded: () => req<{ ok: true }>('/onboarded', { method: 'POST' }),
   googleUrl: () => `${BASE}/auth/google`,
+
+  // ---- invites ----
+  createInvite: (memberId?: string) =>
+    req<{ token: string }>('/invites', { method: 'POST', body: JSON.stringify(memberId ? { memberId } : {}) }),
+  getInvite: (token: string) =>
+    req<{ household_name: string; inviter_name: string | null; role: string | null }>(`/auth/invite/${token}`),
+  acceptInvite: (token: string, d: { name: string; email: string; password: string }) =>
+    req<{ user: User }>(`/auth/invite/${token}/accept`, { method: 'POST', body: JSON.stringify(d) }),
+  googleInviteUrl: (token: string) => `${BASE}/auth/google?invite=${encodeURIComponent(token)}`,
   health: () => req<{ ok: boolean; google: boolean }>('/health'),
 
   // ---- state ----

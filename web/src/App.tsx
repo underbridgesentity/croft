@@ -3,10 +3,18 @@ import { useStore } from './store';
 import Onboarding from './screens/Onboarding';
 import Shell from './Shell';
 import WelcomeTour from './screens/WelcomeTour';
+import JoinInvite from './screens/JoinInvite';
+
+function readJoinToken(): string | null {
+  const m = window.location.pathname.match(/^\/join\/(.+)$/);
+  if (m) return decodeURIComponent(m[1]);
+  return new URLSearchParams(window.location.search).get('join');
+}
 
 export default function App() {
   const { ready, user, state, flash } = useStore();
   const [entered, setEntered] = useState(false);
+  const [joinToken, setJoinToken] = useState<string | null>(() => readJoinToken());
   const checked = useRef(false);
 
   // Returning users (valid session) skip onboarding straight into the app.
@@ -35,6 +43,20 @@ export default function App() {
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Logo />
         </div>
+      </Frame>
+    );
+  }
+
+  // Someone opened an invite link and isn't already in a household → join flow.
+  if (joinToken && !(user && user.household_id)) {
+    const clearUrl = () => window.history.replaceState({}, '', '/');
+    return (
+      <Frame>
+        <JoinInvite
+          token={joinToken}
+          onJoined={() => { clearUrl(); setJoinToken(null); setEntered(true); }}
+          onCancel={() => { clearUrl(); setJoinToken(null); }}
+        />
       </Frame>
     );
   }
