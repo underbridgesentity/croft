@@ -390,6 +390,11 @@ authRouter.post('/delete-account', requireAuth, async (req: AuthedRequest, res) 
 });
 
 // ---- App lock (per-user passcode) ----
+// NOTE: this is a client-side privacy convenience, NOT a security boundary. The
+// passcode gates the UI on the device (so a grabbed, unlocked phone doesn't show
+// family data); the real boundary remains the httpOnly session cookie. Anyone
+// holding a live session could still call the API directly, so /lock/verify only
+// confirms the pin - it deliberately does not mint an "unlocked" credential.
 const pinSchema = z.object({ pin: z.string().regex(/^\d{4,8}$/) });
 
 authRouter.post('/lock/set', requireAuth, async (req: AuthedRequest, res) => {
@@ -508,7 +513,7 @@ authRouter.get('/google/callback', async (req, res) => {
     const prof: any = await profRes.json();
     const email = String(prof.email || '').toLowerCase();
     const name = prof.name || email.split('@')[0];
-    const googleId = String(prof.id || '');
+    const googleId = prof.id ? String(prof.id) : null;
     // Only trust the email if Google says it is verified - otherwise an
     // attacker-controlled Google account with a victim's address could be
     // auto-linked to the victim's existing password account.
@@ -537,7 +542,8 @@ authRouter.get('/google/callback', async (req, res) => {
     };
     if (r.rows.length) {
       userId = r.rows[0].id;
-      await query(`UPDATE users SET google_id = $1 WHERE id = $2`, [googleId, userId]);
+      // COALESCE so a missing id never nulls out an existing google link.
+      await query(`UPDATE users SET google_id = COALESCE($1, google_id) WHERE id = $2`, [googleId, userId]);
       if (!r.rows[0].household_id) await provision(userId);
     } else {
       const ins = await query(

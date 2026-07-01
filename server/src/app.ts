@@ -48,14 +48,29 @@ app.use('/api/cron', cronRouter);
 app.use('/api/calendar', calendarRouter);
 app.use('/api', dataRouter);
 
+// Lightweight, zero-dependency error alerting suited to serverless: only active
+// when ERROR_WEBHOOK_URL is set (a Slack/Discord/etc. incoming webhook), and
+// always fire-and-forget so it never adds latency or can throw into the handler.
+const ERROR_WEBHOOK_URL = process.env.ERROR_WEBHOOK_URL;
+function reportError(err: any, req: Request) {
+  if (!ERROR_WEBHOOK_URL) return;
+  const text = `[croft] ${req.method} ${req.originalUrl} - ${err?.message || err}`;
+  fetch(ERROR_WEBHOOK_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text, stack: String(err?.stack || '').slice(0, 2000) }),
+  }).catch(() => {});
+}
+
 // Terminal error handler - keeps the API returning clean JSON on any failure
 // (e.g. a transient Neon error) instead of hanging the request.
-app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
   if (err && err.code === '23505') {
     // Postgres unique-violation → friendly conflict (e.g. duplicate email).
     return res.status(409).json({ error: 'That already exists.' });
   }
   console.error('[croft] unhandled error:', err);
+  reportError(err, req);
   if (res.headersSent) return;
   res.status(500).json({ error: 'Something went wrong. Please try again.' });
 });

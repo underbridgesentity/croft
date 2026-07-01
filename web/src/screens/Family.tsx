@@ -194,7 +194,7 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
             </div>
             {m.you ? <YouBadge /> : (
               <button onClick={() => run(api.delMember(m.id), `${m.name} removed`)} title="Remove" style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 4 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5h4v2M9 7l.7 12h8.6L19 7" stroke="#C4CBDA" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5h4v2M9 7l.7 12h8.6L19 7" stroke="#C9C3B9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </button>
             )}
           </div>
@@ -206,12 +206,12 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
         <div style={{ background: '#fff', borderRadius: 18, padding: 16, boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 26 }}>
           <div style={{ fontWeight: 700, fontSize: 14.5, marginBottom: 4 }}>Invite link ready</div>
           <div style={{ fontSize: 12.5, color: '#6F6C67', marginBottom: 12 }}>Share this with the person you want to join {state.household.name}. It works once and expires in 14 days.</div>
-          <input readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} style={{ width: '100%', boxSizing: 'border-box', border: '1.5px solid #E8E3DB', background: '#F7F9FD', borderRadius: 12, padding: '11px 13px', fontSize: 12.5, color: '#3B5BFF', marginBottom: 10 }} />
+          <input readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} style={{ width: '100%', boxSizing: 'border-box', border: '1.5px solid #E8E3DB', background: '#F5F4F1', borderRadius: 12, padding: '11px 13px', fontSize: 12.5, color: '#3B5BFF', marginBottom: 10 }} />
           <div style={{ display: 'flex', gap: 8 }}>
             <button onClick={copyLink} style={{ flex: 1, border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 14, padding: '11px', borderRadius: 12, cursor: 'pointer' }}>Copy link</button>
             <button onClick={async () => { if (!(await nativeShare({ title: 'Join our home on Croft', url: inviteLink }))) (navigator as any).share?.({ title: 'Join our home on Croft', url: inviteLink }).catch(() => {}); }} style={{ flex: 1, border: '1.5px solid #E8E3DB', background: '#fff', color: '#181922', fontWeight: 700, fontSize: 14, padding: '11px', borderRadius: 12, cursor: 'pointer' }}>Share</button>
           </div>
-          <button onClick={() => setInviteLink(null)} style={{ width: '100%', border: 'none', background: 'none', color: '#9C968D', fontWeight: 700, fontSize: 13.5, padding: '12px 0 2px', cursor: 'pointer' }}>Done</button>
+          <button onClick={() => setInviteLink(null)} style={{ width: '100%', border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 13.5, padding: '12px 0 2px', cursor: 'pointer' }}>Done</button>
         </div>
       ) : inviting ? (
         <div style={{ marginBottom: 26 }}>
@@ -219,7 +219,7 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
             <input autoFocus value={inviteName} onChange={(e) => setInviteName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && invite()} placeholder="Name (e.g. a young child)" style={{ flex: 1, border: '1.5px solid #E8E3DB', background: '#fff', borderRadius: 14, padding: '13px 16px', fontSize: 14.5, outline: 'none' }} />
             <button onClick={invite} style={{ border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 14, padding: '0 18px', borderRadius: 14, cursor: 'pointer' }}>Add</button>
           </div>
-          <button onClick={() => setInviting(false)} style={{ border: 'none', background: 'none', color: '#9C968D', fontWeight: 700, fontSize: 13, padding: '8px 2px 0', cursor: 'pointer' }}>Cancel</button>
+          <button onClick={() => setInviting(false)} style={{ border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 13, padding: '8px 2px 0', cursor: 'pointer' }}>Cancel</button>
         </div>
       ) : (
         <div style={{ marginBottom: 26 }}>
@@ -230,7 +230,7 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
           <button onClick={makeInviteLink} disabled={linkBusy} style={{ width: '100%', border: 'none', background: 'none', color: '#3B5BFF', fontWeight: 700, fontSize: 13.5, padding: '11px 0 0', cursor: 'pointer' }}>
             {linkBusy ? 'Creating link…' : 'or copy an invite link to share'}
           </button>
-          <button onClick={() => setInviting(true)} style={{ width: '100%', border: 'none', background: 'none', color: '#9C968D', fontWeight: 700, fontSize: 13, padding: '8px 0 0', cursor: 'pointer' }}>Add someone without an account</button>
+          <button onClick={() => setInviting(true)} style={{ width: '100%', border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 13, padding: '8px 0 0', cursor: 'pointer' }}>Add someone without an account</button>
         </div>
       )}
 
@@ -255,10 +255,10 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
               <a href={cal.webcal} style={{ flex: 1, minWidth: 150, textAlign: 'center', textDecoration: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 13.5, padding: '11px', borderRadius: 12 }}>Add to Apple Calendar</a>
               <button onClick={copyCal} style={{ flex: 1, minWidth: 150, border: '1.5px solid #E8E3DB', background: '#fff', color: '#181922', fontWeight: 700, fontSize: 13.5, padding: '11px', borderRadius: 12, cursor: 'pointer' }}>Copy link for Google</button>
             </div>
-            <div style={{ fontSize: 11.5, color: '#9C968D', marginTop: 10, lineHeight: 1.45 }}>Google Calendar → “Other calendars” + → “From URL” → paste the copied link.</div>
+            <div style={{ fontSize: 11.5, color: '#7D776E', marginTop: 10, lineHeight: 1.45 }}>In Google Calendar, choose "Other calendars", then "From URL", and paste the copied link.</div>
           </>
         ) : (
-          <button onClick={loadCal} disabled={calBusy} style={{ width: '100%', border: '1.5px dashed #CBD4E4', background: 'transparent', color: '#6B6459', fontWeight: 700, fontSize: 14, padding: 14, borderRadius: 14, cursor: 'pointer', opacity: calBusy ? 0.6 : 1 }}>
+          <button onClick={loadCal} disabled={calBusy} style={{ width: '100%', border: '1.5px dashed #D2CCC1', background: 'transparent', color: '#6B6459', fontWeight: 700, fontSize: 14, padding: 14, borderRadius: 14, cursor: 'pointer', opacity: calBusy ? 0.6 : 1 }}>
             {calBusy ? 'Getting your link…' : 'Subscribe in your calendar'}
           </button>
         )}
@@ -300,7 +300,7 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
         </div>
       )}
 
-      <button onClick={onSignOut} style={{ width: '100%', border: 'none', background: 'transparent', color: '#9C968D', fontWeight: 700, fontSize: 14, padding: 12, cursor: 'pointer' }}>Sign out</button>
+      <button onClick={onSignOut} style={{ width: '100%', border: 'none', background: 'transparent', color: '#7D776E', fontWeight: 700, fontSize: 14, padding: 12, cursor: 'pointer' }}>Sign out</button>
 
       {/* danger zone */}
       {confirmDelete ? (
@@ -323,11 +323,18 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
 
 function SettingRow({ illo, iconColor = '#3B5BFF', label, detail, good, onClick }: { illo: string; iconColor?: string; label: string; detail: string; good?: boolean; onClick: () => void }) {
   return (
-    <div onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '12px 0', borderBottom: '1px solid #EFEBE3', cursor: 'pointer' }}>
+    <div
+      role="button"
+      tabIndex={0}
+      aria-label={`${label}${detail ? ', ' + detail : ''}`}
+      onClick={onClick}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+      style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '12px 0', borderBottom: '1px solid #EFEBE3', cursor: 'pointer' }}
+    >
       <Icon name={illo} color={iconColor} size={38} radius={11} glyph={20} />
       <div style={{ flex: 1, fontWeight: 600, fontSize: 14.5 }}>{label}</div>
       <span style={{ fontSize: 12.5, fontWeight: 700, color: good ? '#16C098' : '#6F6C67' }}>{detail}</span>
-      <svg width="8" height="14" viewBox="0 0 8 14" style={{ flexShrink: 0 }}><path d="M1 1l6 6-6 6" stroke="#C4CBDA" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      <svg width="8" height="14" viewBox="0 0 8 14" style={{ flexShrink: 0 }} aria-hidden="true"><path d="M1 1l6 6-6 6" stroke="#C9C3B9" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
     </div>
   );
 }

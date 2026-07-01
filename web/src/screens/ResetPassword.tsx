@@ -44,7 +44,7 @@ export default function ResetPassword({ token, onDone, onCancel }: { token: stri
         <button style={{ ...primaryBtn, opacity: busy ? 0.7 : 1 }} disabled={busy} onClick={submit}>
           {busy ? 'Saving…' : 'Save new password'}
         </button>
-        <button onClick={onCancel} style={{ border: 'none', background: 'none', color: '#9C968D', fontWeight: 700, fontSize: 14, padding: '14px 0 0', cursor: 'pointer' }}>Back to sign in</button>
+        <button onClick={onCancel} style={{ border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 14, padding: '14px 0 0', cursor: 'pointer' }}>Back to sign in</button>
       </div>
     </div>
   );

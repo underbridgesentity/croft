@@ -61,7 +61,7 @@ const steps = (name: string): Step[] => [
   {
     color: '#3B5BFF',
     title: 'Bring your family in',
-    body: 'Invite the people you live with from the Family tab so everyone stays in sync. Tap the ＋ button any time to add an event, task, bill or goal.',
+    body: 'Invite the people you live with from the Family tab so everyone stays in sync. Tap the add button any time to add an event, task, bill or goal.',
     icon: tile(
       <>
         <circle cx="9" cy="8" r="3.2" stroke="#3B5BFF" strokeWidth="1.9" />
@@ -100,7 +100,7 @@ export default function WelcomeTour() {
         {!last && (
           <button
             onClick={completeOnboarding}
-            style={{ border: 'none', background: 'none', color: '#8C877E', fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: 6 }}
+            style={{ border: 'none', background: 'none', color: '#7D776E', fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: 6 }}
           >
             Skip
           </button>
@@ -137,7 +137,7 @@ export default function WelcomeTour() {
               width: d === i ? 22 : 7,
               height: 7,
               borderRadius: 100,
-              background: d === i ? step.color : '#D3DAE8',
+              background: d === i ? step.color : '#D8D2C8',
               transition: 'width .25s ease, background .25s ease',
             }}
           />
@@ -169,7 +169,7 @@ export default function WelcomeTour() {
         style={{
           border: 'none',
           background: 'none',
-          color: i === 0 ? 'transparent' : '#8C877E',
+          color: i === 0 ? 'transparent' : '#7D776E',
           fontSize: 14,
           fontWeight: 600,
           cursor: i === 0 ? 'default' : 'pointer',

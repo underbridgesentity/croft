@@ -125,7 +125,7 @@ export default function JoinInvite({ token, onJoined, onCancel }: { token: strin
             </button>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '18px 0' }}>
               <div style={{ flex: 1, height: 1, background: '#E8E3DB' }} />
-              <span style={{ fontSize: 12.5, color: '#A6AEC0', fontWeight: 600 }}>or</span>
+              <span style={{ fontSize: 12.5, color: '#7D776E', fontWeight: 600 }}>or</span>
               <div style={{ flex: 1, height: 1, background: '#E8E3DB' }} />
             </div>
             <button onClick={() => (window.location.href = api.googleInviteUrl(token))} style={oauthBtn}>

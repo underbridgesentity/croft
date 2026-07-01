@@ -97,7 +97,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
                 <button onClick={onStart} style={{ ...primaryBtn, fontSize: 16 }}>Get started - it’s free</button>
                 <a href="#features" style={{ ...ghostBtn, textDecoration: 'none', display: 'inline-block' }}>See how it works</a>
               </div>
-              <div style={{ marginTop: 18, fontSize: 13.5, color: '#8C877E', fontWeight: 500 }}>No credit card · Works on any device</div>
+              <div style={{ marginTop: 18, fontSize: 13.5, color: '#7D776E', fontWeight: 500 }}>No credit card · Works on any device</div>
             </div>
             <div style={{ flex: 1, width: '100%' }}>
               <Illus src="/illustrations/hero-home.jpg" alt="A family and their home" />
@@ -213,7 +213,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
         <div style={{ maxWidth: maxW, margin: '0 auto', padding: `${desktop ? 34 : 26}px ${desktop ? 40 : 22}px`, display: 'flex', flexDirection: desktop ? 'row' : 'column', alignItems: desktop ? 'center' : 'flex-start', justifyContent: 'space-between', gap: 16 }}>
           <div>
             <Logo size={26} />
-            <div style={{ fontSize: 13, color: '#8C877E', marginTop: 8 }}>Plan together. Stay organized. Live better.</div>
+            <div style={{ fontSize: 13, color: '#7D776E', marginTop: 8 }}>Plan together. Stay organized. Live better.</div>
           </div>
           <div style={{ display: 'flex', gap: 22, fontSize: 14, fontWeight: 600 }}>
             <a href="/privacy" style={{ color: MUTED, textDecoration: 'none' }}>Privacy</a>
@@ -222,7 +222,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
             <button onClick={onLogin} style={{ border: 'none', background: 'none', color: MUTED, fontWeight: 600, fontSize: 14, cursor: 'pointer', padding: 0 }}>Log in</button>
           </div>
         </div>
-        <div style={{ textAlign: 'center', fontSize: 12.5, color: '#A6AEC0', paddingBottom: 24 }}>© 2026 Croft · croftapp.co.za</div>
+        <div style={{ textAlign: 'center', fontSize: 12.5, color: '#7D776E', paddingBottom: 24 }}>© 2026 Croft · croftapp.co.za</div>
       </div>
     </div>
   );

@@ -281,6 +281,28 @@ CREATE INDEX IF NOT EXISTS idx_push_hh ON push_subscriptions(household_id);
 CREATE INDEX IF NOT EXISTS idx_budget_hh ON budget(household_id);
 CREATE INDEX IF NOT EXISTS idx_savings_hh ON savings(household_id);
 CREATE INDEX IF NOT EXISTS idx_settle_hh ON settle(household_id);
+
+-- Referential integrity for the user links added by the multi-user work. These
+-- columns predate the constraints, so first null out any dangling references
+-- (from earlier account deletions), then add each FK once, idempotently.
+UPDATE members SET user_id = NULL WHERE user_id IS NOT NULL AND user_id NOT IN (SELECT id FROM users);
+UPDATE invites SET created_by = NULL WHERE created_by IS NOT NULL AND created_by NOT IN (SELECT id FROM users);
+UPDATE invites SET accepted_by = NULL WHERE accepted_by IS NOT NULL AND accepted_by NOT IN (SELECT id FROM users);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'members_user_id_fkey') THEN
+    ALTER TABLE members ADD CONSTRAINT members_user_id_fkey
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invites_created_by_fkey') THEN
+    ALTER TABLE invites ADD CONSTRAINT invites_created_by_fkey
+      FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invites_accepted_by_fkey') THEN
+    ALTER TABLE invites ADD CONSTRAINT invites_accepted_by_fkey
+      FOREIGN KEY (accepted_by) REFERENCES users(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 `;
 
 export async function initSchema() {

@@ -85,14 +85,14 @@ function Todos() {
 
       {done.length > 0 && (
         <>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#A6AEC0', textTransform: 'uppercase', letterSpacing: '.05em', margin: '0 2px 8px' }}>Done</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#7D776E', textTransform: 'uppercase', letterSpacing: '.05em', margin: '0 2px 8px' }}>Done</div>
           <div style={{ background: '#EBE7DF', borderRadius: 20, padding: '4px 14px' }}>
             {done.map((t) => (
               <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '12px 2px' }}>
                 <button onClick={() => run(api.toggleTask(t.id, false))} role="checkbox" aria-checked={true} aria-label={`Mark "${t.title}" as not done`} style={{ ...checkbox, border: 'none', background: '#16C098', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
-                <div style={{ flex: 1, fontWeight: 600, fontSize: 14.5, color: '#9C968D', textDecoration: 'line-through' }}>{t.title}</div>
+                <div style={{ flex: 1, fontWeight: 600, fontSize: 14.5, color: '#7D776E', textDecoration: 'line-through' }}>{t.title}</div>
                 <DeleteBtn onClick={() => run(api.delTask(t.id), 'Removed')} />
               </div>
             ))}
@@ -147,7 +147,7 @@ function Lists() {
               <button onClick={() => run(api.toggleShop(x.id))} style={{ ...checkbox, width: 25, height: 25, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {x.got && <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#16C098" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>}
               </button>
-              <div style={{ flex: 1, fontWeight: 600, fontSize: 14.5, color: x.got ? '#A6AEC0' : '#181922', textDecoration: x.got ? 'line-through' : 'none' }}>{x.name}</div>
+              <div style={{ flex: 1, fontWeight: 600, fontSize: 14.5, color: x.got ? '#7D776E' : '#181922', textDecoration: x.got ? 'line-through' : 'none' }}>{x.name}</div>
               <div style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: tint[x.by] || '#EAEEFF', color: colorFor(x.by) || '#3B5BFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, fontFamily: grotesk }}>{initialFor(x.by) || '?'}</div>
               <DeleteBtn onClick={() => run(api.delShop(x.id), 'Removed')} />
             </div>
@@ -183,7 +183,7 @@ function Goals() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button onClick={() => run(api.bumpGoal(g.id), 'Progress logged')} style={{ border: 'none', background: '#EFEBE3', color: '#3B5BFF', fontWeight: 700, fontSize: 12.5, padding: '9px 15px', borderRadius: 100, cursor: 'pointer' }}>+ Log progress</button>
-              <button onClick={() => run(api.delGoal(g.id), 'Goal removed')} style={{ border: 'none', background: 'none', color: '#9C968D', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', marginLeft: 'auto' }}>Remove</button>
+              <button onClick={() => run(api.delGoal(g.id), 'Goal removed')} style={{ border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', marginLeft: 'auto' }}>Remove</button>
             </div>
           </div>
         ))}
@@ -209,7 +209,7 @@ function Goals() {
 
 // ---------------- shared ----------------
 const inlineInput: React.CSSProperties = { flex: 1, border: '1.5px solid #E8E3DB', background: '#fff', borderRadius: 14, padding: '13px 16px', fontSize: 14.5, color: '#181922', outline: 'none' };
-const checkbox: React.CSSProperties = { flexShrink: 0, width: 26, height: 26, borderRadius: '50%', border: '2px solid #DDE3EF', background: '#fff', cursor: 'pointer' };
+const checkbox: React.CSSProperties = { flexShrink: 0, width: 26, height: 26, borderRadius: '50%', border: '2px solid #DED9D0', background: '#fff', cursor: 'pointer' };
 const iconBtn: React.CSSProperties = { flexShrink: 0, width: 36, height: 36, borderRadius: 11, border: 'none', background: '#EFEBE3', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' };
 
 function AddBtn({ onClick }: { onClick: () => void }) {
@@ -222,7 +222,7 @@ function AddBtn({ onClick }: { onClick: () => void }) {
 function DeleteBtn({ onClick }: { onClick: () => void }) {
   return (
     <button onClick={onClick} title="Delete" aria-label="Delete" style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 9, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5h4v2M9 7l.7 12h8.6L19 7" stroke="#C4CBDA" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5h4v2M9 7l.7 12h8.6L19 7" stroke="#C9C3B9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
     </button>
   );
 }

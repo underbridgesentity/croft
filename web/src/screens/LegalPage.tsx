@@ -18,7 +18,7 @@ function Wrap({ children }: { children: React.ReactNode }) {
 }
 
 const h1: React.CSSProperties = { fontFamily: grotesk, fontWeight: 700, fontSize: 30, letterSpacing: '-0.02em', margin: '0 0 6px' };
-const meta: React.CSSProperties = { color: '#8C877E', fontSize: 13.5, margin: '0 0 28px' };
+const meta: React.CSSProperties = { color: '#7D776E', fontSize: 13.5, margin: '0 0 28px' };
 const h2: React.CSSProperties = { fontFamily: grotesk, fontWeight: 700, fontSize: 18, margin: '30px 0 8px' };
 const p: React.CSSProperties = { fontSize: 15, lineHeight: 1.65, color: '#403c36', margin: '0 0 12px' };
 const li: React.CSSProperties = { fontSize: 15, lineHeight: 1.6, color: '#403c36', marginBottom: 7 };

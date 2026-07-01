@@ -169,7 +169,7 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
           </div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginBottom: 22 }}>
             {[0, 1, 2].map((i) => (
-              <div key={i} style={{ height: 7, width: intro === i ? 22 : 7, borderRadius: 100, background: intro === i ? '#3B5BFF' : '#D3DAE8', transition: 'all .2s' }} />
+              <div key={i} style={{ height: 7, width: intro === i ? 22 : 7, borderRadius: 100, background: intro === i ? '#3B5BFF' : '#D8D2C8', transition: 'all .2s' }} />
             ))}
           </div>
           <button style={primaryBtn} onClick={next}>{intro >= 2 ? 'Create my account' : 'Next'}</button>
@@ -200,7 +200,7 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
           <button style={{ ...primaryBtn, marginTop: 10, marginBottom: 12, opacity: busy ? 0.7 : 1 }} disabled={busy} onClick={doSignup}>
             {busy ? 'Creating…' : 'Create account'}
           </button>
-          <div style={{ fontSize: 12, color: '#9C968D', textAlign: 'center', marginBottom: 16, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 12, color: '#7D776E', textAlign: 'center', marginBottom: 16, lineHeight: 1.5 }}>
             By creating an account, you agree to our <a href="/terms" style={{ color: '#6F6C67', fontWeight: 700 }}>Terms</a> and <a href="/privacy" style={{ color: '#6F6C67', fontWeight: 700 }}>Privacy Policy</a>.
           </div>
           <Divider />
@@ -359,7 +359,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 export function EyeBtn({ shown, onClick }: { shown: boolean; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} aria-label={shown ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', padding: 9, color: '#8C877E', display: 'flex' }}>
+    <button type="button" onClick={onClick} aria-label={shown ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', padding: 9, color: '#7D776E', display: 'flex' }}>
       {shown ? (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 5.1A9.6 9.6 0 0 1 12 5c6 0 9 7 9 7a13.5 13.5 0 0 1-2.2 3.2M6.1 6.1A13.3 13.3 0 0 0 3 12s3 7 9 7a9.3 9.3 0 0 0 3.9-.8" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" /></svg>
       ) : (
@@ -372,7 +372,7 @@ function Divider() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '8px 0 16px' }}>
       <div style={{ flex: 1, height: 1, background: '#E8E3DB' }} />
-      <span style={{ fontSize: 12, color: '#9C968D', fontWeight: 600 }}>or</span>
+      <span style={{ fontSize: 12, color: '#7D776E', fontWeight: 600 }}>or</span>
       <div style={{ flex: 1, height: 1, background: '#E8E3DB' }} />
     </div>
   );

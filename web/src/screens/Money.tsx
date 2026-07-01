@@ -91,7 +91,7 @@ export default function Money({ nav }: { nav: Nav }) {
           <div key={s.id} style={{ background: '#fff', borderRadius: 18, padding: '14px 16px', boxShadow: '0 2px 8px rgba(16,20,38,0.04)', display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 600, fontSize: 13.5, lineHeight: 1.3 }}>{s.txt}</div>
-              <div style={{ fontSize: 12, color: '#6F6C67', marginTop: 2 }}>{s.detail} <b style={{ color: s.dir === 'in' ? '#16C098' : '#FF5C8A' }}>{s.dir === 'in' ? '+' : '−'}{s.amount}</b></div>
+              <div style={{ fontSize: 12, color: '#6F6C67', marginTop: 2 }}>{s.detail} <b style={{ color: s.dir === 'in' ? '#16C098' : '#FF5C8A' }}>{s.dir === 'in' ? '+' : '-'}{s.amount}</b></div>
             </div>
             <button onClick={() => run(s.dir === 'in' ? api.nudge(s.who) : api.settleUp(s.id), s.dir === 'in' ? `Reminder sent to ${s.who}` : 'Settled up')} style={{ flexShrink: 0, border: 'none', background: '#EFEBE3', color: '#3B5BFF', fontWeight: 700, fontSize: 12.5, padding: '9px 15px', borderRadius: 100, cursor: 'pointer' }}>
               {s.dir === 'in' ? 'Remind' : 'Settle up'}
@@ -120,6 +120,6 @@ export default function Money({ nav }: { nav: Nav }) {
 }
 
 const dashedAdd: React.CSSProperties = {
-  width: '100%', border: '1.5px dashed #CBD4E4', background: 'transparent', color: '#6B6459',
+  width: '100%', border: '1.5px dashed #D2CCC1', background: 'transparent', color: '#6B6459',
   fontWeight: 700, fontSize: 14, padding: 15, borderRadius: 16, cursor: 'pointer',
 };

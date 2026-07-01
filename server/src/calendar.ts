@@ -19,6 +19,17 @@ function fold(line: string): string {
 }
 const pad = (n: number) => String(n).padStart(2, '0');
 
+/** Parse a free-text event_time into a valid {h,m} or null (→ all-day). Guards
+ * against malformed input (e.g. "25:00", "9:3020") producing an invalid ICS. */
+function parseTime(s: string | null | undefined): { h: number; m: number } | null {
+  const match = /^(\d{1,2}):(\d{2})/.exec(String(s || ''));
+  if (!match) return null;
+  const h = Number(match[1]);
+  const m = Number(match[2]);
+  if (h > 23 || m > 59) return null;
+  return { h, m };
+}
+
 /** GET /api/calendar/:token.ics - public, capability-URL protected. */
 calendarRouter.get('/:token.ics', async (req, res) => {
   const token = String((req.params as any).token || '');
@@ -52,13 +63,12 @@ calendarRouter.get('/:token.ics', async (req, res) => {
     lines.push('BEGIN:VEVENT');
     lines.push(`UID:${e.id}@croftapp.co.za`);
     lines.push(`DTSTAMP:${stamp}`);
-    if (e.event_time && /^\d{1,2}:\d{2}/.test(e.event_time)) {
-      const [h, m] = e.event_time.split(':');
-      const start = `${d}T${pad(Number(h))}${m}00`;
+    const tm = parseTime(e.event_time);
+    if (tm) {
+      lines.push(`DTSTART:${d}T${pad(tm.h)}${pad(tm.m)}00`);
       // +1h end
-      const endH = (Number(h) + 1) % 24;
-      lines.push(`DTSTART:${start}`);
-      lines.push(`DTEND:${d}T${pad(endH)}${m}00`);
+      const endH = (tm.h + 1) % 24;
+      lines.push(`DTEND:${d}T${pad(endH)}${pad(tm.m)}00`);
     } else {
       // all-day: DTEND is exclusive next day
       const y = Number(d.slice(0, 4)), mo = Number(d.slice(4, 6)), da = Number(d.slice(6, 8));

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from './store';
 import { useIsDesktop } from './lib/useMedia';
 import Home from './screens/Home';
@@ -46,11 +46,39 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   const [form, setForm] = useState<FormType>('event');
   const [fd, setFd] = useState<FormData>({});
 
+  const dialogRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!sheet) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setSheet(null);
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, [sheet]);
+
+  // Modal focus management: move focus into the dialog on open, keep Tab inside
+  // it, and restore focus to the trigger on close.
+  useEffect(() => {
+    if (!sheet) return;
+    const prev = document.activeElement as HTMLElement | null;
+    const node = dialogRef.current;
+    node?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab' || !node) return;
+      const focusable = node.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      if (!focusable.length) { e.preventDefault(); node.focus(); return; }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement as HTMLElement;
+      if (e.shiftKey && (active === first || active === node)) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && active === last) { e.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      prev?.focus?.();
+    };
   }, [sheet]);
 
   if (!state) return null;
@@ -98,11 +126,14 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
       {sheet && (
         <div onClick={nav.closeSheet} className="scrim-in" style={{ position: 'absolute', inset: 0, zIndex: 40, background: 'rgba(16,20,38,0.45)', display: 'flex', flexDirection: 'column', justifyContent: isDesktop ? 'center' : 'flex-end', alignItems: isDesktop ? 'center' : 'stretch', padding: isDesktop ? 24 : 0 }}>
           <div
+            ref={dialogRef}
             role="dialog"
             aria-modal="true"
+            tabIndex={-1}
             onClick={(e) => e.stopPropagation()}
             className={`croft-scroll ${isDesktop ? 'scrim-in' : 'sheet-up'}`}
             style={{
+              outline: 'none',
               background: '#F5F4F1',
               borderRadius: isDesktop ? 24 : '28px 28px 0 0',
               padding: isDesktop ? '20px 22px 26px' : '10px 18px calc(30px + env(safe-area-inset-bottom))',
@@ -113,7 +144,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
               boxShadow: '0 12px 48px rgba(0,0,0,0.25)',
             }}
           >
-            {!isDesktop && <div style={{ width: 40, height: 5, borderRadius: 100, background: '#D3DAE8', margin: '4px auto 16px' }} />}
+            {!isDesktop && <div style={{ width: 40, height: 5, borderRadius: 100, background: '#D8D2C8', margin: '4px auto 16px' }} />}
             {sheet === 'add' && <AddSheet nav={nav} />}
             {sheet === 'notifs' && <NotifSheet />}
             {sheet === 'form' && <FormSheet form={form} fd={fd} setFd={setFd} nav={nav} />}
@@ -164,11 +195,11 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
               {hasUnread && <span style={{ position: 'absolute', left: 26, top: 9, width: 8, height: 8, borderRadius: '50%', background: '#FF4D5E', border: '2px solid #fff' }} />}
             </button>
 
-            <button onClick={() => nav.goTab('family')} style={{ display: 'flex', alignItems: 'center', gap: 11, border: 'none', background: '#F5F7FC', padding: '10px 12px', borderRadius: 14, cursor: 'pointer', marginTop: 8, textAlign: 'left' }}>
+            <button onClick={() => nav.goTab('family')} style={{ display: 'flex', alignItems: 'center', gap: 11, border: 'none', background: '#F5F4F1', padding: '10px 12px', borderRadius: 14, cursor: 'pointer', marginTop: 8, textAlign: 'left' }}>
               <span style={{ width: 36, height: 36, flexShrink: 0, borderRadius: '50%', background: you?.color || '#3B5BFF', color: '#fff', fontFamily: grotesk, fontWeight: 700, fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{you?.initial}</span>
               <span style={{ minWidth: 0 }}>
                 <span style={{ display: 'block', fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{you?.name}</span>
-                <span style={{ display: 'block', fontSize: 11.5, color: '#8C877E', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{state.household.name}</span>
+                <span style={{ display: 'block', fontSize: 11.5, color: '#7D776E', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{state.household.name}</span>
               </span>
             </button>
           </aside>
@@ -214,7 +245,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
 
       <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 25, padding: '12px 10px max(16px, env(safe-area-inset-bottom))', background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderTop: '1px solid #E8E3DB', display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
         {NAV.map((item) => (
-          <button key={item.key} onClick={() => nav.goTab(item.key)} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, color: tab === item.key ? '#3B5BFF' : '#A6AEC0', width: 60 }}>
+          <button key={item.key} onClick={() => nav.goTab(item.key)} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, color: tab === item.key ? '#3B5BFF' : '#7D776E', width: 60 }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">{item.icon}</svg>
             <span style={{ fontSize: 10.5, fontWeight: 700 }}>{item.label}</span>
           </button>

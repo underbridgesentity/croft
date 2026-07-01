@@ -16,9 +16,9 @@ export function AddSheet({ nav }: { nav: Nav }) {
   };
   const options = [
     { label: 'Calendar event', sub: 'Appointment, birthday, school date', illo: 'calendar', color: '#FFB020', onTap: () => nav.openForm('event') },
-    { label: 'To-do', sub: 'A task for you or the family', illo: 'todo', color: '#3B5BFF', onTap: () => route('tasks', 'todos', 'Type your to-do below ↓') },
-    { label: 'Reminder for someone', sub: 'Nudge a family member', illo: 'bell', color: '#FF5C8A', onTap: () => route('tasks', 'todos', 'Add a reminder below ↓') },
-    { label: 'Shopping item', sub: 'Add to the shared list', illo: 'cart', color: '#16C098', onTap: () => route('tasks', 'lists', 'Add items to the list below ↓') },
+    { label: 'To-do', sub: 'A task for you or the family', illo: 'todo', color: '#3B5BFF', onTap: () => route('tasks', 'todos', 'Type your to-do below') },
+    { label: 'Reminder for someone', sub: 'Nudge a family member', illo: 'bell', color: '#FF5C8A', onTap: () => route('tasks', 'todos', 'Add a reminder below') },
+    { label: 'Shopping item', sub: 'Add to the shared list', illo: 'cart', color: '#16C098', onTap: () => route('tasks', 'lists', 'Add items to the list below') },
     { label: 'Bill', sub: 'Track a payment', illo: 'wallet', color: '#7A5CFF', onTap: () => nav.openForm('bill') },
     { label: 'Goal', sub: 'Family or personal', illo: 'goal', color: '#FF6B5C', onTap: () => nav.openForm('goal') },
   ];
@@ -34,7 +34,7 @@ export function AddSheet({ nav }: { nav: Nav }) {
               <div style={{ fontWeight: 700, fontSize: 15 }}>{o.label}</div>
               <div style={{ fontSize: 12, color: '#6F6C67', marginTop: 1 }}>{o.sub}</div>
             </div>
-            <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="#C4CBDA" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="#C9C3B9" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </button>
         ))}
       </div>
@@ -60,7 +60,7 @@ export function NotifSheet() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontSize: 14, lineHeight: 1.25 }}>{n.title}</div>
               <div style={{ fontSize: 12.5, color: '#6F6C67', marginTop: 2, lineHeight: 1.35 }}>{n.body}</div>
-              <div style={{ fontSize: 11, color: '#9C968D', fontWeight: 600, marginTop: 5 }}>{n.time_label}</div>
+              <div style={{ fontSize: 11, color: '#7D776E', fontWeight: 600, marginTop: 5 }}>{n.time_label}</div>
             </div>
             {n.unread && <span style={{ position: 'absolute', top: 14, right: 14, width: 9, height: 9, borderRadius: '50%', background: '#FF4D5E' }} />}
           </div>

@@ -47,7 +47,7 @@ export default function Home({ nav }: { nav: Nav }) {
       </div>
 
       {/* Today */}
-      <Row title="Today" action="Calendar →" onAction={() => nav.goTab('calendar')} />
+      <Row title="Today" action="Calendar" onAction={() => nav.goTab('calendar')} />
       <div style={{ background: '#fff', borderRadius: 22, padding: '6px 14px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 26 }}>
         {todayList.length === 0 && <div style={{ padding: '18px 2px', color: '#6F6C67', fontSize: 13.5 }}>Nothing scheduled today - enjoy the calm.</div>}
         {todayList.map((it) => (
@@ -73,8 +73,8 @@ export default function Home({ nav }: { nav: Nav }) {
         {state.feed.slice(0, 6).map((f) => (
           <div key={f.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderBottom: '1px solid #EFEBE3' }}>
             <div style={{ flexShrink: 0, width: 32, height: 32, borderRadius: '50%', background: f.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: grotesk, fontWeight: 700, fontSize: 13 }}>{f.initial}</div>
-            <div style={{ flex: 1, fontSize: 13.5, color: '#2A3145', lineHeight: 1.4 }}><b style={{ fontWeight: 700, color: '#181922' }}>{f.who}</b> {f.txt}</div>
-            <div style={{ flexShrink: 0, fontSize: 11, color: '#9C968D', fontWeight: 600, paddingTop: 2 }}>{f.time_label}</div>
+            <div style={{ flex: 1, fontSize: 13.5, color: '#3A362F', lineHeight: 1.4 }}><b style={{ fontWeight: 700, color: '#181922' }}>{f.who}</b> {f.txt}</div>
+            <div style={{ flexShrink: 0, fontSize: 11, color: '#7D776E', fontWeight: 600, paddingTop: 2 }}>{f.time_label}</div>
           </div>
         ))}
         <div style={{ height: 6 }} />
@@ -83,7 +83,7 @@ export default function Home({ nav }: { nav: Nav }) {
       {/* Goal highlight */}
       {goal && (
         <>
-          <Row title="A goal you're chasing" action="All →" onAction={() => { nav.goTab('tasks'); nav.goPlan('goals'); }} />
+          <Row title="A goal you're chasing" action="View all" onAction={() => { nav.goTab('tasks'); nav.goPlan('goals'); }} />
           <div style={{ background: '#13182B', borderRadius: 24, padding: 20, boxShadow: '0 10px 26px rgba(19,24,43,0.22)', color: '#fff', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: '50%', background: 'rgba(198,242,78,0.16)' }} />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
@@ -91,7 +91,7 @@ export default function Home({ nav }: { nav: Nav }) {
               <div style={{ fontFamily: grotesk, fontSize: 13, fontWeight: 700, color: '#C6F24E' }}>{goal.pct}%</div>
             </div>
             <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 21, margin: '10px 0 3px', position: 'relative' }}>{goal.title}</div>
-            <div style={{ fontSize: 13, color: '#AEB6CC', marginBottom: 16, position: 'relative' }}>{goal.sub}</div>
+            <div style={{ fontSize: 13, color: '#ADA79C', marginBottom: 16, position: 'relative' }}>{goal.sub}</div>
             <div style={{ height: 9, borderRadius: 100, background: 'rgba(255,255,255,0.14)', overflow: 'hidden', position: 'relative' }}>
               <div style={{ height: '100%', width: `${goal.pct}%`, borderRadius: 100, background: '#C6F24E' }} />
             </div>
@@ -102,7 +102,7 @@ export default function Home({ nav }: { nav: Nav }) {
   );
 }
 
-const circleBtn: React.CSSProperties = { flexShrink: 0, width: 26, height: 26, borderRadius: '50%', border: '2px solid #DDE3EF', background: '#fff', cursor: 'pointer' };
+const circleBtn: React.CSSProperties = { flexShrink: 0, width: 26, height: 26, borderRadius: '50%', border: '2px solid #DED9D0', background: '#fff', cursor: 'pointer' };
 
 function Stat({ onClick, value, color, label }: { onClick: () => void; value: number; color: string; label: string }) {
   return (

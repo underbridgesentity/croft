@@ -44,13 +44,13 @@ export default function Calendar({ nav }: { nav: Nav }) {
       <div style={{ background: '#fff', borderRadius: 22, padding: '16px 12px 18px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 24 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 8 }}>
           {DOW.map((d, i) => (
-            <div key={i} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#A6AEC0' }}>{d}</div>
+            <div key={i} style={{ textAlign: 'center', fontSize: 11, fontWeight: 700, color: '#7D776E' }}>{d}</div>
           ))}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', rowGap: 2 }}>
           {cells.map((c) => (
             <div key={c.key} style={{ height: 42, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3 }}>
-              <div style={{ width: 31, height: 31, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: grotesk, fontSize: 13.5, fontWeight: 600, background: c.today ? '#3B5BFF' : 'transparent', color: c.today ? '#fff' : c.faded ? '#C4CBDA' : '#181922' }}>
+              <div style={{ width: 31, height: 31, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: grotesk, fontSize: 13.5, fontWeight: 600, background: c.today ? '#3B5BFF' : 'transparent', color: c.today ? '#fff' : c.faded ? '#C9C3B9' : '#181922' }}>
                 {c.label || ''}
               </div>
               <div style={{ width: 5, height: 5, borderRadius: '50%', background: c.dot }} />
@@ -70,7 +70,7 @@ export default function Calendar({ nav }: { nav: Nav }) {
             </div>
             <div style={{ flexShrink: 0, textAlign: 'right' }}>
               <div style={{ fontFamily: grotesk, fontWeight: 600, fontSize: 13 }}>{e.time}</div>
-              <div style={{ fontSize: 10, color: '#9C968D', fontWeight: 600 }}>{e.ampm}</div>
+              <div style={{ fontSize: 10, color: '#7D776E', fontWeight: 600 }}>{e.ampm}</div>
             </div>
           </div>
         ))}
@@ -82,6 +82,6 @@ export default function Calendar({ nav }: { nav: Nav }) {
 }
 
 const dashedAdd: React.CSSProperties = {
-  width: '100%', border: '1.5px dashed #CBD4E4', background: 'transparent', color: '#6B6459',
+  width: '100%', border: '1.5px dashed #D2CCC1', background: 'transparent', color: '#6B6459',
   fontWeight: 700, fontSize: 14, padding: 15, borderRadius: 16, cursor: 'pointer', marginTop: 14,
 };

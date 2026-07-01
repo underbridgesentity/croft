@@ -49,7 +49,7 @@ export default function LockScreen() {
         {/* dots */}
         <div style={{ display: 'flex', gap: 12, marginBottom: 30, minHeight: 14 }}>
           {Array.from({ length: Math.max(4, pin.length) }).map((_, i) => (
-            <span key={i} style={{ width: 13, height: 13, borderRadius: '50%', background: i < pin.length ? '#3B5BFF' : '#D3DAE8' }} />
+            <span key={i} style={{ width: 13, height: 13, borderRadius: '50%', background: i < pin.length ? '#3B5BFF' : '#D8D2C8' }} />
           ))}
         </div>
 
@@ -69,7 +69,7 @@ export default function LockScreen() {
         <button onClick={() => submit(pin)} disabled={busy || pin.length < 4} style={{ width: '100%', marginTop: 24, border: 'none', borderRadius: 16, padding: 15, background: '#3B5BFF', color: '#fff', fontFamily: grotesk, fontWeight: 700, fontSize: 15.5, cursor: 'pointer', opacity: busy || pin.length < 4 ? 0.5 : 1 }}>
           {busy ? 'Checking…' : 'Unlock'}
         </button>
-        <button onClick={() => logout()} style={{ border: 'none', background: 'none', color: '#9C968D', fontWeight: 700, fontSize: 13.5, padding: '14px 0 0', cursor: 'pointer' }}>Forgot passcode? Sign out</button>
+        <button onClick={() => logout()} style={{ border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 13.5, padding: '14px 0 0', cursor: 'pointer' }}>Forgot passcode? Sign out</button>
       </div>
     </div>
   );
