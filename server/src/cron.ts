@@ -6,7 +6,7 @@ import { sastToday, sastPlus } from './dates.js';
 
 export const cronRouter = Router();
 const CRON_SECRET = process.env.CRON_SECRET;
-const APP_URL = process.env.APP_URL || 'https://croftapp.vercel.app';
+const APP_URL = process.env.APP_URL || 'https://www.croftapp.co.za';
 
 // Vercel Cron sends `Authorization: Bearer <CRON_SECRET>` when CRON_SECRET is set.
 // Also accept ?key= for manual runs.
