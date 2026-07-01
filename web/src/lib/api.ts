@@ -30,6 +30,7 @@ export const api = {
   login: (data: { email: string; password: string }) =>
     req<{ user: User }>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
   logout: () => req<{ ok: true }>('/auth/logout', { method: 'POST' }),
+  markOnboarded: () => req<{ ok: true }>('/onboarded', { method: 'POST' }),
   googleUrl: () => `${BASE}/auth/google`,
   health: () => req<{ ok: boolean; google: boolean }>('/health'),
 

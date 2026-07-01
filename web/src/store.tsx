@@ -13,6 +13,7 @@ interface Store {
   signup: (d: { name: string; email: string; password: string; household?: string }) => Promise<void>;
   login: (d: { email: string; password: string }) => Promise<void>;
   logout: () => Promise<void>;
+  completeOnboarding: () => void;
   refreshState: () => Promise<void>;
   // generic apply (mutations return fresh state)
   run: (p: Promise<AppState>, msg?: string) => Promise<void>;
@@ -84,6 +85,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setState(null);
   }, []);
 
+  // Dismiss the first-run welcome. Update locally at once; persist best-effort so
+  // a network blip doesn't re-trap the user (they'll just see it once more).
+  const completeOnboarding = useCallback(() => {
+    setUser((u) => (u ? { ...u, onboarded: true } : u));
+    api.markOnboarded().catch(() => {});
+  }, []);
+
   const run = useCallback(
     async (p: Promise<AppState>, msg?: string) => {
       try {
@@ -97,7 +105,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [flash]
   );
 
-  const value: Store = { ready, user, state, toast, flash, signup, login, logout, refreshState, run };
+  const value: Store = { ready, user, state, toast, flash, signup, login, logout, completeOnboarding, refreshState, run };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

@@ -35,7 +35,7 @@ function setAuthCookie(res: Response, userId: string) {
 
 async function loadUser(userId: string) {
   const r = await query(
-    `SELECT u.id, u.email, u.name, u.household_id, u.member_id, h.name AS household_name
+    `SELECT u.id, u.email, u.name, u.household_id, u.member_id, u.onboarded, h.name AS household_name
        FROM users u LEFT JOIN households h ON h.id = u.household_id
       WHERE u.id = $1`,
     [userId]

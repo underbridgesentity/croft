@@ -59,6 +59,12 @@ dataRouter.get('/state', async (req: AuthedRequest, res) => {
   res.json(await assembleState(hh(req)));
 });
 
+// Mark the first-run welcome walkthrough as seen for this user.
+dataRouter.post('/onboarded', async (req: AuthedRequest, res) => {
+  await query(`UPDATE users SET onboarded = true WHERE id = $1`, [req.userId]);
+  res.json({ ok: true });
+});
+
 // helper to log activity feed
 async function addFeed(householdId: string, who: string, color: string, initial: string, txt: string) {
   await query(

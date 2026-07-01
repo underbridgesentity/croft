@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from './store';
 import Onboarding from './screens/Onboarding';
 import Shell from './Shell';
+import WelcomeTour from './screens/WelcomeTour';
 
 export default function App() {
   const { ready, user, state, flash } = useStore();
@@ -49,6 +50,7 @@ export default function App() {
   return (
     <Frame>
       <Shell onSignedOut={() => setEntered(false)} />
+      {user && user.onboarded === false && <WelcomeTour />}
     </Frame>
   );
 }
