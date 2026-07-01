@@ -12,14 +12,14 @@ body {
   text-rendering: optimizeLegibility;
 }
 body {
-  font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  font-family: 'Geist', system-ui, -apple-system, sans-serif;
   color: #171821;
   letter-spacing: -0.005em;
 }
 input,
 button,
 textarea {
-  font-family: 'Manrope', system-ui, sans-serif;
+  font-family: 'Geist', system-ui, sans-serif;
 }
 input::placeholder {
   color: #a3a09a;

@@ -1,6 +1,6 @@
 import { useIsDesktop } from '../lib/useMedia';
 
-const grotesk = "'Bricolage Grotesque', sans-serif";
+const grotesk = "'Geist', sans-serif";
 const INK = '#181922';
 const BLUE = '#3B5BFF';
 const MUTED = '#655F57';

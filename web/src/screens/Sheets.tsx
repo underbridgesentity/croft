@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 import type { FormData, FormType, Nav } from '../Shell';
 import Icon from '../components/Icon';
 
-const grotesk = "'Bricolage Grotesque', sans-serif";
+const grotesk = "'Geist', sans-serif";
 
 // ---------------- ADD MENU ----------------
 export function AddSheet({ nav }: { nav: Nav }) {

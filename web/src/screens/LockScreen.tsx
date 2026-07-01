@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../lib/api';
 
-const grotesk = "'Bricolage Grotesque', sans-serif";
+const grotesk = "'Geist', sans-serif";
 
 export default function LockScreen() {
   const { user, unlock, logout } = useStore();

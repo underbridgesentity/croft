@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import type { Nav } from '../Shell';
 import Art from '../components/Art';
 
-const grotesk = "'Bricolage Grotesque', sans-serif";
+const grotesk = "'Geist', sans-serif";
 
 export default function Plans({ nav }: { nav: Nav }) {
   const { state } = useStore();

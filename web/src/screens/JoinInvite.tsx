@@ -3,7 +3,7 @@ import { useStore } from '../store';
 import { api } from '../lib/api';
 import { EyeBtn } from './Onboarding';
 
-const grotesk = "'Bricolage Grotesque', sans-serif";
+const grotesk = "'Geist', sans-serif";
 
 const inputStyle: React.CSSProperties = { width: '100%', padding: '13px 15px', borderRadius: 14, border: '1.5px solid #E8E3DB', background: '#fff', fontSize: 15, boxSizing: 'border-box', fontFamily: 'inherit', color: '#181922' };
 const primaryBtn: React.CSSProperties = { width: '100%', padding: 15, borderRadius: 14, border: 'none', background: '#3B5BFF', color: '#fff', fontFamily: grotesk, fontWeight: 700, fontSize: 15.5, cursor: 'pointer', boxShadow: '0 8px 22px rgba(59,91,255,0.4)' };

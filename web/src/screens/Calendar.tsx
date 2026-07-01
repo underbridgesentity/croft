@@ -2,7 +2,7 @@ import { useStore } from '../store';
 import type { Nav } from '../Shell';
 import Icon from '../components/Icon';
 
-const grotesk = "'Bricolage Grotesque', sans-serif";
+const grotesk = "'Geist', sans-serif";
 const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export default function Calendar({ nav }: { nav: Nav }) {

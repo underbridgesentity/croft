@@ -27,7 +27,7 @@ export interface Nav {
   closeSheet: () => void;
 }
 
-const grotesk = "'Bricolage Grotesque', sans-serif";
+const grotesk = "'Geist', sans-serif";
 
 const NAV: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'home', label: 'Home', icon: <path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round" fill="none" /> },

@@ -29,7 +29,7 @@ const primaryBtn: React.CSSProperties = {
   cursor: 'pointer',
   boxShadow: '0 10px 22px rgba(59,91,255,0.34)',
 };
-const grotesk = "'Bricolage Grotesque', sans-serif";
+const grotesk = "'Geist', sans-serif";
 
 const INTRO = [
   { art: 'organize', title: 'Everything in one place', body: 'Dates, to-dos, lists, goals and bills - together, instead of scattered across chats.' },

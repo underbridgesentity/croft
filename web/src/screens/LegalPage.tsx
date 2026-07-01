@@ -1,4 +1,4 @@
-const grotesk = "'Bricolage Grotesque', sans-serif";
+const grotesk = "'Geist', sans-serif";
 const SUPPORT_EMAIL = 'info@underbridges.co.za';
 const OPERATOR = 'Under Bridges';
 const UPDATED = '1 July 2026';

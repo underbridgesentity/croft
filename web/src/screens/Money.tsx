@@ -3,7 +3,7 @@ import { api, money } from '../lib/api';
 import type { Nav } from '../Shell';
 import Icon from '../components/Icon';
 
-const grotesk = "'Bricolage Grotesque', sans-serif";
+const grotesk = "'Geist', sans-serif";
 const parseAmt = (s: string) => Number(String(s).replace(/[^\d.]/g, '')) || 0;
 
 export default function Money({ nav }: { nav: Nav }) {

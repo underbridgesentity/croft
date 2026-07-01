@@ -3,7 +3,7 @@ import { api } from '../lib/api';
 import type { Nav } from '../Shell';
 import Icon from '../components/Icon';
 
-const grotesk = "'Bricolage Grotesque', sans-serif";
+const grotesk = "'Geist', sans-serif";
 
 function greeting() {
   const h = new Date().getHours();

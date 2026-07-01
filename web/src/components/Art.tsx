@@ -94,7 +94,7 @@ const SCENES: Record<string, () => JSX.Element> = {
       </g>
       <g stroke={BLUE}><path d="M58 56c-6 4-10 11-10 19M182 56c6 4 10 11 10 19" /></g>
       <circle cx="166" cy="58" r="15" fill={BLUE} stroke={WHITE} strokeWidth="3" />
-      <text x="166" y="64" textAnchor="middle" fontFamily="'Bricolage Grotesque', sans-serif" fontWeight="700" fontSize="16" fill={WHITE} stroke="none">3</text>
+      <text x="166" y="64" textAnchor="middle" fontFamily="'Geist', sans-serif" fontWeight="700" fontSize="16" fill={WHITE} stroke="none">3</text>
     </g>
   ),
   done: () => (
