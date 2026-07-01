@@ -62,9 +62,7 @@ export default function JoinInvite({ token, onJoined, onCancel }: { token: strin
     <div className="croft-scroll" style={{ position: 'absolute', inset: 0, zIndex: 100, background: '#F3F5FB', overflowY: 'auto' }}>
       <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: '64px 26px 40px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 30 }}>
-          <span style={{ width: 34, height: 34, borderRadius: 11, background: '#3B5BFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(59,91,255,0.32)' }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3.5 11L12 4l8.5 7v8.2a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1z" stroke="#fff" strokeWidth="2" strokeLinejoin="round" /><path d="M9.5 20.5v-6h5v6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </span>
+          <img src="/icons/icon-192.png" width={36} height={36} alt="" style={{ borderRadius: 10, display: 'block', boxShadow: '0 4px 12px rgba(31,153,255,0.32)' }} />
           <span style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 22, letterSpacing: '-0.01em' }}>Croft</span>
         </div>
 

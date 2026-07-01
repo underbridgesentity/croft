@@ -7,9 +7,7 @@ function Wrap({ children }: { children: React.ReactNode }) {
     <div className="croft-scroll" style={{ position: 'absolute', inset: 0, background: '#F3F5FB', overflowY: 'auto' }}>
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '48px 24px 64px' }}>
         <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, textDecoration: 'none', color: '#101426', marginBottom: 28 }}>
-          <span style={{ width: 30, height: 30, borderRadius: 9, background: '#3B5BFF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M3.5 11L12 4l8.5 7v8.2a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1z" stroke="#fff" strokeWidth="2" strokeLinejoin="round" /><path d="M9.5 20.5v-6h5v6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </span>
+          <img src="/icons/icon-192.png" width={30} height={30} alt="" style={{ borderRadius: 8, display: 'block' }} />
           <span style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19 }}>Croft</span>
         </a>
         {children}

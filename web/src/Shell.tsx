@@ -135,9 +135,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         <div style={{ display: 'flex', height: '100dvh' }}>
           <aside style={{ width: 252, flexShrink: 0, background: '#fff', borderRight: '1px solid #E9EDF6', display: 'flex', flexDirection: 'column', padding: '24px 16px 18px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 8px', marginBottom: 22 }}>
-              <span style={{ width: 32, height: 32, borderRadius: 10, background: '#3B5BFF', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(59,91,255,0.3)' }}>
-                <svg width="19" height="19" viewBox="0 0 24 24" fill="none"><path d="M3.5 11L12 4l8.5 7v8.2a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1z" stroke="#fff" strokeWidth="2" strokeLinejoin="round" /><path d="M9.5 20.5v-6h5v6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              </span>
+              <img src="/icons/icon-192.png" width={34} height={34} alt="" style={{ borderRadius: 10, display: 'block', boxShadow: '0 4px 12px rgba(31,153,255,0.3)' }} />
               <span style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, letterSpacing: '-0.01em' }}>Croft</span>
             </div>
 
