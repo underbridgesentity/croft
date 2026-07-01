@@ -76,16 +76,9 @@ export default function App() {
     );
   }
 
-  // App-lock: an authenticated user with a passcode set must unlock first.
-  if (user && user.locked && !appUnlocked) {
-    return (
-      <Frame wide>
-        <LockScreen />
-      </Frame>
-    );
-  }
-
-  // Password reset link → set-new-password flow.
+  // Password reset link → set-new-password flow. Checked BEFORE the app-lock so a
+  // locked-out user can still use their recovery link (and invite links) instead
+  // of being trapped on the passcode screen.
   if (resetToken) {
     const clearUrl = () => window.history.replaceState({}, '', '/');
     return (
@@ -109,6 +102,16 @@ export default function App() {
           onJoined={() => { clearUrl(); setJoinToken(null); setEntered(true); }}
           onCancel={() => { clearUrl(); setJoinToken(null); }}
         />
+      </Frame>
+    );
+  }
+
+  // App-lock: an authenticated user with a passcode set must unlock before
+  // reaching the app shell (after reset/join deep-links are handled above).
+  if (user && user.locked && !appUnlocked) {
+    return (
+      <Frame wide>
+        <LockScreen />
       </Frame>
     );
   }
@@ -165,7 +168,7 @@ function Logo() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
       <img src="/icons/icon-192.png" width={36} height={36} alt="" style={{ borderRadius: 10, display: 'block', boxShadow: '0 4px 12px rgba(31,153,255,0.32)' }} />
-      <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: '-0.01em' }}>
+      <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: '-0.01em' }}>
         Croft
       </span>
     </div>

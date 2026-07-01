@@ -103,6 +103,14 @@ interface Invite {
   created_by: string | null;
 }
 
+/** Thrown when a single-use invite is claimed by a concurrent request first. */
+class InviteTakenError extends Error {
+  constructor() {
+    super('invite_taken');
+    this.name = 'InviteTakenError';
+  }
+}
+
 /** Return the invite if it exists, is unaccepted and unexpired; else null. */
 async function loadValidInvite(token: string): Promise<Invite | null> {
   if (!token) return null;
@@ -123,6 +131,15 @@ const MEMBER_PALETTE = ['#7A5CFF', '#16C098', '#FF6B5C', '#FFB020', '#3B5BFF', '
  * placeholder member (or create a fresh member), point the user at it, and mark
  * the invite accepted. */
 async function joinHousehold(c: PoolClient, invite: Invite, userId: string, userName: string) {
+  // Atomically claim the single-use invite FIRST. `loadValidInvite` is a
+  // non-transactional read, so two concurrent accepts can both pass it; this
+  // guard ensures only one wins (the other rolls the whole tx back) and a single
+  // invite can never onboard two users.
+  const claim = await c.query(
+    `UPDATE invites SET accepted_at=now(), accepted_by=$1 WHERE id=$2 AND accepted_at IS NULL RETURNING id`,
+    [userId, invite.id]
+  );
+  if (!claim.rows.length) throw new InviteTakenError();
   let memberId: string | null = invite.member_id;
   if (memberId) {
     const upd = await c.query(
@@ -143,7 +160,6 @@ async function joinHousehold(c: PoolClient, invite: Invite, userId: string, user
     memberId = ins.rows[0].id;
   }
   await c.query(`UPDATE users SET household_id=$1, member_id=$2 WHERE id=$3`, [invite.household_id, memberId, userId]);
-  await c.query(`UPDATE invites SET accepted_at=now(), accepted_by=$1 WHERE id=$2`, [userId, invite.id]);
   await c.query(
     `INSERT INTO feed (household_id, who, color, initial, txt, time_label)
      VALUES ($1,$2,'#3B5BFF',$3,'joined the household','just now')`,
@@ -270,15 +286,23 @@ authRouter.post('/invite/:token/accept', rateLimit('signup', 10, 3600), async (r
     return res.status(409).json({ error: 'That email already has an account. Log in first, then open the invite link.' });
   }
   const hash = await bcrypt.hash(password, 10);
-  const userId = await tx(async (c) => {
-    const ins = await c.query(
-      `INSERT INTO users (email, password_hash, name) VALUES ($1,$2,$3) RETURNING id`,
-      [email.toLowerCase(), hash, name]
-    );
-    const uid = ins.rows[0].id as string;
-    await joinHousehold(c, invite, uid, name);
-    return uid;
-  });
+  let userId: string;
+  try {
+    userId = await tx(async (c) => {
+      const ins = await c.query(
+        `INSERT INTO users (email, password_hash, name) VALUES ($1,$2,$3) RETURNING id`,
+        [email.toLowerCase(), hash, name]
+      );
+      const uid = ins.rows[0].id as string;
+      await joinHousehold(c, invite, uid, name);
+      return uid;
+    });
+  } catch (e) {
+    if (e instanceof InviteTakenError) {
+      return res.status(410).json({ error: 'This invite has already been used.' });
+    }
+    throw e;
+  }
   sendEmail({ to: email.toLowerCase(), ...welcomeEmail(name) }).catch(() => {});
   notifyInviterOfJoin(invite, name).catch(() => {});
   setAuthCookie(res, userId);
@@ -348,11 +372,17 @@ authRouter.post('/delete-account', requireAuth, async (req: AuthedRequest, res) 
     // Remove this user's membership (by link and by their member_id).
     await c.query(`DELETE FROM members WHERE household_id=$1 AND user_id=$2`, [householdId, req.userId]);
     if (req.memberId) await c.query(`DELETE FROM members WHERE id=$1`, [req.memberId]);
+    // Count only real occupants (members linked to a live user). Unclaimed
+    // placeholder/invited members (user_id IS NULL) must not keep an otherwise
+    // empty household - and all its data - alive forever.
     const remaining = Number(
-      (await c.query(`SELECT COUNT(*) FROM members WHERE household_id=$1`, [householdId])).rows[0].count
+      (await c.query(
+        `SELECT COUNT(*) FROM members WHERE household_id=$1 AND user_id IS NOT NULL AND user_id <> $2`,
+        [householdId, req.userId]
+      )).rows[0].count
     );
     await c.query(`DELETE FROM users WHERE id=$1`, [req.userId]);
-    // Last one out → delete the household and all its data.
+    // Last real person out → delete the household and all its data.
     if (remaining === 0) await c.query(`DELETE FROM households WHERE id=$1`, [householdId]);
   });
   res.clearCookie(COOKIE);
@@ -492,13 +522,23 @@ authRouter.get('/google/callback', async (req, res) => {
     let userId: string;
     let joinedViaInvite = false;
     // If arriving from a valid invite link, join that household; else create one.
+    // If the invite was claimed by a concurrent request, fall back to a solo
+    // household so the sign-in still succeeds.
     const invite = inviteToken ? await loadValidInvite(inviteToken) : null;
-    const provision = (uid: string) =>
-      invite ? tx((c) => joinHousehold(c, invite, uid, name)) : createHouseholdFor(uid, name);
+    const provision = async (uid: string) => {
+      if (!invite) return createHouseholdFor(uid, name);
+      try {
+        await tx((c) => joinHousehold(c, invite, uid, name));
+        joinedViaInvite = true;
+      } catch (e) {
+        if (!(e instanceof InviteTakenError)) throw e;
+        await createHouseholdFor(uid, name);
+      }
+    };
     if (r.rows.length) {
       userId = r.rows[0].id;
       await query(`UPDATE users SET google_id = $1 WHERE id = $2`, [googleId, userId]);
-      if (!r.rows[0].household_id) { await provision(userId); joinedViaInvite = !!invite; }
+      if (!r.rows[0].household_id) await provision(userId);
     } else {
       const ins = await query(
         `INSERT INTO users (email, name, google_id) VALUES ($1,$2,$3) RETURNING id`,
@@ -506,7 +546,6 @@ authRouter.get('/google/callback', async (req, res) => {
       );
       userId = ins.rows[0].id;
       await provision(userId);
-      joinedViaInvite = !!invite;
       sendEmail({ to: email, ...welcomeEmail(name) }).catch(() => {});
     }
     if (joinedViaInvite && invite) notifyInviterOfJoin(invite, name).catch(() => {});

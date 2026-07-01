@@ -89,13 +89,11 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarded BOOLEAN NOT NULL DEFAULT fa
 -- Optional per-user app-lock passcode (bcrypt hash; NULL = no lock).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS lock_pin TEXT;
 
--- Real dates (source of truth for reminders); display labels are derived from these.
-ALTER TABLE events ADD COLUMN IF NOT EXISTS event_date DATE;
-ALTER TABLE events ADD COLUMN IF NOT EXISTS event_time TEXT;
-ALTER TABLE bills ADD COLUMN IF NOT EXISTS due_date DATE;
-
 -- Unguessable token for the household's subscribable calendar (ICS) feed.
 ALTER TABLE households ADD COLUMN IF NOT EXISTS calendar_token TEXT UNIQUE;
+-- NOTE: ALTERs for the events and bills tables live AFTER those CREATE TABLE
+-- statements below - the whole schema runs as one implicit transaction, so an
+-- ALTER before its table exists would abort the entire init on a fresh database.
 
 CREATE TABLE IF NOT EXISTS password_resets (
   token TEXT PRIMARY KEY,
@@ -195,6 +193,12 @@ CREATE TABLE IF NOT EXISTS bills (
   sort INT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Real dates (source of truth for reminders); display labels are derived from
+-- these. Placed here - after events/bills exist - so a fresh-DB init succeeds.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS event_date DATE;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS event_time TEXT;
+ALTER TABLE bills ADD COLUMN IF NOT EXISTS due_date DATE;
 
 CREATE TABLE IF NOT EXISTS budget (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

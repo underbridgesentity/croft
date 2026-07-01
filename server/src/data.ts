@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { z } from 'zod';
 import { query } from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
+import { rateLimit } from './rateLimit.js';
 import { vapidPublicKey, saveSubscription, removeSubscription, pushToHousehold, pushToSub } from './push.js';
 import { sastToday, formatDateLabel, relativeTime, isoRe } from './dates.js';
 import { sendEmail } from './mailer.js';
@@ -12,6 +13,12 @@ const APP_URL = process.env.APP_URL || 'https://www.croftapp.co.za';
 
 export const dataRouter = Router();
 dataRouter.use(requireAuth);
+
+// Throttle the authenticated write surface (a stolen cookie or a runaway client
+// could otherwise hammer DB writes). GET /state is read frequently and left
+// unthrottled; only mutating verbs are limited. Generous for a family app.
+const writeLimit = rateLimit('data', 240, 300); // 240 writes / 5 min per IP
+dataRouter.use((req, res, next) => (req.method === 'GET' ? next() : writeLimit(req, res, next)));
 
 const num = (v: any) => (v == null ? 0 : Number(v));
 
@@ -95,7 +102,14 @@ async function addFeed(householdId: string, who: string, color: string, initial:
     [householdId, who, color, initial, txt]
   );
 }
-async function meMember(householdId: string) {
+// Resolve the acting member for the current request. Prefer the requester's own
+// member_id (correct for every user in a multi-user household); fall back to the
+// household's "you" only if that is missing.
+async function meMember(householdId: string, memberId?: string) {
+  if (memberId) {
+    const r = await query(`SELECT name, color, initial FROM members WHERE id=$1 AND household_id=$2`, [memberId, householdId]);
+    if (r.rows[0]) return r.rows[0];
+  }
   const r = await query(`SELECT name, color, initial FROM members WHERE household_id=$1 AND is_you=true LIMIT 1`, [householdId]);
   return r.rows[0] || { name: 'You', color: '#3B5BFF', initial: 'Y' };
 }
@@ -126,7 +140,7 @@ dataRouter.delete('/events/:id', async (req: AuthedRequest, res) => {
 dataRouter.post('/tasks', async (req: AuthedRequest, res) => {
   const b = z.object({ title: z.string().min(1), type: z.string().optional() }).safeParse(req.body);
   if (!b.success) return res.status(400).json({ error: 'Type a to-do' });
-  const me = await meMember(hh(req));
+  const me = await meMember(hh(req), req.memberId);
   await query(
     `INSERT INTO tasks (household_id, title, from_name, from_color, due, due_key, done, type, sort)
      VALUES ($1,$2,$3,$4,'Today','today',false,$5,${nextSort('tasks')})`,
@@ -139,8 +153,8 @@ dataRouter.patch('/tasks/:id', async (req: AuthedRequest, res) => {
   await query(`UPDATE tasks SET done=$1 WHERE id=$2 AND household_id=$3`, [done, req.params.id, hh(req)]);
   if (done) {
     const t = (await query(`SELECT title FROM tasks WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)])).rows[0];
-    const me = await meMember(hh(req));
-    if (t) await addFeed(hh(req), 'You', me.color, me.initial, `completed "${t.title}"`);
+    const me = await meMember(hh(req), req.memberId);
+    if (t) await addFeed(hh(req), me.name, me.color, me.initial, `completed "${t.title}"`);
   }
   await sendState(req, res);
 });
@@ -153,12 +167,14 @@ dataRouter.delete('/tasks/:id', async (req: AuthedRequest, res) => {
 dataRouter.post('/shopping', async (req: AuthedRequest, res) => {
   const b = z.object({ name: z.string().min(1) }).safeParse(req.body);
   if (!b.success) return res.status(400).json({ error: 'Type an item' });
+  const me = await meMember(hh(req), req.memberId);
+  // Store the acting member's id so the client resolves the right avatar/colour
+  // (colorFor/initialFor match on member id); fall back to 'you' if unknown.
   await query(
-    `INSERT INTO shopping (household_id, name, by_member, got, sort) VALUES ($1,$2,'you',false,${nextSort('shopping')})`,
-    [hh(req), b.data.name]
+    `INSERT INTO shopping (household_id, name, by_member, got, sort) VALUES ($1,$2,$3,false,${nextSort('shopping')})`,
+    [hh(req), b.data.name, req.memberId || 'you']
   );
-  const me = await meMember(hh(req));
-  await addFeed(hh(req), 'You', me.color, me.initial, `added ${b.data.name} to the shopping list`);
+  await addFeed(hh(req), me.name, me.color, me.initial, `added ${b.data.name} to the shopping list`);
   await sendState(req, res);
 });
 dataRouter.patch('/shopping/:id', async (req: AuthedRequest, res) => {
@@ -176,7 +192,7 @@ dataRouter.post('/goals', async (req: AuthedRequest, res) => {
   if (!b.success) return res.status(400).json({ error: 'Add a goal title' });
   const fam = b.data.kind !== 'personal';
   const target = Number(b.data.target) || 0;
-  const me = await meMember(hh(req));
+  const me = await meMember(hh(req), req.memberId);
   const kind = fam ? 'Family' : me.name;
   const sub = target ? `R0 of R${target.toLocaleString('en-ZA')}` : 'Just getting started';
   await query(

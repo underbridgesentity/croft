@@ -34,6 +34,7 @@ wrapAsyncRoutes(cronRouter as unknown as { stack?: any[] });
 wrapAsyncRoutes(calendarRouter as unknown as { stack?: any[] });
 
 export const app = express();
+app.disable('x-powered-by'); // don't advertise the framework/version
 
 app.use(express.json());
 app.use(cookieParser());
