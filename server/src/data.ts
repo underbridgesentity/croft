@@ -5,6 +5,10 @@ import { query } from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 import { vapidPublicKey, saveSubscription, removeSubscription, pushToHousehold, pushToSub } from './push.js';
 import { sastToday, formatDateLabel, isoRe } from './dates.js';
+import { sendEmail } from './mailer.js';
+import { inviteEmail } from './emailTemplates.js';
+
+const APP_URL = process.env.APP_URL || 'https://www.croftapp.co.za';
 
 export const dataRouter = Router();
 dataRouter.use(requireAuth);
@@ -238,7 +242,11 @@ dataRouter.delete('/members/:id', async (req: AuthedRequest, res) => {
 // placeholder member so the invitee "claims" that member. Returns a token the
 // client turns into a /join/<token> link.
 dataRouter.post('/invites', async (req: AuthedRequest, res) => {
-  const b = z.object({ memberId: z.string().uuid().optional(), role: z.string().max(40).optional() }).safeParse(req.body || {});
+  const b = z.object({
+    memberId: z.string().uuid().optional(),
+    role: z.string().max(40).optional(),
+    email: z.string().email().max(160).optional(),
+  }).safeParse(req.body || {});
   if (!b.success) return res.status(400).json({ error: 'Invalid invite' });
   if (b.data.memberId) {
     const m = (await query(`SELECT id, user_id FROM members WHERE id=$1 AND household_id=$2`, [b.data.memberId, hh(req)])).rows[0];
@@ -251,7 +259,18 @@ dataRouter.post('/invites', async (req: AuthedRequest, res) => {
      VALUES ($1,$2,$3,$4,$5, now() + interval '14 days')`,
     [hh(req), token, b.data.memberId || null, b.data.role || '', req.userId]
   );
-  res.json({ token });
+
+  // Optionally email the invite straight to the person.
+  let emailed = false;
+  if (b.data.email) {
+    const hhRow = (await query(`SELECT name FROM households WHERE id=$1`, [hh(req)])).rows[0];
+    const inviter = (await query(`SELECT name FROM users WHERE id=$1`, [req.userId])).rows[0];
+    emailed = await sendEmail({
+      to: b.data.email,
+      ...inviteEmail({ inviterName: inviter?.name, householdName: hhRow?.name || 'a household', joinUrl: `${APP_URL}/join/${token}` }),
+    });
+  }
+  res.json({ token, emailed });
 });
 
 // ---------------- NOTIFICATIONS / NUDGE ----------------

@@ -16,6 +16,8 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
   const [inviteName, setInviteName] = useState('');
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [linkBusy, setLinkBusy] = useState(false);
+  const [inviteAddr, setInviteAddr] = useState('');
+  const [emailBusy, setEmailBusy] = useState(false);
   const [pwOpen, setPwOpen] = useState(false);
   const [curPw, setCurPw] = useState('');
   const [newPw, setNewPw] = useState('');
@@ -81,6 +83,20 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
       flash('Invite link copied ✓');
     } catch {
       flash('Could not copy — long-press to copy');
+    }
+  };
+  const sendEmailInvite = async () => {
+    const addr = inviteAddr.trim();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)) return flash('Enter a valid email address');
+    setEmailBusy(true);
+    try {
+      const { emailed } = await api.createInvite({ email: addr });
+      flash(emailed ? `Invite emailed to ${addr} ✓` : 'Created — email didn’t send, share a link instead');
+      setInviteAddr('');
+    } catch (e: any) {
+      flash(e?.message || 'Could not send invite');
+    } finally {
+      setEmailBusy(false);
     }
   };
 
@@ -156,10 +172,14 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
         </div>
       ) : (
         <div style={{ marginBottom: 26 }}>
-          <button onClick={makeInviteLink} disabled={linkBusy} style={{ width: '100%', border: '1.5px dashed #CBD4E4', background: 'transparent', color: '#5B6B8C', fontWeight: 700, fontSize: 14, padding: 15, borderRadius: 16, cursor: 'pointer', opacity: linkBusy ? 0.6 : 1 }}>
-            {linkBusy ? 'Creating link…' : '+ Invite someone to Croft'}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input value={inviteAddr} onChange={(e) => setInviteAddr(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && sendEmailInvite()} type="email" placeholder="Email address to invite" style={{ flex: 1, border: '1.5px solid #E4E9F2', background: '#fff', borderRadius: 14, padding: '13px 16px', fontSize: 14.5, outline: 'none' }} />
+            <button onClick={sendEmailInvite} disabled={emailBusy} style={{ border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 14, padding: '0 20px', borderRadius: 14, cursor: 'pointer', opacity: emailBusy ? 0.6 : 1 }}>{emailBusy ? '…' : 'Invite'}</button>
+          </div>
+          <button onClick={makeInviteLink} disabled={linkBusy} style={{ width: '100%', border: 'none', background: 'none', color: '#3B5BFF', fontWeight: 700, fontSize: 13.5, padding: '11px 0 0', cursor: 'pointer' }}>
+            {linkBusy ? 'Creating link…' : 'or copy an invite link to share'}
           </button>
-          <button onClick={() => setInviting(true)} style={{ width: '100%', border: 'none', background: 'none', color: '#9AA3B5', fontWeight: 700, fontSize: 13, padding: '10px 0 0', cursor: 'pointer' }}>Add someone without an account</button>
+          <button onClick={() => setInviting(true)} style={{ width: '100%', border: 'none', background: 'none', color: '#9AA3B5', fontWeight: 700, fontSize: 13, padding: '8px 0 0', cursor: 'pointer' }}>Add someone without an account</button>
         </div>
       )}
 

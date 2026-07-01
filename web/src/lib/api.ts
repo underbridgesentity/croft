@@ -54,8 +54,8 @@ export const api = {
   pushUnsubscribe: (endpoint: string) => req<{ ok: true }>('/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) }),
 
   // ---- invites ----
-  createInvite: (memberId?: string) =>
-    req<{ token: string }>('/invites', { method: 'POST', body: JSON.stringify(memberId ? { memberId } : {}) }),
+  createInvite: (opts?: { memberId?: string; email?: string }) =>
+    req<{ token: string; emailed: boolean }>('/invites', { method: 'POST', body: JSON.stringify(opts || {}) }),
   getInvite: (token: string) =>
     req<{ household_name: string; inviter_name: string | null; role: string | null }>(`/auth/invite/${token}`),
   acceptInvite: (token: string, d: { name: string; email: string; password: string }) =>

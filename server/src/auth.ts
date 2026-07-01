@@ -6,7 +6,8 @@ import { z } from 'zod';
 import { query, tx } from './db.js';
 import { seedHousehold } from './seed.js';
 import { rateLimit } from './rateLimit.js';
-import { sendEmail, emailLayout } from './mailer.js';
+import { sendEmail } from './mailer.js';
+import { welcomeEmail, passwordResetEmail, passwordChangedEmail, memberJoinedEmail } from './emailTemplates.js';
 import type { PoolClient } from 'pg';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
@@ -150,6 +151,19 @@ async function joinHousehold(c: PoolClient, invite: Invite, userId: string, user
   return memberId;
 }
 
+/** Best-effort: email the person who created the invite that someone joined. */
+async function notifyInviterOfJoin(invite: Invite, joinerName: string) {
+  if (!invite.created_by) return;
+  const r = await query(
+    `SELECT u.email, h.name AS hh FROM users u JOIN households h ON h.id = $2 WHERE u.id = $1`,
+    [invite.created_by, invite.household_id]
+  );
+  const row = r.rows[0];
+  if (row?.email) {
+    await sendEmail({ to: row.email, ...memberJoinedEmail({ joinerName, householdName: row.hh }) }).catch(() => {});
+  }
+}
+
 export const authRouter = Router();
 
 const signupSchema = z.object({
@@ -182,6 +196,7 @@ authRouter.post('/signup', rateLimit('signup', 10, 3600), async (req, res) => {
     await provisionHousehold(c, uid, name, household);
     return uid;
   });
+  sendEmail({ to: email.toLowerCase(), ...welcomeEmail(name) }).catch(() => {});
   setAuthCookie(res, userId);
   res.json({ user: await loadUser(userId) });
 });
@@ -263,6 +278,8 @@ authRouter.post('/invite/:token/accept', rateLimit('signup', 10, 3600), async (r
     await joinHousehold(c, invite, uid, name);
     return uid;
   });
+  sendEmail({ to: email.toLowerCase(), ...welcomeEmail(name) }).catch(() => {});
+  notifyInviterOfJoin(invite, name).catch(() => {});
   setAuthCookie(res, userId);
   res.json({ user: await loadUser(userId) });
 });
@@ -280,16 +297,7 @@ authRouter.post('/forgot', rateLimit('forgot', 10, 900), async (req, res) => {
         [token, u.id]
       );
       const link = `${APP_URL}/reset/${token}`;
-      await sendEmail({
-        to: email,
-        subject: 'Reset your Croft password',
-        html: emailLayout(
-          'Reset your password',
-          `Hi ${u.name || 'there'},<br><br>We got a request to reset your Croft password. This link expires in 1 hour. If you didn’t ask for this, you can safely ignore this email.`,
-          { label: 'Reset password', url: link }
-        ),
-        text: `Reset your Croft password: ${link} (expires in 1 hour)`,
-      });
+      await sendEmail({ to: email, ...passwordResetEmail({ name: u.name, resetUrl: link }) });
     }
   }
   res.json({ ok: true });
@@ -308,8 +316,10 @@ authRouter.post('/reset', rateLimit('forgot', 10, 900), async (req, res) => {
     await c.query(`UPDATE users SET password_hash=$1 WHERE id=$2`, [hash, r.user_id]);
     await c.query(`UPDATE password_resets SET used=true WHERE token=$1`, [parsed.data.token]);
   });
+  const u = await loadUser(r.user_id);
+  if (u?.email) sendEmail({ to: u.email, ...passwordChangedEmail({ name: u.name }) }).catch(() => {});
   setAuthCookie(res, r.user_id);
-  res.json({ user: await loadUser(r.user_id) });
+  res.json({ user: u });
 });
 
 // ---- Account management (authenticated) ----
@@ -326,6 +336,8 @@ authRouter.post('/change-password', requireAuth, async (req: AuthedRequest, res)
   }
   const hash = await bcrypt.hash(parsed.data.newPassword, 10);
   await query(`UPDATE users SET password_hash=$1 WHERE id=$2`, [hash, req.userId]);
+  const who = await loadUser(req.userId!);
+  if (who?.email) sendEmail({ to: who.email, ...passwordChangedEmail({ name: who.name }) }).catch(() => {});
   res.json({ ok: true });
 });
 
@@ -447,6 +459,7 @@ authRouter.get('/google/callback', async (req, res) => {
       googleId,
     ]);
     let userId: string;
+    let joinedViaInvite = false;
     // If arriving from a valid invite link, join that household; else create one.
     const invite = inviteToken ? await loadValidInvite(inviteToken) : null;
     const provision = (uid: string) =>
@@ -454,7 +467,7 @@ authRouter.get('/google/callback', async (req, res) => {
     if (r.rows.length) {
       userId = r.rows[0].id;
       await query(`UPDATE users SET google_id = $1 WHERE id = $2`, [googleId, userId]);
-      if (!r.rows[0].household_id) await provision(userId);
+      if (!r.rows[0].household_id) { await provision(userId); joinedViaInvite = !!invite; }
     } else {
       const ins = await query(
         `INSERT INTO users (email, name, google_id) VALUES ($1,$2,$3) RETURNING id`,
@@ -462,7 +475,10 @@ authRouter.get('/google/callback', async (req, res) => {
       );
       userId = ins.rows[0].id;
       await provision(userId);
+      joinedViaInvite = !!invite;
+      sendEmail({ to: email, ...welcomeEmail(name) }).catch(() => {});
     }
+    if (joinedViaInvite && invite) notifyInviterOfJoin(invite, name).catch(() => {});
     setAuthCookie(res, userId);
     res.redirect(`${APP_URL}/?auth=google_ok`);
   } catch (e) {
