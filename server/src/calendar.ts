@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { query } from './db.js';
+import { recurToRRule } from './recur.js';
 
 export const calendarRouter = Router();
 
@@ -38,8 +39,8 @@ calendarRouter.get('/:token.ics', async (req, res) => {
   if (!hh) return res.status(404).send('Not found');
 
   const events = (
-    await query<{ id: string; title: string; loc: string; event_time: string; event_date: string; updated_at: string }>(
-      `SELECT id, title, loc, event_time, to_char(event_date,'YYYYMMDD') AS event_date, updated_at
+    await query<{ id: string; title: string; loc: string; event_time: string; event_date: string; updated_at: string; recur: string }>(
+      `SELECT id, title, loc, event_time, to_char(event_date,'YYYYMMDD') AS event_date, updated_at, recur
          FROM events WHERE household_id=$1 AND event_date IS NOT NULL AND source_id IS NULL ORDER BY event_date`,
       [hh.id]
     )
@@ -95,6 +96,10 @@ calendarRouter.get('/:token.ics', async (req, res) => {
       lines.push(`DTSTART;VALUE=DATE:${d}`);
       lines.push(`DTEND;VALUE=DATE:${nd}`);
     }
+    // Recurring events emit a single VEVENT + RRULE so the subscriber's calendar
+    // expands every occurrence (instead of only the anchor date).
+    const rrule = recurToRRule(e.recur);
+    if (rrule) lines.push(`RRULE:${rrule}`);
     lines.push(fold(`SUMMARY:${esc(e.title)}`));
     if (e.loc) lines.push(fold(`LOCATION:${esc(e.loc)}`));
     lines.push('END:VEVENT');

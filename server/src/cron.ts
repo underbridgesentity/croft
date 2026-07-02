@@ -3,6 +3,7 @@ import { query } from './db.js';
 import { sendEmail, emailLayout } from './mailer.js';
 import { pushToHousehold } from './push.js';
 import { sastToday, sastPlus } from './dates.js';
+import { occursOn } from './recur.js';
 import { syncSource } from './importCalendar.js';
 
 export const cronRouter = Router();
@@ -57,12 +58,16 @@ cronRouter.get('/digest', async (req, res) => {
       [hhId, today]
     );
 
-    const eventsToday = (await query<{ title: string; event_time: string }>(
-      `SELECT title, event_time FROM events WHERE household_id=$1 AND event_date=$2 ORDER BY event_time NULLS LAST`, [hhId, today]
+    // All dated events (native + imported instances). Occurrences are computed in
+    // JS via occursOn so a recurring event reminds on every occurrence, not only
+    // its anchor date. (Imported events are recur='none' → exact-date match.)
+    const dated = (await query<{ title: string; event_time: string; event_date: string; recur: string; remind_days: number }>(
+      `SELECT title, event_time, to_char(event_date,'YYYY-MM-DD') AS event_date, recur, remind_days
+         FROM events WHERE household_id=$1 AND event_date IS NOT NULL`, [hhId]
     )).rows;
-    const eventsTom = (await query<{ title: string; event_time: string }>(
-      `SELECT title, event_time FROM events WHERE household_id=$1 AND event_date=$2 ORDER BY event_time NULLS LAST`, [hhId, tomorrow]
-    )).rows;
+    const byTime = (a: { event_time: string }, b: { event_time: string }) => (a.event_time || '').localeCompare(b.event_time || '');
+    const eventsToday = dated.filter((e) => occursOn(e.event_date, e.recur, today)).sort(byTime);
+    const eventsTom = dated.filter((e) => occursOn(e.event_date, e.recur, tomorrow)).sort(byTime);
     const billsDue = (await query<{ name: string; amount: number; status: string }>(
       `SELECT name, amount, status FROM bills WHERE household_id=$1 AND status IN ('unpaid','overdue') AND due_date IS NOT NULL AND due_date <= $2 ORDER BY due_date`, [hhId, today]
     )).rows;
@@ -70,10 +75,9 @@ cronRouter.get('/digest', async (req, res) => {
       (await query(`SELECT COUNT(*) FROM tasks WHERE household_id=$1 AND done=false`, [hhId])).rows[0].count
     );
     // Lead-time reminders: items whose "remind me N days before" lands today.
-    const eventsSoon = (await query<{ title: string; days_away: number }>(
-      `SELECT title, (event_date - $2::date) AS days_away FROM events
-        WHERE household_id=$1 AND remind_days > 0 AND event_date = ($2::date + remind_days) ORDER BY event_date`, [hhId, today]
-    )).rows;
+    const eventsSoon = dated
+      .filter((e) => e.remind_days > 0 && occursOn(e.event_date, e.recur, sastPlus(e.remind_days)))
+      .map((e) => ({ title: e.title, days_away: e.remind_days }));
     const billsSoon = (await query<{ name: string; amount: number; days_away: number }>(
       `SELECT name, amount, (due_date - $2::date) AS days_away FROM bills
         WHERE household_id=$1 AND status IN ('unpaid','overdue') AND remind_days > 0 AND due_date = ($2::date + remind_days) ORDER BY due_date`, [hhId, today]
