@@ -30,19 +30,82 @@ export const pool = new Pool({
   allowExitOnIdle: true,
 });
 
+const isProd = process.env.NODE_ENV === 'production';
+
+/** Options accepted by the query helpers. */
+export interface QueryOpts {
+  /** Set false to allow touching a per-household table without a household_id
+   *  filter - only for intentional access by an unguessable token/endpoint or a
+   *  user's own row by id (invite tokens, push endpoints, delete-account). */
+  scoped?: boolean;
+}
+
+// Defense-in-depth (a code-level stand-in for row-level security): every query
+// that reads or writes a per-household table must also constrain by
+// household_id, so a route can't silently leak or clobber another family's data
+// by forgetting the tenant filter. Longest names first so "budget_spends" isn't
+// mis-matched as "budget".
+const SCOPED_TABLES = [
+  'push_subscriptions', 'budget_spends', 'notifications', 'shopping', 'members',
+  'invites', 'savings', 'events', 'tasks', 'goals', 'bills', 'budget', 'settle', 'feed',
+];
+const SCOPE_RE = new RegExp(`\\b(?:from|join|into|update)\\s+"?(${SCOPED_TABLES.join('|')})"?\\b`, 'i');
+
+function assertHouseholdScope(text: string, opts?: QueryOpts): void {
+  if (opts?.scoped === false) return;
+  const m = SCOPE_RE.exec(text);
+  if (!m || /household_id/i.test(text)) return;
+  const msg = `[croft] tenant-scope guard: query touches "${m[1]}" without a household_id filter`;
+  // Hard-fail in dev/test so the mistake is caught before it ships; in prod
+  // alert (Vercel logs / error webhook) but never break a live request - the
+  // app-layer WHERE clauses are still the enforced boundary.
+  if (isProd) {
+    console.error(msg, text.replace(/\s+/g, ' ').trim().slice(0, 200));
+    return;
+  }
+  throw new Error(
+    `${msg}.\nAdd a "household_id = $n" filter, or pass { scoped: false } if this ` +
+    `table is intentionally reached by a token/endpoint/own-id.\nSQL: ${text.trim()}`
+  );
+}
+
 export async function query<T extends pg.QueryResultRow = any>(
   text: string,
-  params: any[] = []
+  params: any[] = [],
+  opts?: QueryOpts
 ): Promise<pg.QueryResult<T>> {
+  assertHouseholdScope(text, opts);
   return pool.query<T>(text, params);
 }
 
-/** Run a function inside a transaction. */
-export async function tx<T>(fn: (c: pg.PoolClient) => Promise<T>): Promise<T> {
+/** A transaction client whose query() runs the tenant-scope guard and accepts
+ *  the same { scoped } option as the top-level query() helper. */
+export type TxClient = Omit<pg.PoolClient, 'query'> & {
+  query<T extends pg.QueryResultRow = any>(text: string, params?: any[], opts?: QueryOpts): Promise<pg.QueryResult<T>>;
+};
+
+/** A transaction client whose query() runs the same tenant-scope guard. */
+function guardClient(client: pg.PoolClient): TxClient {
+  return new Proxy(client, {
+    get(target, prop, recv) {
+      if (prop === 'query') {
+        return (text: any, params?: any, opts?: QueryOpts) => {
+          if (typeof text === 'string') assertHouseholdScope(text, opts);
+          return (target.query as any)(text, params);
+        };
+      }
+      const v = Reflect.get(target, prop, recv);
+      return typeof v === 'function' ? v.bind(target) : v;
+    },
+  }) as unknown as TxClient;
+}
+
+/** Run a function inside a transaction. The client is scope-guarded. */
+export async function tx<T>(fn: (c: TxClient) => Promise<T>): Promise<T> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const out = await fn(client);
+    const out = await fn(guardClient(client));
     await client.query('COMMIT');
     return out;
   } catch (e) {

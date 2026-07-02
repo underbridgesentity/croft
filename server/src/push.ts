@@ -27,7 +27,7 @@ export async function saveSubscription(householdId: string, userId: string | und
 }
 
 export async function removeSubscription(endpoint: string) {
-  await query(`DELETE FROM push_subscriptions WHERE endpoint=$1`, [endpoint]);
+  await query(`DELETE FROM push_subscriptions WHERE endpoint=$1`, [endpoint], { scoped: false }); // endpoint is a device secret
 }
 
 /** Send to a single subscription (e.g. a confirmation right after subscribing). */
@@ -62,7 +62,7 @@ export async function pushToHousehold(householdId: string, payload: PushPayload,
         );
       } catch (e: any) {
         if (e?.statusCode === 404 || e?.statusCode === 410) {
-          await query(`DELETE FROM push_subscriptions WHERE endpoint=$1`, [s.endpoint]).catch(() => {});
+          await query(`DELETE FROM push_subscriptions WHERE endpoint=$1`, [s.endpoint], { scoped: false }).catch(() => {}); // prune dead sub by endpoint
         }
       }
     })

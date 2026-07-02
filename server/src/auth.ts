@@ -8,7 +8,7 @@ import { seedHousehold } from './seed.js';
 import { rateLimit } from './rateLimit.js';
 import { sendEmail } from './mailer.js';
 import { welcomeEmail, passwordResetEmail, passwordChangedEmail, memberJoinedEmail } from './emailTemplates.js';
-import type { PoolClient } from 'pg';
+import type { TxClient } from './db.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-insecure-secret-change-me';
 const COOKIE = 'croft_token';
@@ -71,7 +71,7 @@ export async function requireAuth(req: AuthedRequest, res: Response, next: NextF
 /** Create a household + members + starter data and link it to the user, using an
  * existing transaction client so callers can compose it atomically. */
 async function provisionHousehold(
-  c: PoolClient,
+  c: TxClient,
   userId: string,
   userName: string,
   householdName?: string
@@ -117,7 +117,8 @@ async function loadValidInvite(token: string): Promise<Invite | null> {
   const r = await query(
     `SELECT id, household_id, member_id, role, created_by, expires_at, accepted_at
        FROM invites WHERE token = $1`,
-    [token]
+    [token],
+    { scoped: false } // invite token is the capability - looked up before any household context
   );
   const inv = r.rows[0];
   if (!inv || inv.accepted_at) return null;
@@ -130,14 +131,15 @@ const MEMBER_PALETTE = ['#7A5CFF', '#16C098', '#FF6B5C', '#FFB020', '#3B5BFF', '
 /** Link a user to an invited household inside a transaction: claim the targeted
  * placeholder member (or create a fresh member), point the user at it, and mark
  * the invite accepted. */
-async function joinHousehold(c: PoolClient, invite: Invite, userId: string, userName: string) {
+async function joinHousehold(c: TxClient, invite: Invite, userId: string, userName: string) {
   // Atomically claim the single-use invite FIRST. `loadValidInvite` is a
   // non-transactional read, so two concurrent accepts can both pass it; this
   // guard ensures only one wins (the other rolls the whole tx back) and a single
   // invite can never onboard two users.
   const claim = await c.query(
     `UPDATE invites SET accepted_at=now(), accepted_by=$1 WHERE id=$2 AND accepted_at IS NULL RETURNING id`,
-    [userId, invite.id]
+    [userId, invite.id],
+    { scoped: false } // claimed by invite id (already validated), pre-membership
   );
   if (!claim.rows.length) throw new InviteTakenError();
   let memberId: string | null = invite.member_id;
@@ -391,7 +393,7 @@ authRouter.post('/delete-account', async (req: AuthedRequest, res) => {
     if (user.household_id) {
       // Remove this user's membership (by link and by their member_id).
       await c.query(`DELETE FROM members WHERE household_id=$1 AND user_id=$2`, [user.household_id, userId]);
-      if (user.member_id) await c.query(`DELETE FROM members WHERE id=$1`, [user.member_id]);
+      if (user.member_id) await c.query(`DELETE FROM members WHERE id=$1`, [user.member_id], { scoped: false }); // deleting caller's own member
       // The unambiguous occupancy measure is the users table: is any OTHER
       // account still attached to this household? (Members can lag the user
       // link, so counting members risks deleting a household still in use.)

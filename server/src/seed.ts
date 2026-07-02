@@ -1,4 +1,4 @@
-import type { PoolClient } from 'pg';
+import type { TxClient } from './db.js';
 
 /**
  * Set up a brand-new household: create the signing-up user as the "You" member
@@ -7,7 +7,7 @@ import type { PoolClient } from 'pg';
  * family they invite), not pre-populated with sample data.
  */
 export async function seedHousehold(
-  c: PoolClient,
+  c: TxClient,
   householdId: string,
   userName: string,
   userId?: string
