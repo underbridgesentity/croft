@@ -3,6 +3,7 @@ import { query } from './db.js';
 import { sendEmail, emailLayout } from './mailer.js';
 import { pushToHousehold } from './push.js';
 import { sastToday, sastPlus } from './dates.js';
+import { syncSource } from './importCalendar.js';
 
 export const cronRouter = Router();
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -111,5 +112,21 @@ cronRouter.get('/digest', async (req, res) => {
     }
   }
 
-  res.json({ ok: true, households: byHh.size, emailsSent, pushesSent });
+  // Refresh linked external calendars (best-effort; one bad URL never blocks
+  // the rest, and a failure is recorded on the source for the user to see).
+  let calsSynced = 0;
+  const sources = (await query<{ id: string; household_id: string; url: string; name: string }>(
+    `SELECT id, household_id, url, name FROM calendar_sources`,
+    [],
+    { scoped: false } // system cron: every household's sources, each synced with its own household_id
+  )).rows;
+  for (const s of sources) {
+    try { await syncSource(s); calsSynced++; }
+    catch (e: any) {
+      await query(`UPDATE calendar_sources SET last_error=$1 WHERE id=$2 AND household_id=$3`,
+        [String(e?.message || 'sync failed').slice(0, 200), s.id, s.household_id]).catch(() => {});
+    }
+  }
+
+  res.json({ ok: true, households: byHh.size, emailsSent, pushesSent, calsSynced });
 });

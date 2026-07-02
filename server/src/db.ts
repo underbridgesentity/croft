@@ -46,8 +46,8 @@ export interface QueryOpts {
 // by forgetting the tenant filter. Longest names first so "budget_spends" isn't
 // mis-matched as "budget".
 const SCOPED_TABLES = [
-  'push_subscriptions', 'budget_spends', 'notifications', 'shopping', 'members',
-  'invites', 'savings', 'events', 'tasks', 'goals', 'bills', 'budget', 'settle', 'feed',
+  'push_subscriptions', 'calendar_sources', 'budget_spends', 'notifications', 'shopping',
+  'members', 'invites', 'savings', 'events', 'tasks', 'goals', 'bills', 'budget', 'settle', 'feed',
 ];
 const SCOPE_RE = new RegExp(`\\b(?:from|join|into|update)\\s+"?(${SCOPED_TABLES.join('|')})"?\\b`, 'i');
 
@@ -313,6 +313,24 @@ CREATE TABLE IF NOT EXISTS settle (
 -- (Placed after the CREATE above so a fresh-DB init succeeds.)
 ALTER TABLE settle ADD COLUMN IF NOT EXISTS member_id UUID;
 
+-- External calendars a household imports (Google/Apple secret iCal URLs). Their
+-- events live in the events table with source_id set, refreshed on a schedule.
+CREATE TABLE IF NOT EXISTS calendar_sources (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  url TEXT NOT NULL,
+  name TEXT NOT NULL DEFAULT 'Imported calendar',
+  color TEXT NOT NULL DEFAULT '#8C7CFF',
+  last_synced_at TIMESTAMPTZ,
+  last_error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_calendar_sources_hh ON calendar_sources(household_id);
+-- One row per (household, external event instance) so re-imports upsert instead
+-- of duplicating.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_events_external
+  ON events (household_id, external_uid) WHERE external_uid IS NOT NULL;
+
 -- Budget spending is a ledger of individual spends, not a hand-edited total:
 -- amounts tally up, "this month's spend" is derived (so it resets itself each
 -- month), and history powers the per-month view.
@@ -406,6 +424,11 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'invites_accepted_by_fkey') THEN
     ALTER TABLE invites ADD CONSTRAINT invites_accepted_by_fkey
       FOREIGN KEY (accepted_by) REFERENCES users(id) ON DELETE SET NULL;
+  END IF;
+  -- Deleting an imported calendar removes the events it brought in.
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'events_source_id_fkey') THEN
+    ALTER TABLE events ADD CONSTRAINT events_source_id_fkey
+      FOREIGN KEY (source_id) REFERENCES calendar_sources(id) ON DELETE CASCADE;
   END IF;
 END $$;
 `;

@@ -53,6 +53,12 @@ export const api = {
 
   // ---- push ----
   calendarFeed: () => req<{ url: string; webcal: string }>('/calendar-feed'),
+  addCalendarSource: (d: { url: string; name?: string }) =>
+    req<AppState>('/calendar-sources', { method: 'POST', body: JSON.stringify(d) }),
+  refreshCalendarSource: (id: string) =>
+    req<AppState>(`/calendar-sources/${id}/refresh`, { method: 'POST' }),
+  delCalendarSource: (id: string) =>
+    req<AppState>(`/calendar-sources/${id}`, { method: 'DELETE' }),
   pushKey: () => req<{ publicKey: string }>('/push/key'),
   pushSubscribe: (sub: unknown) => req<{ ok: true }>('/push/subscribe', { method: 'POST', body: JSON.stringify(sub) }),
   pushUnsubscribe: (endpoint: string) => req<{ ok: true }>('/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) }),

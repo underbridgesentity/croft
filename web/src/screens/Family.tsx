@@ -32,7 +32,20 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
   const [pinB, setPinB] = useState('');
   const [lockBusy, setLockBusy] = useState(false);
   const [editMember, setEditMember] = useState<{ id: string; name: string; role: string; color: string } | null>(null);
+  const [importUrl, setImportUrl] = useState('');
+  const [importBusy, setImportBusy] = useState(false);
   if (!state) return null;
+
+  const doImport = async () => {
+    const url = importUrl.trim();
+    if (url.length < 6) return flash('Paste your calendar link first');
+    setImportBusy(true);
+    // run() applies the returned state (imported events + the new source) on
+    // success, or shows the server's specific error on failure.
+    await run(api.addCalendarSource({ url }), 'Calendar imported');
+    setImportBusy(false);
+    setImportUrl('');
+  };
 
   const saveMember = () => {
     if (!editMember) return;
@@ -297,6 +310,34 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
             {calBusy ? 'Getting your link…' : 'Subscribe in your calendar'}
           </button>
         )}
+      </div>
+
+      {/* import an existing calendar */}
+      <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 4px' }}>Import a calendar</div>
+      <div style={{ fontSize: 12.5, color: '#6F6C67', margin: '0 2px 12px' }}>Bring your Google or Apple calendar into Croft</div>
+      <div style={{ background: '#fff', borderRadius: 22, padding: 16, boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 26 }}>
+        {(state.calendarSources || []).map((s) => (
+          <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '10px 0', borderBottom: '1px solid #EFEBE3' }}>
+            <span style={{ flexShrink: 0, width: 12, height: 12, borderRadius: 4, background: s.color }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{s.name}</div>
+              <div style={{ fontSize: 11.5, color: s.error ? '#FF4D5E' : '#6F6C67', marginTop: 1 }}>
+                {s.error ? s.error : `${s.count} event${s.count === 1 ? '' : 's'}${s.last_synced ? ' · synced ' + s.last_synced : ''}`}
+              </div>
+            </div>
+            <button onClick={() => run(api.refreshCalendarSource(s.id), 'Calendar refreshed')} aria-label="Refresh" style={{ flexShrink: 0, border: 'none', background: '#EFEBE3', color: '#3B5BFF', fontWeight: 700, fontSize: 12, padding: '7px 11px', borderRadius: 100, cursor: 'pointer' }}>Refresh</button>
+            <button onClick={() => run(api.delCalendarSource(s.id), 'Calendar removed')} aria-label={`Remove ${s.name}`} style={{ flexShrink: 0, border: 'none', background: 'none', cursor: 'pointer', padding: 4 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5h4v2M9 7l.7 12h8.6L19 7" stroke="#C9C3B9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
+          </div>
+        ))}
+        <div style={{ display: 'flex', gap: 8, marginTop: (state.calendarSources || []).length ? 12 : 0 }}>
+          <input value={importUrl} onChange={(e) => setImportUrl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && doImport()} placeholder="Paste your calendar's secret iCal link" style={{ flex: 1, minWidth: 0, border: '1.5px solid #E8E3DB', background: '#fff', borderRadius: 14, padding: '12px 14px', fontSize: 16, outline: 'none', color: '#181922' }} />
+          <button onClick={doImport} disabled={importBusy} style={{ flexShrink: 0, border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 14, padding: '0 18px', borderRadius: 14, cursor: 'pointer', opacity: importBusy ? 0.6 : 1 }}>{importBusy ? '…' : 'Import'}</button>
+        </div>
+        <div style={{ fontSize: 11.5, color: '#7D776E', marginTop: 10, lineHeight: 1.45 }}>
+          In Google Calendar: Settings → your calendar → "Integrate calendar" → copy the "Secret address in iCal format". Imported events show in Croft (read-only) and refresh daily.
+        </div>
       </div>
 
       {/* account & security */}

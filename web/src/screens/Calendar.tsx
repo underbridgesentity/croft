@@ -8,7 +8,7 @@ const grotesk = "'Geist', sans-serif";
 const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
 export default function Calendar({ nav }: { nav: Nav }) {
-  const { state } = useStore();
+  const { state, flash } = useStore();
   // Month navigator: browse the grid and each month's events, like the Money tab.
   const [monthOffset, setMonthOffset] = useState(0);
   if (!state) return null;
@@ -42,8 +42,10 @@ export default function Calendar({ nav }: { nav: Nav }) {
   for (let d = 1; d <= daysInMonth; d++) cells.push({ key: 'd' + d, label: d, today: isCurrentMonth && d === todayDate, dot: dotMap[d] || 'transparent', faded: false });
   while (cells.length % 7 !== 0) cells.push({ key: 'n' + cells.length, label: 0, today: false, dot: 'transparent', faded: true });
 
-  const openEdit = (e: EventItem) =>
+  const openEdit = (e: EventItem) => {
+    if (e.external) { flash('Imported from a linked calendar - edit it in that calendar'); return; }
     nav.openForm('event', { editId: e.id, title: e.title, date: e.event_date || '', time: e.event_time || '', who: e.assignee_ids || [] });
+  };
   // Tap a day to add an event on it (nice for planning ahead in any month).
   const addOnDay = (d: number) =>
     nav.openForm('event', { title: '', date: `${monthKey}-${String(d).padStart(2, '0')}`, time: '', who: you ? [you.id] : [] });
@@ -154,8 +156,11 @@ function EventRow({ e, onEdit, muted }: { e: EventItem; onEdit: (e: EventItem) =
     >
       <Icon name={e.illo} color={e.color} size={muted ? 40 : 44} radius={muted ? 12 : 14} glyph={muted ? 21 : 23} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.25 }}>{e.title}</div>
-        <div style={{ fontSize: 12, color: '#6F6C67', marginTop: 2 }}>{e.date_label} · {e.loc}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.25, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>
+          {e.external && <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 800, letterSpacing: '.04em', textTransform: 'uppercase', color: '#6D5CD6', background: 'rgba(140,124,255,0.16)', padding: '2px 6px', borderRadius: 100 }}>Linked</span>}
+        </div>
+        <div style={{ fontSize: 12, color: '#6F6C67', marginTop: 2 }}>{e.date_label}{e.loc ? ' · ' + e.loc : ''}</div>
       </div>
       <div style={{ flexShrink: 0, textAlign: 'right' }}>
         <div style={{ fontFamily: grotesk, fontWeight: 600, fontSize: 13 }}>{e.time}</div>

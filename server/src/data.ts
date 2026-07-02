@@ -8,6 +8,7 @@ import { vapidPublicKey, saveSubscription, removeSubscription, pushToHousehold, 
 import { sastToday, formatDateLabel, relativeTime, isoRe } from './dates.js';
 import { sendEmail } from './mailer.js';
 import { inviteEmail } from './emailTemplates.js';
+import { syncSource } from './importCalendar.js';
 
 const APP_URL = process.env.APP_URL || 'https://www.croftapp.co.za';
 
@@ -26,11 +27,11 @@ const num = (v: any) => (v == null ? 0 : Number(v));
  * `meMemberId` marks which member is "you" for the requesting user. */
 async function assembleState(householdId: string, meMemberId?: string) {
   const [
-    hh, members, events, tasks, shopping, goals, bills, budget, savings, settle, notifications, feed, budgetMonths,
+    hh, members, events, tasks, shopping, goals, bills, budget, savings, settle, notifications, feed, budgetMonths, calSources,
   ] = await Promise.all([
     query(`SELECT name, settings FROM households WHERE id = $1`, [householdId]),
     query(`SELECT id, name, role, initial, color, is_you, sort FROM members WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
-    query(`SELECT id, title, time, ampm, day, date_label, loc, color, illo, to_char(event_date,'YYYY-MM-DD') AS event_date, event_time, assignee_ids FROM events WHERE household_id=$1 ORDER BY event_date NULLS LAST, sort, created_at`, [householdId]),
+    query(`SELECT id, title, time, ampm, day, date_label, loc, color, illo, to_char(event_date,'YYYY-MM-DD') AS event_date, event_time, assignee_ids, source_id FROM events WHERE household_id=$1 ORDER BY event_date NULLS LAST, sort, created_at`, [householdId]),
     query(`SELECT id, title, from_name, from_color, due, due_key, done, type, assignee_ids FROM tasks WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
     query(`SELECT id, name, by_member, got FROM shopping WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
     query(`SELECT id, kind, tag, title, sub, pct, color, target FROM goals WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
@@ -55,6 +56,12 @@ async function assembleState(householdId: string, meMemberId?: string) {
          FROM budget_spends WHERE household_id=$1 GROUP BY budget_id, month`,
       [householdId]
     ),
+    query(
+      `SELECT s.id, s.name, s.color, s.last_synced_at, s.last_error,
+              (SELECT COUNT(*) FROM events e WHERE e.source_id = s.id) AS event_count
+         FROM calendar_sources s WHERE s.household_id=$1 ORDER BY s.created_at`,
+      [householdId]
+    ),
   ]);
 
   const household = hh.rows[0] || { name: 'My Home', settings: {} };
@@ -72,6 +79,7 @@ async function assembleState(householdId: string, meMemberId?: string) {
       date_label: e.event_date ? formatDateLabel(e.event_date) : e.date_label,
       day: e.event_date ? (e.event_date === today ? 'today' : '') : e.day,
       time: e.event_time || e.time,
+      external: !!e.source_id, // imported from a linked calendar → read-only
     })),
     tasks: tasks.rows,
     shopping: shopping.rows.map((s) => ({ id: s.id, name: s.name, by: s.by_member, got: s.got })),
@@ -89,6 +97,11 @@ async function assembleState(householdId: string, meMemberId?: string) {
     // time_label is derived live from created_at so items never freeze at "just now".
     notifications: notifications.rows.map((n) => ({ ...n, time_label: relativeTime(n.created_at) })),
     feed: feed.rows.map((f) => ({ ...f, time_label: relativeTime(f.created_at) })),
+    calendarSources: calSources.rows.map((s) => ({
+      id: s.id, name: s.name, color: s.color, count: num(s.event_count),
+      last_synced: s.last_synced_at ? relativeTime(s.last_synced_at) : null,
+      error: s.last_error || null,
+    })),
   };
 }
 
@@ -191,7 +204,7 @@ dataRouter.patch('/events/:id', async (req: AuthedRequest, res) => {
   const d = dateBits(b.data.date, b.data.time);
   await query(
     `UPDATE events SET title=$1, time=$2, ampm=$3, day=$4, date_label=$5, event_date=$6, event_time=$7, loc=$8, color=$9, assignee_ids=$10, updated_at=now()
-      WHERE id=$11 AND household_id=$12`,
+      WHERE id=$11 AND household_id=$12 AND source_id IS NULL`,
     [b.data.title, d.displayTime, d.ampm, d.dayFlag, d.label, d.iso, d.timeStr,
      'For ' + (ms.length ? joinNames(ms.map((m) => m.name)) : 'the family'),
      ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), req.params.id, hh(req)]
@@ -199,7 +212,8 @@ dataRouter.patch('/events/:id', async (req: AuthedRequest, res) => {
   await sendState(req, res);
 });
 dataRouter.delete('/events/:id', async (req: AuthedRequest, res) => {
-  await query(`DELETE FROM events WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)]);
+  // Imported events are removed by unlinking their calendar, not one-by-one.
+  await query(`DELETE FROM events WHERE id=$1 AND household_id=$2 AND source_id IS NULL`, [req.params.id, hh(req)]);
   await sendState(req, res);
 });
 
@@ -674,4 +688,44 @@ dataRouter.get('/calendar-feed', async (req: AuthedRequest, res) => {
   }
   const url = `${APP_URL}/api/calendar/${token}.ics`;
   res.json({ url, webcal: url.replace(/^https?:\/\//, 'webcal://') });
+});
+
+// ---------------- IMPORTED CALENDARS (inbound) ----------------
+dataRouter.post('/calendar-sources', async (req: AuthedRequest, res) => {
+  const b = z.object({ url: z.string().min(6).max(2000), name: z.string().max(60).optional() }).safeParse(req.body);
+  if (!b.success) return res.status(400).json({ error: 'Paste your calendar link.' });
+  // Cap how many calendars a household can link.
+  const count = num((await query(`SELECT COUNT(*) FROM calendar_sources WHERE household_id=$1`, [hh(req)])).rows[0].count);
+  if (count >= 5) return res.status(400).json({ error: 'You can link up to 5 calendars.' });
+  const name = (b.data.name || 'Imported calendar').trim() || 'Imported calendar';
+  const src = (await query(
+    `INSERT INTO calendar_sources (household_id, url, name) VALUES ($1,$2,$3) RETURNING id`,
+    [hh(req), b.data.url.trim(), name]
+  )).rows[0];
+  try {
+    await syncSource({ id: src.id, household_id: hh(req), url: b.data.url.trim(), name });
+  } catch (e: any) {
+    // Roll back the broken source so the user just sees the error and can retry.
+    await query(`DELETE FROM calendar_sources WHERE id=$1 AND household_id=$2`, [src.id, hh(req)]);
+    return res.status(400).json({ error: e?.message || 'Could not import that calendar.' });
+  }
+  const me = await meMember(hh(req), req.memberId);
+  await addFeed(hh(req), me.name, me.color, me.initial, `linked the calendar "${name}"`);
+  await sendState(req, res);
+});
+dataRouter.post('/calendar-sources/:id/refresh', async (req: AuthedRequest, res) => {
+  const s = (await query(`SELECT id, url, name FROM calendar_sources WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)])).rows[0];
+  if (!s) return res.status(404).json({ error: 'Calendar not found' });
+  try {
+    await syncSource({ id: s.id, household_id: hh(req), url: s.url, name: s.name });
+  } catch (e: any) {
+    await query(`UPDATE calendar_sources SET last_error=$1 WHERE id=$2 AND household_id=$3`, [String(e?.message || 'sync failed').slice(0, 200), s.id, hh(req)]);
+    return res.status(400).json({ error: e?.message || 'Could not refresh that calendar.' });
+  }
+  await sendState(req, res);
+});
+dataRouter.delete('/calendar-sources/:id', async (req: AuthedRequest, res) => {
+  // Imported events cascade-delete via the FK.
+  await query(`DELETE FROM calendar_sources WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)]);
+  await sendState(req, res);
 });
