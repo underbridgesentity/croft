@@ -106,8 +106,8 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         bill: { name: '', amount: '', due: '', payer: you ? [you.id] : [] },
         goal: { title: '', kind: 'family', target: '' },
         task: { title: '', type: 'Task', assignees: [] },
-        budget: { name: '', limit: '', spent: '' },
-        saving: { name: '', target: '', saved: '' },
+        budget: { name: '', limit: '' },
+        saving: { name: '', target: '', saved: '', amount: '' },
         settle: { who: [], dir: 'in', amount: '', note: '' },
       };
       setForm(f);

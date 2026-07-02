@@ -242,6 +242,26 @@ CREATE TABLE IF NOT EXISTS settle (
 -- (Placed after the CREATE above so a fresh-DB init succeeds.)
 ALTER TABLE settle ADD COLUMN IF NOT EXISTS member_id UUID;
 
+-- Budget spending is a ledger of individual spends, not a hand-edited total:
+-- amounts tally up, "this month's spend" is derived (so it resets itself each
+-- month), and history powers the per-month view.
+CREATE TABLE IF NOT EXISTS budget_spends (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  budget_id UUID NOT NULL REFERENCES budget(id) ON DELETE CASCADE,
+  amount NUMERIC NOT NULL,
+  note TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_budget_spends_b ON budget_spends(budget_id);
+
+-- One-time migration: carry any legacy hand-entered totals into the ledger.
+INSERT INTO budget_spends (household_id, budget_id, amount, note)
+SELECT b.household_id, b.id, b.spent, 'Carried over'
+  FROM budget b
+ WHERE b.spent > 0
+   AND NOT EXISTS (SELECT 1 FROM budget_spends s WHERE s.budget_id = b.id);
+
 CREATE TABLE IF NOT EXISTS notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,

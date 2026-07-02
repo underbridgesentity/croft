@@ -26,7 +26,7 @@ const num = (v: any) => (v == null ? 0 : Number(v));
  * `meMemberId` marks which member is "you" for the requesting user. */
 async function assembleState(householdId: string, meMemberId?: string) {
   const [
-    hh, members, events, tasks, shopping, goals, bills, budget, savings, settle, notifications, feed,
+    hh, members, events, tasks, shopping, goals, bills, budget, savings, settle, notifications, feed, budgetMonths,
   ] = await Promise.all([
     query(`SELECT name, settings FROM households WHERE id = $1`, [householdId]),
     query(`SELECT id, name, role, initial, color, is_you, sort FROM members WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
@@ -35,11 +35,26 @@ async function assembleState(householdId: string, meMemberId?: string) {
     query(`SELECT id, name, by_member, got FROM shopping WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
     query(`SELECT id, kind, tag, title, sub, pct, color, target FROM goals WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
     query(`SELECT id, name, cat, amount, due, status, payer, color, illo, to_char(due_date,'YYYY-MM-DD') AS due_date, assignee_ids FROM bills WHERE household_id=$1 ORDER BY due_date NULLS LAST, sort, created_at`, [householdId]),
-    query(`SELECT id, name, spent, budget_limit, color FROM budget WHERE household_id=$1 ORDER BY sort`, [householdId]),
+    // Spend totals are derived from the budget_spends ledger per SAST month, so
+    // "this month" resets itself and past months stay browsable.
+    query(
+      `SELECT b.id, b.name, b.budget_limit, b.color,
+              COALESCE((SELECT SUM(s.amount) FROM budget_spends s
+                         WHERE s.budget_id = b.id
+                           AND to_char(s.created_at + interval '2 hours','YYYY-MM') = $2), 0) AS spent
+         FROM budget b WHERE b.household_id=$1 ORDER BY b.sort`,
+      [householdId, sastToday().slice(0, 7)]
+    ),
     query(`SELECT id, name, saved, target, color FROM savings WHERE household_id=$1 ORDER BY sort`, [householdId]),
     query(`SELECT id, txt, detail, amount, dir, who, settled, member_id FROM settle WHERE household_id=$1 ORDER BY sort`, [householdId]),
     query(`SELECT id, illo, color, title, body, time_label, unread, created_at FROM notifications WHERE household_id=$1 ORDER BY created_at DESC`, [householdId]),
     query(`SELECT id, who, color, initial, txt, time_label, created_at FROM feed WHERE household_id=$1 ORDER BY created_at DESC LIMIT 30`, [householdId]),
+    // Per-month spend totals per category (SAST months) for the month navigator.
+    query(
+      `SELECT budget_id, to_char(created_at + interval '2 hours','YYYY-MM') AS month, SUM(amount) AS total
+         FROM budget_spends WHERE household_id=$1 GROUP BY budget_id, month`,
+      [householdId]
+    ),
   ]);
 
   const household = hh.rows[0] || { name: 'My Home', settings: {} };
@@ -68,6 +83,7 @@ async function assembleState(householdId: string, meMemberId?: string) {
       status: b.due_date && b.due_date < today && b.status === 'unpaid' ? 'overdue' : b.status,
     })),
     budget: budget.rows.map((c) => ({ id: c.id, name: c.name, spent: num(c.spent), limit: num(c.budget_limit), color: c.color })),
+    budgetMonths: budgetMonths.rows.map((r) => ({ budget_id: r.budget_id, month: r.month, total: num(r.total) })),
     savings: savings.rows.map((v) => ({ ...v, saved: num(v.saved), target: num(v.target) })),
     settle: settle.rows,
     // time_label is derived live from created_at so items never freeze at "just now".
@@ -379,24 +395,40 @@ const PALETTE = ['#3B5BFF', '#16C098', '#FFB020', '#FF6B5C', '#7A5CFF', '#FF5C8A
 const rNum = z.union([z.string(), z.number()]).optional();
 
 dataRouter.post('/budget', async (req: AuthedRequest, res) => {
-  const b = z.object({ name: z.string().min(1).max(60), limit: rNum, spent: rNum }).safeParse(req.body);
+  const b = z.object({ name: z.string().min(1).max(60), limit: rNum }).safeParse(req.body);
   if (!b.success) return res.status(400).json({ error: 'Add a category name' });
   const count = num((await query(`SELECT COUNT(*) FROM budget WHERE household_id=$1`, [hh(req)])).rows[0].count);
   await query(
-    `INSERT INTO budget (household_id, name, spent, budget_limit, color, sort) VALUES ($1,$2,$3,$4,$5,${nextSort('budget')})`,
-    [hh(req), b.data.name, Number(b.data.spent) || 0, Number(b.data.limit) || 0, PALETTE[count % PALETTE.length]]
+    `INSERT INTO budget (household_id, name, spent, budget_limit, color, sort) VALUES ($1,$2,0,$3,$4,${nextSort('budget')})`,
+    [hh(req), b.data.name, Number(b.data.limit) || 0, PALETTE[count % PALETTE.length]]
   );
   const me = await meMember(hh(req), req.memberId);
   await addFeed(hh(req), me.name, me.color, me.initial, `added a budget for ${b.data.name}`);
   await sendState(req, res);
 });
+// Edit name/limit, and optionally log a spend into the ledger. Spends tally up;
+// negative amounts are allowed as corrections.
 dataRouter.patch('/budget/:id', async (req: AuthedRequest, res) => {
-  const b = z.object({ name: z.string().min(1).max(60), limit: rNum, spent: rNum }).safeParse(req.body);
+  const b = z.object({ name: z.string().min(1).max(60), limit: rNum, addSpend: rNum, note: z.string().max(120).optional() }).safeParse(req.body);
   if (!b.success) return res.status(400).json({ error: 'Add a category name' });
-  await query(
-    `UPDATE budget SET name=$1, spent=$2, budget_limit=$3 WHERE id=$4 AND household_id=$5`,
-    [b.data.name, Number(b.data.spent) || 0, Number(b.data.limit) || 0, req.params.id, hh(req)]
+  const upd = await query(
+    `UPDATE budget SET name=$1, budget_limit=$2 WHERE id=$3 AND household_id=$4 RETURNING id`,
+    [b.data.name, Number(b.data.limit) || 0, req.params.id, hh(req)]
   );
+  const spend = Number(b.data.addSpend) || 0;
+  if (upd.rows.length && spend !== 0) {
+    await query(
+      `INSERT INTO budget_spends (household_id, budget_id, amount, note) VALUES ($1,$2,$3,$4)`,
+      [hh(req), req.params.id, spend, (b.data.note || '').trim()]
+    );
+    const me = await meMember(hh(req), req.memberId);
+    const noteBit = (b.data.note || '').trim();
+    const rands = 'R' + Math.abs(spend).toLocaleString('en-ZA');
+    await addFeed(hh(req), me.name, me.color, me.initial,
+      spend > 0
+        ? `spent ${rands} on ${b.data.name}${noteBit ? ` (${noteBit})` : ''}`
+        : `corrected ${b.data.name} spending down by ${rands}`);
+  }
   await sendState(req, res);
 });
 dataRouter.delete('/budget/:id', async (req: AuthedRequest, res) => {
@@ -417,13 +449,20 @@ dataRouter.post('/savings', async (req: AuthedRequest, res) => {
   await addFeed(hh(req), me.name, me.color, me.initial, `started saving for "${b.data.name}"`);
   await sendState(req, res);
 });
+// Edit name/target, and add an amount to the pot (tallies up; negatives allowed
+// as corrections). `saved` still accepts a direct total for fixing mistakes.
 dataRouter.patch('/savings/:id', async (req: AuthedRequest, res) => {
-  const b = z.object({ name: z.string().min(1).max(60), target: rNum, saved: rNum }).safeParse(req.body);
+  const b = z.object({ name: z.string().min(1).max(60), target: rNum, saved: rNum, addAmount: rNum }).safeParse(req.body);
   if (!b.success) return res.status(400).json({ error: 'Add a savings goal name' });
+  const add = Number(b.data.addAmount) || 0;
   await query(
-    `UPDATE savings SET name=$1, saved=$2, target=$3 WHERE id=$4 AND household_id=$5`,
-    [b.data.name, Number(b.data.saved) || 0, Number(b.data.target) || 0, req.params.id, hh(req)]
+    `UPDATE savings SET name=$1, saved=$2::numeric + $6::numeric, target=$3 WHERE id=$4 AND household_id=$5`,
+    [b.data.name, Number(b.data.saved) || 0, Number(b.data.target) || 0, req.params.id, hh(req), add]
   );
+  if (add > 0) {
+    const me = await meMember(hh(req), req.memberId);
+    await addFeed(hh(req), me.name, me.color, me.initial, `added R${add.toLocaleString('en-ZA')} to "${b.data.name}" savings`);
+  }
   await sendState(req, res);
 });
 dataRouter.delete('/savings/:id', async (req: AuthedRequest, res) => {

@@ -98,15 +98,15 @@ export const api = {
   bumpGoal: (id: string) => req<AppState>(`/goals/${id}`, { method: 'PATCH', body: '{}' }),
   delGoal: (id: string) => req<AppState>(`/goals/${id}`, { method: 'DELETE' }),
 
-  addBudget: (d: { name: string; limit?: string; spent?: string }) =>
+  addBudget: (d: { name: string; limit?: string }) =>
     req<AppState>('/budget', { method: 'POST', body: JSON.stringify(d) }),
-  updBudget: (id: string, d: { name: string; limit?: string; spent?: string }) =>
+  updBudget: (id: string, d: { name: string; limit?: string; addSpend?: string; note?: string }) =>
     req<AppState>(`/budget/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   delBudget: (id: string) => req<AppState>(`/budget/${id}`, { method: 'DELETE' }),
 
   addSaving: (d: { name: string; target?: string; saved?: string }) =>
     req<AppState>('/savings', { method: 'POST', body: JSON.stringify(d) }),
-  updSaving: (id: string, d: { name: string; target?: string; saved?: string }) =>
+  updSaving: (id: string, d: { name: string; target?: string; saved?: string; addAmount?: string }) =>
     req<AppState>(`/savings/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   delSaving: (id: string) => req<AppState>(`/savings/${id}`, { method: 'DELETE' }),
 

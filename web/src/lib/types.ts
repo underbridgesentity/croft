@@ -15,6 +15,8 @@ export interface Settings {
   iphoneReminders?: boolean; faceId?: boolean; backup?: boolean;
 }
 
+export interface BudgetMonth { budget_id: string; month: string; total: number; }
+
 export interface AppState {
   household: { name: string; settings: Settings };
   members: Member[];
@@ -24,6 +26,7 @@ export interface AppState {
   goals: Goal[];
   bills: Bill[];
   budget: BudgetCat[];
+  budgetMonths?: BudgetMonth[];
   savings: Saving[];
   settle: Settle[];
   notifications: Notification[];

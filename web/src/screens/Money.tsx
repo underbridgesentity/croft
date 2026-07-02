@@ -92,28 +92,31 @@ export default function Money({ nav }: { nav: Nav }) {
         </>
       )}
 
-      {/* Budget */}
-      <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '26px 2px 12px' }}>Monthly budget</div>
+      {/* Budget - spend totals come from the per-month ledger, so browsing months
+          shows what was actually spent in each. Logging happens in the current month. */}
+      <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '26px 2px 12px' }}>Budget · {monthLabel.split(' ')[0]}</div>
       {state.budget.length > 0 && (
         <div style={{ background: '#fff', borderRadius: 22, padding: '18px 16px 8px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 12 }}>
           {state.budget.map((c) => {
-            const over = c.spent > c.limit;
+            const spent = (state.budgetMonths || []).find((m) => m.budget_id === c.id && m.month === monthKey)?.total || 0;
+            const over = spent > c.limit;
             const barColor = over ? '#FF4D5E' : c.color;
-            const w = Math.min(100, c.limit ? Math.round((c.spent / c.limit) * 100) : 0);
-            const editBudget = () => nav.openForm('budget', { editId: c.id, name: c.name, limit: c.limit ? String(c.limit) : '', spent: c.spent ? String(c.spent) : '' });
+            const w = Math.min(100, c.limit ? Math.round((spent / c.limit) * 100) : 0);
+            const canEdit = monthOffset === 0;
+            const editBudget = () => canEdit && nav.openForm('budget', { editId: c.id, name: c.name, limit: c.limit ? String(c.limit) : '', amount: '', note: '' });
             return (
               <div
                 key={c.id}
-                role="button"
-                tabIndex={0}
-                aria-label={`Edit budget "${c.name}"`}
+                role={canEdit ? 'button' : undefined}
+                tabIndex={canEdit ? 0 : undefined}
+                aria-label={canEdit ? `Edit budget "${c.name}"` : undefined}
                 onClick={editBudget}
-                onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); editBudget(); } }}
-                style={{ marginBottom: 16, cursor: 'pointer' }}
+                onKeyDown={(ev) => { if (canEdit && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); editBudget(); } }}
+                style={{ marginBottom: 16, cursor: canEdit ? 'pointer' : 'default' }}
               >
                 <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 7 }}>
                   <span style={{ fontWeight: 600, fontSize: 14 }}>{c.name}</span>
-                  <span style={{ fontSize: 12.5, color: '#6F6C67' }}><b style={{ color: barColor, fontWeight: 700, fontFamily: grotesk }}>{money(c.spent)}</b> / {money(c.limit)}</span>
+                  <span style={{ fontSize: 12.5, color: '#6F6C67' }}><b style={{ color: barColor, fontWeight: 700, fontFamily: grotesk }}>{money(spent)}</b> / {money(c.limit)}</span>
                 </div>
                 <div style={{ height: 8, borderRadius: 100, background: '#EBE7DF', overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${w}%`, borderRadius: 100, background: barColor }} />
@@ -124,9 +127,12 @@ export default function Money({ nav }: { nav: Nav }) {
         </div>
       )}
       {state.budget.length === 0 && (
-        <div style={{ fontSize: 13, color: '#6F6C67', margin: '0 2px 12px' }}>Track monthly spending by category - groceries, transport, school.</div>
+        <div style={{ fontSize: 13, color: '#6F6C67', margin: '0 2px 12px' }}>Track monthly spending by category - groceries, transport, school. Tap a category to log each spend; they tally up per month.</div>
       )}
-      <button onClick={() => nav.openForm('budget')} style={{ ...dashedAdd, marginBottom: 24 }}>+ Add a budget category</button>
+      {monthOffset === 0 && <button onClick={() => nav.openForm('budget')} style={{ ...dashedAdd, marginBottom: 24 }}>+ Add a budget category</button>}
+      {monthOffset !== 0 && state.budget.length > 0 && (
+        <div style={{ fontSize: 11.5, color: '#7D776E', margin: '0 2px 24px' }}>Viewing {monthLabel} spending. Go back to this month to log spends.</div>
+      )}
 
       {/* Who owes who */}
       <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 6px' }}>Who owes who</div>
@@ -168,7 +174,7 @@ export default function Money({ nav }: { nav: Nav }) {
           <div style={{ fontSize: 13, color: '#6F6C67', margin: '0 2px' }}>Put a number on the things you're saving for, together.</div>
         )}
         {state.savings.map((v) => {
-          const editSaving = () => nav.openForm('saving', { editId: v.id, name: v.name, target: v.target ? String(v.target) : '', saved: v.saved ? String(v.saved) : '' });
+          const editSaving = () => nav.openForm('saving', { editId: v.id, name: v.name, target: v.target ? String(v.target) : '', saved: v.saved ? String(v.saved) : '', amount: '' });
           return (
             <div
               key={v.id}

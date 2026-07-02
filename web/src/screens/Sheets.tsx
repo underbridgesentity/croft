@@ -152,12 +152,16 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
       if (!editing) { nav.goTab('tasks'); nav.goPlan('goals'); }
     } else if (form === 'budget') {
       if (!fd.name?.trim()) return flash('Add a category name');
-      const d = { name: fd.name, limit: fd.limit, spent: fd.spent };
-      await run(editing ? api.updBudget(fd.editId!, d) : api.addBudget(d), editing ? 'Budget updated' : 'Budget category added');
+      await run(
+        editing
+          ? api.updBudget(fd.editId!, { name: fd.name, limit: fd.limit, addSpend: fd.amount, note: fd.note })
+          : api.addBudget({ name: fd.name, limit: fd.limit }),
+        editing ? (Number(fd.amount) ? 'Spend logged' : 'Budget updated') : 'Budget category added'
+      );
     } else if (form === 'saving') {
       if (!fd.name?.trim()) return flash('Add a savings goal name');
-      const d = { name: fd.name, target: fd.target, saved: fd.saved };
-      await run(editing ? api.updSaving(fd.editId!, d) : api.addSaving(d), editing ? 'Savings goal updated' : 'Savings goal added');
+      const d = { name: fd.name, target: fd.target, saved: fd.saved, addAmount: fd.amount };
+      await run(editing ? api.updSaving(fd.editId!, d) : api.addSaving(d), editing ? (Number(fd.amount) ? 'Added to savings' : 'Savings goal updated') : 'Savings goal added');
     } else {
       const memberId = (fd.who || [])[0];
       if (!memberId) return flash('Pick a family member');
@@ -254,10 +258,16 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
       {form === 'budget' && (
         <div>
           <Field label="Category name"><input style={inp} value={fd.name || ''} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Groceries" /></Field>
-          <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-            <div style={{ flex: 1, minWidth: 0 }}><Lbl>Monthly limit (R)</Lbl><input style={inp} type="number" value={fd.limit || ''} onChange={(e) => set('limit', e.target.value)} placeholder="0" /></div>
-            <div style={{ flex: 1, minWidth: 0 }}><Lbl>Spent so far (R)</Lbl><input style={inp} type="number" value={fd.spent || ''} onChange={(e) => set('spent', e.target.value)} placeholder="0" /></div>
-          </div>
+          <Field label="Monthly limit (R)"><input style={inp} type="number" value={fd.limit || ''} onChange={(e) => set('limit', e.target.value)} placeholder="0" /></Field>
+          {editing && (
+            <>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+                <div style={{ flex: 1, minWidth: 0 }}><Lbl>Log a spend (R)</Lbl><input style={inp} type="number" value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="e.g. 250" /></div>
+                <div style={{ flex: 1.4, minWidth: 0 }}><Lbl>What for? (optional)</Lbl><input style={inp} value={fd.note || ''} onChange={(e) => set('note', e.target.value)} placeholder="e.g. Woolies run" /></div>
+              </div>
+              <div style={{ fontSize: 11.5, color: '#7D776E', margin: '-6px 2px 14px' }}>Spends tally up for the month. Use a minus amount to correct a mistake.</div>
+            </>
+          )}
         </div>
       )}
 
@@ -268,6 +278,9 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
             <div style={{ flex: 1, minWidth: 0 }}><Lbl>Target (R)</Lbl><input style={inp} type="number" value={fd.target || ''} onChange={(e) => set('target', e.target.value)} placeholder="0" /></div>
             <div style={{ flex: 1, minWidth: 0 }}><Lbl>Saved so far (R)</Lbl><input style={inp} type="number" value={fd.saved || ''} onChange={(e) => set('saved', e.target.value)} placeholder="0" /></div>
           </div>
+          {editing && (
+            <Field label="Add to savings (R)"><input style={inp} type="number" value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="e.g. 500" /></Field>
+          )}
         </div>
       )}
 
