@@ -184,7 +184,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
               <span style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, letterSpacing: '-0.01em' }}>Croft</span>
             </div>
 
-            <button onClick={nav.openAdd} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: 'none', background: '#3B5BFF', color: '#fff', fontFamily: grotesk, fontWeight: 700, fontSize: 14.5, padding: '12px', borderRadius: 14, cursor: 'pointer', boxShadow: '0 6px 16px rgba(59,91,255,0.32)', marginBottom: 18 }}>
+            <button onClick={nav.openAdd} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, border: 'none', background: 'linear-gradient(160deg, #4E6BFF 0%, #3B5BFF 58%, #2E49E8 100%)', color: '#fff', fontFamily: grotesk, fontWeight: 700, fontSize: 14.5, padding: '12px', borderRadius: 14, cursor: 'pointer', boxShadow: '0 6px 16px rgba(59,91,255,0.32), inset 0 1px 0 rgba(255,255,255,0.3)', marginBottom: 18 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" /></svg>
               Add
             </button>
@@ -218,7 +218,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
             </button>
           </aside>
 
-          <main className="croft-scroll" style={{ flex: 1, overflowY: 'auto', background: '#F5F4F1' }}>
+          <main className="croft-scroll" style={{ flex: 1, overflowY: 'auto', background: 'transparent' }}>
             <div style={{ maxWidth: 880, margin: '0 auto', padding: '30px 40px 64px' }}>{screen}</div>
           </main>
         </div>
@@ -231,7 +231,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   return (
     <>
       <div style={{ flexShrink: 0, padding: '20px 18px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 8 }}>
-        <button onClick={() => nav.goTab('family')} style={{ display: 'flex', alignItems: 'center', gap: 9, border: 'none', background: '#fff', padding: '7px 14px 7px 9px', borderRadius: 100, boxShadow: '0 1px 2px rgba(24,25,34,0.05), 0 8px 20px -12px rgba(24,25,34,0.12)', cursor: 'pointer' }}>
+        <button onClick={() => nav.goTab('family')} className="glass" style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 14px 7px 9px', borderRadius: 100, cursor: 'pointer' }}>
           <span style={{ width: 28, height: 28, borderRadius: 9, background: 'rgba(59,91,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3.5 11L12 4l8.5 7v8.2a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1z" stroke="#3B5BFF" strokeWidth="1.9" strokeLinejoin="round" /><path d="M9.5 20.5v-6h5v6" stroke="#3B5BFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </span>
@@ -239,7 +239,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ opacity: 0.35 }}><path d="M6 9l6 6 6-6" stroke="#181922" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button onClick={nav.openNotifs} aria-label={`Notifications${hasUnread ? ' (unread)' : ''}`} style={{ position: 'relative', width: 42, height: 42, borderRadius: 13, border: 'none', background: '#fff', boxShadow: '0 1px 2px rgba(24,25,34,0.05), 0 8px 20px -12px rgba(24,25,34,0.12)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <button onClick={nav.openNotifs} aria-label={`Notifications${hasUnread ? ' (unread)' : ''}`} className="glass" style={{ position: 'relative', width: 42, height: 42, borderRadius: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="21" height="21" viewBox="0 0 24 24" fill="none"><path d="M18 9.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 15.5 18 9.5" stroke="#181922" strokeWidth="1.8" strokeLinejoin="round" /><path d="M10.2 20.5a2 2 0 0 0 3.6 0" stroke="#181922" strokeWidth="1.8" strokeLinecap="round" /></svg>
             {hasUnread && <span style={{ position: 'absolute', top: 9, right: 10, width: 9, height: 9, borderRadius: '50%', background: '#FF4D5E', border: '2px solid #fff' }} />}
           </button>
@@ -253,11 +253,11 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         {screen}
       </div>
 
-      <button onClick={nav.openAdd} aria-label="Add something" style={{ position: 'absolute', right: 18, bottom: 'calc(92px + env(safe-area-inset-bottom))', width: 56, height: 56, borderRadius: 18, border: 'none', background: '#3B5BFF', boxShadow: '0 10px 24px rgba(59,91,255,0.45)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 30 }}>
+      <button onClick={nav.openAdd} aria-label="Add something" style={{ position: 'absolute', right: 18, bottom: 'calc(92px + env(safe-area-inset-bottom))', width: 56, height: 56, borderRadius: 18, border: 'none', background: 'linear-gradient(160deg, #4E6BFF 0%, #3B5BFF 58%, #2E49E8 100%)', boxShadow: '0 10px 26px rgba(59,91,255,0.5), inset 0 1px 0 rgba(255,255,255,0.35)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 30 }}>
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" /></svg>
       </button>
 
-      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 25, padding: '12px 10px max(16px, env(safe-area-inset-bottom))', background: 'rgba(255,255,255,0.94)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)', borderTop: '1px solid #E8E3DB', display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 25, padding: '12px 10px max(16px, env(safe-area-inset-bottom))', background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(22px) saturate(180%)', WebkitBackdropFilter: 'blur(22px) saturate(180%)', borderTop: '1px solid rgba(232,227,219,0.7)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.6), 0 -10px 30px -22px rgba(24,25,34,0.25)', display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
         {NAV.map((item) => (
           <button key={item.key} onClick={() => nav.goTab(item.key)} style={{ border: 'none', background: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, color: tab === item.key ? '#3B5BFF' : '#7D776E', width: 60 }}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none">{item.icon}</svg>

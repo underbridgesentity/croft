@@ -209,8 +209,11 @@ const dashedAdd: React.CSSProperties = {
   fontWeight: 700, fontSize: 14, padding: 15, borderRadius: 16, cursor: 'pointer',
 };
 const monthBtn: React.CSSProperties = {
-  width: 38, height: 38, borderRadius: 12, border: 'none', background: '#fff', cursor: 'pointer',
-  display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(24,25,34,0.05), 0 8px 20px -12px rgba(24,25,34,0.12)', flexShrink: 0,
+  width: 38, height: 38, borderRadius: 12, cursor: 'pointer',
+  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.55)',
+  backdropFilter: 'blur(20px) saturate(180%)', WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+  boxShadow: '0 1px 2px rgba(24,25,34,0.05), 0 8px 20px -14px rgba(24,25,34,0.18), inset 0 1px 0 rgba(255,255,255,0.75)',
 };
 
 function MoneyInsights({ state, monthKey, monthShort, billsTotal }: { state: import('../lib/types').AppState; monthKey: string; monthShort: string; billsTotal: number }) {

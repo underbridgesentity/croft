@@ -68,9 +68,12 @@ export default function App() {
 
   if (!ready) {
     return (
-      <Frame>
+      <Frame wide>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Logo />
+          <div className="croft-pulse" style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
+            <img src="/icons/icon-192.png" width={56} height={56} alt="" style={{ borderRadius: 16, display: 'block', boxShadow: '0 10px 28px rgba(31,153,255,0.38)' }} />
+            <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 700, fontSize: 32, letterSpacing: '-0.02em' }}>Croft</span>
+          </div>
         </div>
       </Frame>
     );
@@ -154,7 +157,7 @@ export function Frame({ children, wide }: { children: React.ReactNode; wide?: bo
         margin: '0 auto',
         display: 'flex',
         flexDirection: 'column',
-        background: '#F5F4F1',
+        background: 'radial-gradient(135% 95% at 50% -12%, #F8F7F4 0%, #F3F1EC 55%, #EEECE6 100%)',
         color: '#181922',
         overflow: 'hidden',
       }}
@@ -164,13 +167,3 @@ export function Frame({ children, wide }: { children: React.ReactNode; wide?: bo
   );
 }
 
-function Logo() {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <img src="/icons/icon-192.png" width={36} height={36} alt="" style={{ borderRadius: 10, display: 'block', boxShadow: '0 4px 12px rgba(31,153,255,0.32)' }} />
-      <span style={{ fontFamily: "'Geist', sans-serif", fontWeight: 700, fontSize: 22, letterSpacing: '-0.01em' }}>
-        Croft
-      </span>
-    </div>
-  );
-}
