@@ -25,7 +25,7 @@ export async function enablePush(): Promise<boolean> {
     if (!publicKey) return false;
     sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlB64ToUint8Array(publicKey),
+      applicationServerKey: urlB64ToUint8Array(publicKey) as BufferSource,
     });
   }
   await api.pushSubscribe(sub.toJSON());

@@ -73,7 +73,7 @@ export default function Money({ nav }: { nav: Nav }) {
       </div>
 
       {/* Bills */}
-      <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 12px' }}>Bills · {monthLabel.split(' ')[0]}</div>
+      <div id="bills-section" style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 12px', scrollMarginTop: 12 }}>Bills · {monthLabel.split(' ')[0]}</div>
       {openBills.length === 0 && paidBills.length === 0 && (
         <div style={{ fontSize: 13, color: '#6F6C67', margin: '0 2px 12px' }}>
           {monthOffset === 0 ? 'Track rent, utilities and subscriptions with real due dates.' : `No bills for ${monthLabel} yet - add one below to plan ahead.`}
@@ -94,7 +94,7 @@ export default function Money({ nav }: { nav: Nav }) {
 
       {/* Budget - spend totals come from the per-month ledger, so browsing months
           shows what was actually spent in each. Logging happens in the current month. */}
-      <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '26px 2px 12px' }}>Budget · {monthLabel.split(' ')[0]}</div>
+      <div id="budget-section" style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '26px 2px 12px', scrollMarginTop: 12 }}>Budget · {monthLabel.split(' ')[0]}</div>
       {state.budget.length > 0 && (
         <div style={{ background: '#fff', borderRadius: 22, padding: '18px 16px 8px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 12 }}>
           {state.budget.map((c) => {
@@ -135,7 +135,7 @@ export default function Money({ nav }: { nav: Nav }) {
       )}
 
       {/* Insights */}
-      <MoneyInsights state={state} monthKey={monthKey} monthShort={monthLabel.split(' ')[0]} billsTotal={total} />
+      <MoneyInsights state={state} monthKey={monthKey} monthShort={monthLabel.split(' ')[0]} billsTotal={total} nav={nav} onMonth={setMonthOffset} />
 
       {/* Who owes who */}
       <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 6px' }}>Who owes who</div>
@@ -216,34 +216,37 @@ const monthBtn: React.CSSProperties = {
   boxShadow: '0 1px 2px rgba(24,25,34,0.05), 0 8px 20px -14px rgba(24,25,34,0.18), inset 0 1px 0 rgba(255,255,255,0.75)',
 };
 
-function MoneyInsights({ state, monthKey, monthShort, billsTotal }: { state: import('../lib/types').AppState; monthKey: string; monthShort: string; billsTotal: number }) {
+function MoneyInsights({ state, monthKey, monthShort, billsTotal, nav, onMonth }: { state: import('../lib/types').AppState; monthKey: string; monthShort: string; billsTotal: number; nav: Nav; onMonth: (offset: number) => void }) {
   const now = new Date();
   const months = state.budgetMonths || [];
-  const trend = [] as { label: string; total: number; current: boolean }[];
+  const trend = [] as { label: string; total: number; current: boolean; offset: number }[];
   for (let i = 5; i >= 0; i--) {
     const dt = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
-    trend.push({ label: dt.toLocaleDateString('en-ZA', { month: 'short' }).slice(0, 3), total: months.filter((m) => m.month === key).reduce((a, m) => a + m.total, 0), current: key === monthKey });
+    trend.push({ label: dt.toLocaleDateString('en-ZA', { month: 'short' }).slice(0, 3), total: months.filter((m) => m.month === key).reduce((a, m) => a + m.total, 0), current: key === monthKey, offset: -i });
   }
   const maxT = Math.max(1, ...trend.map((t) => t.total));
   const cats = state.budget
-    .map((c) => ({ name: c.name, color: c.color, spent: months.find((m) => m.budget_id === c.id && m.month === monthKey)?.total || 0 }))
+    .map((c) => ({ id: c.id, name: c.name, color: c.color, limit: c.limit, spent: months.find((m) => m.budget_id === c.id && m.month === monthKey)?.total || 0 }))
     .filter((c) => c.spent > 0)
     .sort((a, b) => b.spent - a.spent);
   const spentTotal = cats.reduce((a, c) => a + c.spent, 0);
   if (!trend.some((t) => t.total > 0) && cats.length === 0) return null; // nothing to show yet
 
+  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const openBudget = (c: (typeof cats)[number]) => nav.openForm('budget', { editId: c.id, name: c.name, limit: c.limit ? String(c.limit) : '', amount: '', note: '' });
+
   return (
     <>
       <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 12px' }}>Insights</div>
       <div style={{ background: '#fff', borderRadius: 22, padding: 18, boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 24 }}>
-        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#6F6C67', marginBottom: 12 }}>Spending · last 6 months</div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 84 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 700, color: '#6F6C67', marginBottom: 12 }}>Spending · last 6 months · <span style={{ color: '#9C968D', fontWeight: 600 }}>tap a month</span></div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, height: 90 }}>
           {trend.map((t, i) => (
-            <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, justifyContent: 'flex-end', height: '100%' }}>
-              <div title={money(t.total)} style={{ width: '100%', maxWidth: 26, height: Math.max(4, Math.round((t.total / maxT) * 62)), borderRadius: 6, background: t.current ? '#3B5BFF' : '#C9D3FF' }} />
+            <button key={i} onClick={() => onMonth(t.offset)} aria-label={`View ${t.label} · ${money(t.total)}`} style={{ flex: 1, border: 'none', background: 'none', cursor: 'pointer', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, justifyContent: 'flex-end', height: '100%' }}>
+              <div style={{ width: '100%', maxWidth: 28, height: Math.max(4, Math.round((t.total / maxT) * 62)), borderRadius: 6, background: t.current ? '#3B5BFF' : '#C9D3FF' }} />
               <div style={{ fontSize: 10, fontWeight: 700, color: t.current ? '#3B5BFF' : '#9C968D' }}>{t.label}</div>
-            </div>
+            </button>
           ))}
         </div>
 
@@ -254,14 +257,17 @@ function MoneyInsights({ state, monthKey, monthShort, billsTotal }: { state: imp
               <span style={{ fontSize: 12.5, fontWeight: 700, color: '#6F6C67' }}>Where it went · {monthShort}</span>
               <span style={{ fontSize: 13, fontWeight: 700, fontFamily: grotesk }}>{money(spentTotal)}</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {cats.map((c) => {
                 const pct = spentTotal ? Math.round((c.spent / spentTotal) * 100) : 0;
                 return (
-                  <div key={c.name}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, marginBottom: 4 }}><span style={{ fontWeight: 600 }}>{c.name}</span><span style={{ color: '#6F6C67' }}>{money(c.spent)} · {pct}%</span></div>
+                  <button key={c.id} onClick={() => openBudget(c)} aria-label={`See ${c.name} spends`} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '6px 0', textAlign: 'left', width: '100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12.5, marginBottom: 4 }}>
+                      <span style={{ fontWeight: 600 }}>{c.name}</span>
+                      <span style={{ color: '#6F6C67', display: 'inline-flex', alignItems: 'center', gap: 4 }}>{money(c.spent)} · {pct}%<svg width="6" height="10" viewBox="0 0 8 14" style={{ opacity: 0.5 }}><path d="M1 1l6 6-6 6" stroke="#9C968D" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg></span>
+                    </div>
                     <div style={{ height: 6, borderRadius: 100, background: '#EBE7DF', overflow: 'hidden' }}><div style={{ height: '100%', width: `${pct}%`, background: c.color, borderRadius: 100 }} /></div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -270,21 +276,21 @@ function MoneyInsights({ state, monthKey, monthShort, billsTotal }: { state: imp
 
         <div style={{ height: 1, background: '#EFEBE3', margin: '16px 0 12px' }} />
         <div style={{ display: 'flex', gap: 10 }}>
-          <div style={{ flex: 1, background: '#F5F4F1', borderRadius: 14, padding: '11px 13px' }}>
-            <div style={{ fontSize: 11, color: '#7D776E', fontWeight: 700 }}>Bills this month</div>
+          <button onClick={() => scrollTo('bills-section')} style={{ flex: 1, background: '#F5F4F1', borderRadius: 14, padding: '11px 13px', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+            <div style={{ fontSize: 11, color: '#7D776E', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>Bills this month <span style={{ color: '#3B5BFF' }}>See →</span></div>
             <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 17, marginTop: 2 }}>{money(billsTotal)}</div>
-          </div>
-          <div style={{ flex: 1, background: '#F5F4F1', borderRadius: 14, padding: '11px 13px' }}>
-            <div style={{ fontSize: 11, color: '#7D776E', fontWeight: 700 }}>Budget spent</div>
+          </button>
+          <button onClick={() => scrollTo('budget-section')} style={{ flex: 1, background: '#F5F4F1', borderRadius: 14, padding: '11px 13px', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
+            <div style={{ fontSize: 11, color: '#7D776E', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>Budget spent <span style={{ color: '#3B5BFF' }}>See →</span></div>
             <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 17, marginTop: 2 }}>{money(spentTotal)}</div>
-          </div>
+          </button>
         </div>
       </div>
     </>
   );
 }
 
-function BillRow({ b, nav, run, muted }: { b: import('../lib/types').Bill; nav: Nav; run: (p: Promise<unknown>, msg?: string) => void; muted?: boolean }) {
+function BillRow({ b, nav, run, muted }: { b: import('../lib/types').Bill; nav: Nav; run: (p: Promise<import('../lib/types').AppState>, msg?: string) => Promise<void>; muted?: boolean }) {
   const edit = () => nav.openForm('bill', { editId: b.id, name: b.name, amount: String(b.amount || ''), due: b.due_date || '', payer: b.assignee_ids || [], recur: b.recur, remindDays: b.remind_days });
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '13px 14px', background: muted ? '#EFEBE3' : '#fff', borderRadius: 18, boxShadow: muted ? 'none' : '0 2px 8px rgba(16,20,38,0.04)', opacity: muted ? 0.8 : 1 }}>
