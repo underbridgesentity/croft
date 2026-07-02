@@ -9,13 +9,13 @@ import Family from './screens/Family';
 import { AddSheet, NotifSheet, FeedSheet, FormSheet } from './screens/Sheets';
 
 export type Tab = 'home' | 'calendar' | 'tasks' | 'money' | 'family';
-export type Plan = 'todos' | 'lists' | 'goals';
+export type Plan = 'todos' | 'lists' | 'goals' | 'meals';
 export type FormType = 'event' | 'bill' | 'goal' | 'task' | 'budget' | 'saving' | 'settle';
 
 export interface FormData {
   title?: string; name?: string; amount?: string; date?: string;
   time?: string; due?: string; target?: string; kind?: string; type?: string;
-  limit?: string; spent?: string; saved?: string; note?: string; dir?: string; recur?: string;
+  limit?: string; spent?: string; saved?: string; note?: string; dir?: string; recur?: string; remindDays?: number;
   // Multi-select member assignment (member ids).
   who?: string[]; payer?: string[]; assignees?: string[];
   // Present when the form edits an existing item instead of creating one.

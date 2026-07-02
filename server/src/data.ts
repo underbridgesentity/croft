@@ -27,15 +27,15 @@ const num = (v: any) => (v == null ? 0 : Number(v));
  * `meMemberId` marks which member is "you" for the requesting user. */
 async function assembleState(householdId: string, meMemberId?: string) {
   const [
-    hh, members, events, tasks, shopping, goals, bills, budget, savings, settle, notifications, feed, budgetMonths, calSources, budgetSpendsRows,
+    hh, members, events, tasks, shopping, goals, bills, budget, savings, settle, notifications, feed, budgetMonths, calSources, budgetSpendsRows, mealsRows, infoRows,
   ] = await Promise.all([
     query(`SELECT name, settings FROM households WHERE id = $1`, [householdId]),
     query(`SELECT id, name, role, initial, color, is_you, sort FROM members WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
-    query(`SELECT id, title, time, ampm, day, date_label, loc, color, illo, to_char(event_date,'YYYY-MM-DD') AS event_date, event_time, assignee_ids, source_id, recur FROM events WHERE household_id=$1 ORDER BY event_date NULLS LAST, sort, created_at`, [householdId]),
+    query(`SELECT id, title, time, ampm, day, date_label, loc, color, illo, to_char(event_date,'YYYY-MM-DD') AS event_date, event_time, assignee_ids, source_id, recur, remind_days FROM events WHERE household_id=$1 ORDER BY event_date NULLS LAST, sort, created_at`, [householdId]),
     query(`SELECT id, title, from_name, from_color, due, due_key, done, type, assignee_ids, recur FROM tasks WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
     query(`SELECT id, name, by_member, got FROM shopping WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
     query(`SELECT id, kind, tag, title, sub, pct, color, target FROM goals WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
-    query(`SELECT id, name, cat, amount, due, status, payer, color, illo, to_char(due_date,'YYYY-MM-DD') AS due_date, assignee_ids, recur FROM bills WHERE household_id=$1 ORDER BY due_date NULLS LAST, sort, created_at`, [householdId]),
+    query(`SELECT id, name, cat, amount, due, status, payer, color, illo, to_char(due_date,'YYYY-MM-DD') AS due_date, assignee_ids, recur, remind_days FROM bills WHERE household_id=$1 ORDER BY due_date NULLS LAST, sort, created_at`, [householdId]),
     // Spend totals are derived from the budget_spends ledger per SAST month, so
     // "this month" resets itself and past months stay browsable.
     query(
@@ -72,6 +72,8 @@ async function assembleState(householdId: string, meMemberId?: string) {
          FROM budget_spends WHERE household_id=$1 ORDER BY created_at DESC`,
       [householdId]
     ),
+    query(`SELECT id, to_char(date,'YYYY-MM-DD') AS date, title FROM meals WHERE household_id=$1 ORDER BY date, created_at`, [householdId]),
+    query(`SELECT id, category, label, value FROM household_info WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
   ]);
 
   const household = hh.rows[0] || { name: 'My Home', settings: {} };
@@ -103,6 +105,8 @@ async function assembleState(householdId: string, meMemberId?: string) {
     budget: budget.rows.map((c) => ({ id: c.id, name: c.name, spent: num(c.spent), limit: num(c.budget_limit), color: c.color })),
     budgetMonths: budgetMonths.rows.map((r) => ({ budget_id: r.budget_id, month: r.month, total: num(r.total) })),
     budgetSpends: budgetSpendsRows.rows.map((r) => ({ id: r.id, budget_id: r.budget_id, amount: num(r.amount), note: r.note, date: r.date, month: r.month })),
+    meals: mealsRows.rows,
+    householdInfo: infoRows.rows,
     savings: savings.rows.map((v) => ({ ...v, saved: num(v.saved), target: num(v.target) })),
     settle: settle.rows,
     // time_label is derived live from created_at so items never freeze at "just now".
@@ -228,8 +232,10 @@ function advanceIso(iso: string, recur: string): string | null {
   return null;
 }
 
+const remindSchema = z.coerce.number().int().min(0).max(60).optional();
+
 // ---------------- EVENTS ----------------
-const eventSchema = z.object({ title: z.string().min(1), date: z.string().optional(), time: z.string().optional(), who: idsSchema, recur: recurSchema });
+const eventSchema = z.object({ title: z.string().min(1), date: z.string().optional(), time: z.string().optional(), who: idsSchema, recur: recurSchema, remindDays: remindSchema });
 
 dataRouter.post('/events', async (req: AuthedRequest, res) => {
   const b = eventSchema.safeParse(req.body);
@@ -237,11 +243,11 @@ dataRouter.post('/events', async (req: AuthedRequest, res) => {
   const ms = await membersByIds(hh(req), toIds(b.data.who));
   const d = dateBits(b.data.date, b.data.time);
   await query(
-    `INSERT INTO events (household_id, title, time, ampm, day, date_label, event_date, event_time, loc, color, illo, assignee_ids, recur, sort)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'calendar',$11,$12,${nextSort('events')})`,
+    `INSERT INTO events (household_id, title, time, ampm, day, date_label, event_date, event_time, loc, color, illo, assignee_ids, recur, remind_days, sort)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'calendar',$11,$12,$13,${nextSort('events')})`,
     [hh(req), b.data.title, d.displayTime, d.ampm, d.dayFlag, d.label, d.iso, d.timeStr,
      'For ' + (ms.length ? joinNames(ms.map((m) => m.name)) : 'the family'),
-     ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none']
+     ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none', b.data.remindDays ?? 0]
   );
   const me = await meMember(hh(req), req.memberId);
   await addFeed(hh(req), me.name, me.color, me.initial, `added "${b.data.title}" to the calendar`);
@@ -253,11 +259,11 @@ dataRouter.patch('/events/:id', async (req: AuthedRequest, res) => {
   const ms = await membersByIds(hh(req), toIds(b.data.who));
   const d = dateBits(b.data.date, b.data.time);
   await query(
-    `UPDATE events SET title=$1, time=$2, ampm=$3, day=$4, date_label=$5, event_date=$6, event_time=$7, loc=$8, color=$9, assignee_ids=$10, recur=$11, updated_at=now()
-      WHERE id=$12 AND household_id=$13 AND source_id IS NULL`,
+    `UPDATE events SET title=$1, time=$2, ampm=$3, day=$4, date_label=$5, event_date=$6, event_time=$7, loc=$8, color=$9, assignee_ids=$10, recur=$11, remind_days=$12, updated_at=now()
+      WHERE id=$13 AND household_id=$14 AND source_id IS NULL`,
     [b.data.title, d.displayTime, d.ampm, d.dayFlag, d.label, d.iso, d.timeStr,
      'For ' + (ms.length ? joinNames(ms.map((m) => m.name)) : 'the family'),
-     ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none', req.params.id, hh(req)]
+     ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none', b.data.remindDays ?? 0, req.params.id, hh(req)]
   );
   await sendState(req, res);
 });
@@ -410,7 +416,7 @@ dataRouter.delete('/goals/:id', async (req: AuthedRequest, res) => {
 });
 
 // ---------------- BILLS ----------------
-const billSchema = z.object({ name: z.string().min(1), amount: z.union([z.string(), z.number()]).optional(), due: z.string().optional(), payer: idsSchema, recur: recurSchema });
+const billSchema = z.object({ name: z.string().min(1), amount: z.union([z.string(), z.number()]).optional(), due: z.string().optional(), payer: idsSchema, recur: recurSchema, remindDays: remindSchema });
 
 dataRouter.post('/bills', async (req: AuthedRequest, res) => {
   const b = billSchema.safeParse(req.body);
@@ -420,11 +426,11 @@ dataRouter.post('/bills', async (req: AuthedRequest, res) => {
   const dueLabel = iso ? formatDateLabel(iso) : (String(b.data.due || '').trim() || 'This month');
   const status = iso && iso < sastToday() ? 'overdue' : 'unpaid';
   await query(
-    `INSERT INTO bills (household_id, name, cat, amount, due, due_date, status, payer, color, illo, assignee_ids, recur, sort)
-     VALUES ($1,$2,'Other',$3,$4,$5,$6,$7,$8,'wallet',$9,$10,${nextSort('bills')})`,
+    `INSERT INTO bills (household_id, name, cat, amount, due, due_date, status, payer, color, illo, assignee_ids, recur, remind_days, sort)
+     VALUES ($1,$2,'Other',$3,$4,$5,$6,$7,$8,'wallet',$9,$10,$11,${nextSort('bills')})`,
     [hh(req), b.data.name, Number(b.data.amount) || 0, dueLabel, iso, status,
      ms.length ? joinNames(ms.map((m) => m.name)) : 'Shared',
-     ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none']
+     ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none', b.data.remindDays ?? 0]
   );
   const me = await meMember(hh(req), req.memberId);
   await addFeed(hh(req), me.name, me.color, me.initial, `added the bill "${b.data.name}"`);
@@ -440,12 +446,12 @@ dataRouter.patch('/bills/:id', async (req: AuthedRequest, res) => {
     const iso = b.data.due && isoRe.test(b.data.due) ? b.data.due : null;
     const dueLabel = iso ? formatDateLabel(iso) : (String(b.data.due || '').trim() || 'This month');
     await query(
-      `UPDATE bills SET name=$1, amount=$2, due=$3, due_date=$4, payer=$5, color=$6, assignee_ids=$7, recur=$8,
-              status = CASE WHEN status='paid' THEN 'paid' WHEN $4::date IS NOT NULL AND $4::date < $9::date THEN 'overdue' ELSE 'unpaid' END
-        WHERE id=$10 AND household_id=$11`,
+      `UPDATE bills SET name=$1, amount=$2, due=$3, due_date=$4, payer=$5, color=$6, assignee_ids=$7, recur=$8, remind_days=$9,
+              status = CASE WHEN status='paid' THEN 'paid' WHEN $4::date IS NOT NULL AND $4::date < $10::date THEN 'overdue' ELSE 'unpaid' END
+        WHERE id=$11 AND household_id=$12`,
       [b.data.name, Number(b.data.amount) || 0, dueLabel, iso,
        ms.length ? joinNames(ms.map((m) => m.name)) : 'Shared',
-       ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none', sastToday(), req.params.id, hh(req)]
+       ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none', b.data.remindDays ?? 0, sastToday(), req.params.id, hh(req)]
     );
     return sendState(req, res);
   }
@@ -743,6 +749,50 @@ dataRouter.patch('/settle/:id', async (req: AuthedRequest, res) => {
     return sendState(req, res);
   }
   await query(`UPDATE settle SET settled=true WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)]);
+  await sendState(req, res);
+});
+
+// ---------------- MEAL PLANNER ----------------
+const mealSchema = z.object({ date: z.string().regex(isoRe), title: z.string().min(1).max(80) });
+dataRouter.post('/meals', async (req: AuthedRequest, res) => {
+  const b = mealSchema.safeParse(req.body);
+  if (!b.success) return res.status(400).json({ error: 'Add a meal' });
+  await query(`INSERT INTO meals (household_id, date, title) VALUES ($1,$2,$3)`, [hh(req), b.data.date, b.data.title.trim()]);
+  await sendState(req, res);
+});
+dataRouter.patch('/meals/:id', async (req: AuthedRequest, res) => {
+  const title = String(req.body?.title || '').trim();
+  if (!title) return res.status(400).json({ error: 'Add a meal' });
+  await query(`UPDATE meals SET title=$1 WHERE id=$2 AND household_id=$3`, [title.slice(0, 80), req.params.id, hh(req)]);
+  await sendState(req, res);
+});
+dataRouter.delete('/meals/:id', async (req: AuthedRequest, res) => {
+  await query(`DELETE FROM meals WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)]);
+  await sendState(req, res);
+});
+
+// ---------------- HOUSEHOLD INFO BOARD ----------------
+const infoSchema = z.object({ category: z.string().max(40).optional(), label: z.string().min(1).max(80), value: z.string().max(600).optional() });
+dataRouter.post('/household-info', async (req: AuthedRequest, res) => {
+  const b = infoSchema.safeParse(req.body);
+  if (!b.success) return res.status(400).json({ error: 'Add a label' });
+  await query(
+    `INSERT INTO household_info (household_id, category, label, value, sort) VALUES ($1,$2,$3,$4,${nextSort('household_info')})`,
+    [hh(req), (b.data.category || 'General').trim(), b.data.label.trim(), (b.data.value || '').trim()]
+  );
+  await sendState(req, res);
+});
+dataRouter.patch('/household-info/:id', async (req: AuthedRequest, res) => {
+  const b = infoSchema.safeParse(req.body);
+  if (!b.success) return res.status(400).json({ error: 'Add a label' });
+  await query(
+    `UPDATE household_info SET category=$1, label=$2, value=$3 WHERE id=$4 AND household_id=$5`,
+    [(b.data.category || 'General').trim(), b.data.label.trim(), (b.data.value || '').trim(), req.params.id, hh(req)]
+  );
+  await sendState(req, res);
+});
+dataRouter.delete('/household-info/:id', async (req: AuthedRequest, res) => {
+  await query(`DELETE FROM household_info WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)]);
   await sendState(req, res);
 });
 

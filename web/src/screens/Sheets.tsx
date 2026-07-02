@@ -138,12 +138,12 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
   const doSubmit = async () => {
     if (form === 'event') {
       if (!fd.title?.trim()) return flash('Add a title first');
-      const d = { title: fd.title, date: fd.date, time: fd.time, who: fd.who, recur: fd.recur };
+      const d = { title: fd.title, date: fd.date, time: fd.time, who: fd.who, recur: fd.recur, remindDays: fd.remindDays };
       await run(editing ? api.updEvent(fd.editId!, d) : api.addEvent(d), editing ? 'Event updated' : 'Event added');
       if (!editing) nav.goTab('calendar');
     } else if (form === 'bill') {
       if (!fd.name?.trim()) return flash('Add a bill name');
-      const d = { name: fd.name, amount: fd.amount, due: fd.due, payer: fd.payer, recur: fd.recur };
+      const d = { name: fd.name, amount: fd.amount, due: fd.due, payer: fd.payer, recur: fd.recur, remindDays: fd.remindDays };
       await run(editing ? api.updBill(fd.editId!, d) : api.addBill(d), editing ? 'Bill updated' : 'Bill added');
       if (!editing) nav.goTab('money');
     } else if (form === 'task') {
@@ -215,6 +215,7 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
           <Chips items={memberChips} value={fd.who || []} onToggle={(id) => toggle('who', id)} emptyHint="Nobody picked = the whole family" />
           <div style={{ height: 16 }} />
           <RepeatField value={fd.recur} onChange={(v) => set('recur', v)} anchorDate={fd.date} showAdvanced />
+          <RemindField value={fd.remindDays} onChange={(n) => setFd({ ...fd, remindDays: n })} />
         </div>
       )}
 
@@ -248,6 +249,7 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
           <Chips items={memberChips} value={fd.payer || []} onToggle={(id) => toggle('payer', id)} emptyHint="Nobody picked = shared" />
           <div style={{ height: 16 }} />
           <RepeatField value={fd.recur} onChange={(v) => set('recur', v)} anchorDate={fd.due} showAdvanced hint="A paid recurring bill creates next period's bill automatically." />
+          <RemindField value={fd.remindDays} onChange={(n) => setFd({ ...fd, remindDays: n })} />
         </div>
       )}
 
@@ -411,6 +413,20 @@ function RepeatField({ value, onChange, hint, anchorDate, showAdvanced }: { valu
       )}
 
       {hint && chip !== 'none' && <div style={{ fontSize: 11.5, color: '#7D776E', marginTop: 8 }}>{hint}</div>}
+    </div>
+  );
+}
+/** "Remind me N days before" picker (0 = on the day). Reminders arrive via the
+ * daily push + email digest. */
+function RemindField({ value, onChange }: { value?: number; onChange: (n: number) => void }) {
+  const opts: [number, string][] = [[0, 'On the day'], [1, '1 day before'], [2, '2 days'], [3, '3 days'], [7, '1 week']];
+  const cur = value || 0;
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <Lbl>Remind me</Lbl>
+      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+        {opts.map(([k, l]) => <button key={k} onClick={() => onChange(k)} aria-pressed={cur === k} style={pillStyle(cur === k)}>{l}</button>)}
+      </div>
     </div>
   );
 }

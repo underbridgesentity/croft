@@ -289,6 +289,9 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
         </div>
       )}
 
+      {/* household info board */}
+      <HouseholdInfo />
+
       {/* notifications & reminders */}
       <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 4px' }}>Notifications & reminders</div>
       <div style={{ fontSize: 12.5, color: '#6F6C67', margin: '0 2px 12px' }}>How Croft reaches you and the family</div>
@@ -401,6 +404,65 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
       ) : (
         <button onClick={() => setConfirmDelete(true)} style={{ width: '100%', border: 'none', background: 'transparent', color: '#E23A54', fontWeight: 700, fontSize: 13.5, padding: 10, cursor: 'pointer' }}>Delete account</button>
       )}
+    </div>
+  );
+}
+
+function HouseholdInfo() {
+  const { state, run, flash } = useStore();
+  const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [label, setLabel] = useState('');
+  const [value, setValue] = useState('');
+  const [cat, setCat] = useState('General');
+  if (!state) return null;
+  const items = state.householdInfo || [];
+  const cats = ['General', 'Wifi', 'Emergency', 'Medical', 'Codes'];
+  const reset = () => { setOpen(false); setEditId(null); setLabel(''); setValue(''); setCat('General'); };
+  const save = () => {
+    const l = label.trim();
+    if (!l) return flash('Add a label');
+    const d = { category: cat, label: l, value: value.trim() };
+    run(editId ? api.updInfo(editId, d) : api.addInfo(d), editId ? 'Saved' : 'Added');
+    reset();
+  };
+  const startEdit = (it: { id: string; category: string; label: string; value: string }) => { setEditId(it.id); setLabel(it.label); setValue(it.value); setCat(it.category || 'General'); setOpen(true); };
+
+  return (
+    <div style={{ marginBottom: 26 }}>
+      <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 4px' }}>Household info</div>
+      <div style={{ fontSize: 12.5, color: '#6F6C67', margin: '0 2px 12px' }}>Wifi, emergency contacts, codes — handy for everyone</div>
+      <div style={{ background: '#fff', borderRadius: 22, padding: 16, boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)' }}>
+        {items.map((it) => (
+          <div key={it.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '11px 0', borderBottom: '1px solid #EFEBE3' }}>
+            <div role="button" tabIndex={0} aria-label={`Edit ${it.label}`} onClick={() => startEdit(it)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startEdit(it); } }} style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 2 }}>
+                <span style={{ fontWeight: 700, fontSize: 14 }}>{it.label}</span>
+                {it.category && it.category !== 'General' && <span style={{ fontSize: 9.5, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.03em', color: '#6D5CD6', background: 'rgba(140,124,255,0.16)', padding: '2px 6px', borderRadius: 100 }}>{it.category}</span>}
+              </div>
+              <div style={{ fontSize: 13, color: '#3A362F', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{it.value || '—'}</div>
+            </div>
+            <button onClick={() => run(api.delInfo(it.id), 'Removed')} aria-label={`Remove ${it.label}`} style={{ flexShrink: 0, border: 'none', background: 'none', cursor: 'pointer', padding: 4 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5h4v2M9 7l.7 12h8.6L19 7" stroke="#C9C3B9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            </button>
+          </div>
+        ))}
+        {open ? (
+          <div style={{ paddingTop: 12 }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
+              {cats.map((c) => <button key={c} onClick={() => setCat(c)} style={{ border: 'none', cursor: 'pointer', padding: '7px 12px', borderRadius: 100, fontWeight: 700, fontSize: 12, background: cat === c ? '#3B5BFF' : '#EBE7DF', color: cat === c ? '#fff' : '#181922' }}>{c}</button>)}
+            </div>
+            <input autoFocus value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Label (e.g. Wifi password)" style={{ ...pwInput, marginBottom: 8 }} />
+            <textarea value={value} onChange={(e) => setValue(e.target.value)} placeholder="Value (e.g. the password, a phone number, a code)" rows={2} style={{ ...pwInput, resize: 'vertical', fontFamily: 'inherit' }} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+              <button onClick={save} style={{ flex: 1, border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 14, padding: 11, borderRadius: 12, cursor: 'pointer' }}>{editId ? 'Save' : 'Add'}</button>
+              <button onClick={reset} style={{ border: '1.5px solid #E8E3DB', background: '#fff', color: '#181922', fontWeight: 700, fontSize: 14, padding: '11px 18px', borderRadius: 12, cursor: 'pointer' }}>Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setOpen(true)} style={{ width: '100%', border: 'none', background: 'none', color: '#3B5BFF', fontWeight: 700, fontSize: 13.5, padding: '12px 0 2px', cursor: 'pointer' }}>+ Add info</button>
+        )}
+      </div>
     </div>
   );
 }

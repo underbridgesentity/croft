@@ -46,8 +46,8 @@ export interface QueryOpts {
 // by forgetting the tenant filter. Longest names first so "budget_spends" isn't
 // mis-matched as "budget".
 const SCOPED_TABLES = [
-  'push_subscriptions', 'calendar_sources', 'budget_spends', 'notifications', 'shopping',
-  'members', 'invites', 'savings', 'events', 'tasks', 'goals', 'bills', 'budget', 'settle', 'feed',
+  'push_subscriptions', 'calendar_sources', 'budget_spends', 'household_info', 'notifications', 'shopping',
+  'members', 'invites', 'savings', 'events', 'tasks', 'goals', 'bills', 'budget', 'settle', 'feed', 'meals',
 ];
 const SCOPE_RE = new RegExp(`\\b(?:from|join|into|update)\\s+"?(${SCOPED_TABLES.join('|')})"?\\b`, 'i');
 
@@ -284,6 +284,10 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS recur TEXT NOT NULL DEFAULT 'none';
 ALTER TABLE bills ADD COLUMN IF NOT EXISTS recur TEXT NOT NULL DEFAULT 'none';
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recur TEXT NOT NULL DEFAULT 'none';
 
+-- Reminder lead time (days before the date to also nudge). 0 = on the day only.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS remind_days INT NOT NULL DEFAULT 0;
+ALTER TABLE bills ADD COLUMN IF NOT EXISTS remind_days INT NOT NULL DEFAULT 0;
+
 CREATE TABLE IF NOT EXISTS budget (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
@@ -357,6 +361,28 @@ SELECT b.household_id, b.id, b.spent, 'Carried over'
   FROM budget b
  WHERE b.spent > 0
    AND NOT EXISTS (SELECT 1 FROM budget_spends s WHERE s.budget_id = b.id);
+
+-- Weekly meal plan ("what's for dinner"): one or more dishes per date.
+CREATE TABLE IF NOT EXISTS meals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  title TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_meals_hh ON meals(household_id);
+
+-- Shared household reference info (wifi, emergency contacts, medical, codes).
+CREATE TABLE IF NOT EXISTS household_info (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  category TEXT NOT NULL DEFAULT 'General',
+  label TEXT NOT NULL,
+  value TEXT NOT NULL DEFAULT '',
+  sort INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_household_info_hh ON household_info(household_id);
 
 CREATE TABLE IF NOT EXISTS notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -20,11 +20,13 @@ export default function Plans({ nav }: { nav: Nav }) {
       <div style={{ display: 'flex', gap: 4, background: '#E8E3DB', borderRadius: 14, padding: 4, marginBottom: 22 }}>
         <Seg label="To-dos" active={nav.plan === 'todos'} onClick={() => nav.goPlan('todos')} />
         <Seg label="Lists" active={nav.plan === 'lists'} onClick={() => nav.goPlan('lists')} />
+        <Seg label="Meals" active={nav.plan === 'meals'} onClick={() => nav.goPlan('meals')} />
         <Seg label="Goals" active={nav.plan === 'goals'} onClick={() => nav.goPlan('goals')} />
       </div>
 
       {nav.plan === 'todos' && <Todos nav={nav} />}
       {nav.plan === 'lists' && <Lists />}
+      {nav.plan === 'meals' && <Meals />}
       {nav.plan === 'goals' && <Goals nav={nav} />}
     </div>
   );
@@ -210,6 +212,77 @@ function Lists() {
     </div>
   );
 }
+
+// ---------------- MEALS ----------------
+function Meals() {
+  const { state, run } = useStore();
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  if (!state) return null;
+  const now = new Date();
+  const base = new Date(now.getFullYear(), now.getMonth(), now.getDate() + weekOffset * 7);
+  const dow = (base.getDay() + 6) % 7; // Monday-start
+  const monday = new Date(base.getFullYear(), base.getMonth(), base.getDate() - dow);
+  const todayIso = now.toLocaleDateString('en-CA');
+  const days = [...Array(7)].map((_, i) => {
+    const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+    const iso = d.toLocaleDateString('en-CA');
+    return { iso, name: d.toLocaleDateString('en-ZA', { weekday: 'long' }), dm: d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' }), today: iso === todayIso };
+  });
+  const meals = state.meals || [];
+  const add = (iso: string) => { const v = (draft[iso] || '').trim(); if (!v) return; run(api.addMeal({ date: iso, title: v }), 'Meal planned'); setDraft({ ...draft, [iso]: '' }); };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 14 }}>
+        <button onClick={() => setWeekOffset(weekOffset - 1)} aria-label="Previous week" style={weekBtn}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="#181922" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 15 }}>{monday.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })} – {days[6].dm}</div>
+          {weekOffset !== 0 && <button onClick={() => setWeekOffset(0)} style={{ border: 'none', background: 'none', color: '#3B5BFF', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', padding: '1px 0 0' }}>This week</button>}
+        </div>
+        <button onClick={() => setWeekOffset(weekOffset + 1)} aria-label="Next week" style={weekBtn}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 5l7 7-7 7" stroke="#181922" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {days.map((day) => {
+          const dayMeals = meals.filter((m) => m.date === day.iso);
+          return (
+            <div key={day.iso} style={{ background: '#fff', borderRadius: 18, padding: '13px 15px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', border: day.today ? '1.5px solid #3B5BFF' : '1.5px solid transparent' }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 9 }}>
+                <span style={{ fontWeight: 700, fontSize: 14.5, color: day.today ? '#3B5BFF' : '#181922' }}>{day.name}</span>
+                <span style={{ fontSize: 11.5, color: '#9C968D', fontWeight: 600 }}>{day.dm}</span>
+              </div>
+              {dayMeals.map((m) => (
+                <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid #F2EEE7' }}>
+                  <span style={{ flexShrink: 0, fontSize: 15 }}>🍽️</span>
+                  <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 14 }}>{m.title}</span>
+                  <button onClick={() => run(api.addShop(m.title), `${m.title} added to shopping`)} style={{ flexShrink: 0, border: 'none', background: '#EFEBE3', color: '#3B5BFF', fontWeight: 700, fontSize: 11.5, padding: '6px 11px', borderRadius: 100, cursor: 'pointer' }}>+ List</button>
+                  <DeleteBtn onClick={() => run(api.delMeal(m.id), 'Removed')} />
+                </div>
+              ))}
+              <div style={{ display: 'flex', gap: 7, marginTop: dayMeals.length ? 9 : 0 }}>
+                <input value={draft[day.iso] || ''} onChange={(e) => setDraft({ ...draft, [day.iso]: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && add(day.iso)} placeholder="What's for dinner?" style={{ flex: 1, minWidth: 0, border: '1.5px solid #E8E3DB', background: '#fff', borderRadius: 11, padding: '9px 12px', fontSize: 16, outline: 'none', color: '#181922' }} />
+                <button onClick={() => add(day.iso)} aria-label="Add meal" style={{ flexShrink: 0, width: 40, border: 'none', background: '#3B5BFF', borderRadius: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 5.5v13M5.5 12h13" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" /></svg>
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ fontSize: 11.5, color: '#7D776E', margin: '14px 2px 0', textAlign: 'center' }}>Tap “+ List” to send a meal to your shopping list.</div>
+    </div>
+  );
+}
+
+const weekBtn: React.CSSProperties = {
+  width: 38, height: 38, borderRadius: 12, border: 'none', background: '#fff', cursor: 'pointer',
+  display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(24,25,34,0.05), 0 8px 20px -12px rgba(24,25,34,0.12)', flexShrink: 0,
+};
 
 // ---------------- GOALS ----------------
 function Goals({ nav }: { nav: Nav }) {

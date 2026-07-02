@@ -69,13 +69,26 @@ cronRouter.get('/digest', async (req, res) => {
     const openTasks = Number(
       (await query(`SELECT COUNT(*) FROM tasks WHERE household_id=$1 AND done=false`, [hhId])).rows[0].count
     );
+    // Lead-time reminders: items whose "remind me N days before" lands today.
+    const eventsSoon = (await query<{ title: string; days_away: number }>(
+      `SELECT title, (event_date - $2::date) AS days_away FROM events
+        WHERE household_id=$1 AND remind_days > 0 AND event_date = ($2::date + remind_days) ORDER BY event_date`, [hhId, today]
+    )).rows;
+    const billsSoon = (await query<{ name: string; amount: number; days_away: number }>(
+      `SELECT name, amount, (due_date - $2::date) AS days_away FROM bills
+        WHERE household_id=$1 AND status IN ('unpaid','overdue') AND remind_days > 0 AND due_date = ($2::date + remind_days) ORDER BY due_date`, [hhId, today]
+    )).rows;
+    const inDays = (n: number) => (n === 1 ? 'tomorrow' : `in ${n} days`);
 
-    // Morning push + in-app notification for anything happening today.
-    if (eventsToday.length || billsDue.length) {
+    // Morning push + in-app notification for anything happening today or with a
+    // lead-time reminder landing today.
+    const soonCount = eventsSoon.length + billsSoon.length;
+    if (eventsToday.length || billsDue.length || soonCount) {
       const bits: string[] = [];
       if (eventsToday.length) bits.push(`${eventsToday.length} event${rand(eventsToday.length)}`);
       if (billsDue.length) bits.push(`${billsDue.length} bill${rand(billsDue.length)} due`);
-      const title = `Today in ${info.name}`;
+      if (soonCount) bits.push(`${soonCount} coming up`);
+      const title = (eventsToday.length || billsDue.length) ? `Today in ${info.name}` : `Coming up in ${info.name}`;
       const body = bits.join(' · ');
       // In-app bell entry - guarded so a re-run of the cron doesn't duplicate it.
       await query(
@@ -93,12 +106,13 @@ cronRouter.get('/digest', async (req, res) => {
     }
 
     // Email summary (respect the email-off setting).
-    const hasContent = openTasks || billsDue.length || eventsToday.length || eventsTom.length;
+    const hasContent = openTasks || billsDue.length || eventsToday.length || eventsTom.length || soonCount;
     if (!info.emailOff && hasContent) {
       const sections =
         (eventsToday.length ? `<p style="margin:16px 0 2px;font-weight:700">Today</p>${ul(eventsToday.map((e) => `${e.event_time ? e.event_time + ' - ' : ''}${e.title}`))}` : '') +
         (eventsTom.length ? `<p style="margin:16px 0 2px;font-weight:700">Tomorrow</p>${ul(eventsTom.map((e) => `${e.event_time ? e.event_time + ' - ' : ''}${e.title}`))}` : '') +
-        (billsDue.length ? `<p style="margin:16px 0 2px;font-weight:700">Bills due</p>${ul(billsDue.map((b) => `${b.name} - R${Number(b.amount).toLocaleString('en-ZA')} (${b.status === 'overdue' ? 'overdue' : 'due today'})`))}` : '');
+        (billsDue.length ? `<p style="margin:16px 0 2px;font-weight:700">Bills due</p>${ul(billsDue.map((b) => `${b.name} - R${Number(b.amount).toLocaleString('en-ZA')} (${b.status === 'overdue' ? 'overdue' : 'due today'})`))}` : '') +
+        (soonCount ? `<p style="margin:16px 0 2px;font-weight:700">Coming up</p>${ul([...eventsSoon.map((e) => `${e.title} - ${inDays(e.days_away)}`), ...billsSoon.map((b) => `${b.name} R${Number(b.amount).toLocaleString('en-ZA')} - ${inDays(b.days_away)}`)])}` : '');
       const head = `You have <strong>${openTasks}</strong> open to-do${rand(openTasks)} in ${info.name}.`;
       for (const u of info.users) {
         const ok = await sendEmail({

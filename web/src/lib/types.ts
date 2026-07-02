@@ -1,10 +1,10 @@
 export interface Member { id: string; name: string; role: string; initial: string; color: string; you: boolean; }
-export interface EventItem { id: string; title: string; time: string; ampm: string; day: string; date_label: string; loc: string; color: string; illo: string; event_date?: string | null; event_time?: string | null; assignee_ids?: string[] | null; external?: boolean; recur?: string; }
+export interface EventItem { id: string; title: string; time: string; ampm: string; day: string; date_label: string; loc: string; color: string; illo: string; event_date?: string | null; event_time?: string | null; assignee_ids?: string[] | null; external?: boolean; recur?: string; remind_days?: number; }
 export interface CalendarSource { id: string; name: string; color: string; count: number; last_synced: string | null; error: string | null; }
 export interface Task { id: string; title: string; from_name: string; from_color: string; due: string; due_key: string; done: boolean; type: string; assignee_ids?: string[] | null; recur?: string; }
 export interface ShoppingItem { id: string; name: string; by: string; got: boolean; }
 export interface Goal { id: string; kind: string; tag: string; title: string; sub: string; pct: number; color: string; target: number; }
-export interface Bill { id: string; name: string; cat: string; amount: number; due: string; status: string; payer: string; color: string; illo: string; due_date?: string | null; assignee_ids?: string[] | null; recur?: string; }
+export interface Bill { id: string; name: string; cat: string; amount: number; due: string; status: string; payer: string; color: string; illo: string; due_date?: string | null; assignee_ids?: string[] | null; recur?: string; remind_days?: number; }
 export interface BudgetCat { id: string; name: string; spent: number; limit: number; color: string; }
 export interface Saving { id: string; name: string; saved: number; target: number; color: string; }
 export interface Settle { id: string; txt: string; detail: string; amount: string; dir: string; who: string; settled: boolean; member_id?: string | null; }
@@ -17,6 +17,8 @@ export interface Settings {
 }
 
 export interface BudgetMonth { budget_id: string; month: string; total: number; }
+export interface Meal { id: string; date: string; title: string; }
+export interface HouseholdInfo { id: string; category: string; label: string; value: string; }
 export interface BudgetSpend { id: string; budget_id: string; amount: number; note: string; date: string; month: string; }
 
 export interface AppState {
@@ -35,6 +37,8 @@ export interface AppState {
   notifications: Notification[];
   feed: FeedItem[];
   calendarSources?: CalendarSource[];
+  meals?: Meal[];
+  householdInfo?: HouseholdInfo[];
 }
 
 export interface User {

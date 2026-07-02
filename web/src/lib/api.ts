@@ -107,9 +107,9 @@ export const api = {
   state: () => req<AppState>('/state'),
 
   // ---- mutations (each returns fresh state) ----
-  addEvent: (d: { title: string; date?: string; time?: string; who?: string[]; recur?: string }) =>
+  addEvent: (d: { title: string; date?: string; time?: string; who?: string[]; recur?: string; remindDays?: number }) =>
     req<AppState>('/events', { method: 'POST', body: JSON.stringify(d) }),
-  updEvent: (id: string, d: { title: string; date?: string; time?: string; who?: string[]; recur?: string }) =>
+  updEvent: (id: string, d: { title: string; date?: string; time?: string; who?: string[]; recur?: string; remindDays?: number }) =>
     req<AppState>(`/events/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   delEvent: (id: string) => req<AppState>(`/events/${id}`, { method: 'DELETE' }),
 
@@ -153,9 +153,9 @@ export const api = {
     req<AppState>(`/settle/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   delSettle: (id: string) => req<AppState>(`/settle/${id}`, { method: 'DELETE' }),
 
-  addBill: (d: { name: string; amount?: string; due?: string; payer?: string[]; recur?: string }) =>
+  addBill: (d: { name: string; amount?: string; due?: string; payer?: string[]; recur?: string; remindDays?: number }) =>
     req<AppState>('/bills', { method: 'POST', body: JSON.stringify(d) }),
-  updBill: (id: string, d: { name: string; amount?: string; due?: string; payer?: string[]; recur?: string }) =>
+  updBill: (id: string, d: { name: string; amount?: string; due?: string; payer?: string[]; recur?: string; remindDays?: number }) =>
     req<AppState>(`/bills/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   payBill: (id: string) => req<AppState>(`/bills/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'paid' }) }),
   delBill: (id: string) => req<AppState>(`/bills/${id}`, { method: 'DELETE' }),
@@ -165,6 +165,14 @@ export const api = {
   updMember: (id: string, d: { name?: string; role?: string; color?: string }) =>
     req<AppState>(`/members/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   delMember: (id: string) => req<AppState>(`/members/${id}`, { method: 'DELETE' }),
+
+  addMeal: (d: { date: string; title: string }) => req<AppState>('/meals', { method: 'POST', body: JSON.stringify(d) }),
+  updMeal: (id: string, title: string) => req<AppState>(`/meals/${id}`, { method: 'PATCH', body: JSON.stringify({ title }) }),
+  delMeal: (id: string) => req<AppState>(`/meals/${id}`, { method: 'DELETE' }),
+
+  addInfo: (d: { category?: string; label: string; value?: string }) => req<AppState>('/household-info', { method: 'POST', body: JSON.stringify(d) }),
+  updInfo: (id: string, d: { category?: string; label: string; value?: string }) => req<AppState>(`/household-info/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
+  delInfo: (id: string) => req<AppState>(`/household-info/${id}`, { method: 'DELETE' }),
 
   markAllRead: () => req<AppState>('/notifications/read-all', { method: 'POST' }),
   nudge: (name: string) => req<AppState>('/nudge', { method: 'POST', body: JSON.stringify({ name }) }),

@@ -71,13 +71,13 @@ export default function Calendar({ nav }: { nav: Nav }) {
 
   const openEdit = (e: EventItem) => {
     if (e.external) { flash('Imported from a linked calendar - edit it in that calendar'); return; }
-    nav.openForm('event', { editId: e.id, title: e.title, date: e.event_date || '', time: e.event_time || '', who: e.assignee_ids || [], recur: e.recur });
+    nav.openForm('event', { editId: e.id, title: e.title, date: e.event_date || '', time: e.event_time || '', who: e.assignee_ids || [], recur: e.recur, remindDays: e.remind_days });
   };
   // Tap a day to add an event on it (nice for planning ahead in any month).
   const addOnDay = (d: number) =>
     nav.openForm('event', { title: '', date: `${monthKey}-${String(d).padStart(2, '0')}`, time: '', who: you ? [you.id] : [] });
   const openBill = (b: Bill) =>
-    nav.openForm('bill', { editId: b.id, name: b.name, amount: String(b.amount || ''), due: b.due_date || '', payer: b.assignee_ids || [], recur: b.recur });
+    nav.openForm('bill', { editId: b.id, name: b.name, amount: String(b.amount || ''), due: b.due_date || '', payer: b.assignee_ids || [], recur: b.recur, remindDays: b.remind_days });
 
   // Day detail: everything happening on the tapped day - events (incl. recurring
   // occurrences) + bills due.
