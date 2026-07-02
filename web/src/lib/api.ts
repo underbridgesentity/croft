@@ -1,11 +1,33 @@
+import { Capacitor } from '@capacitor/core';
 import type { AppState, User } from './types';
 
-const BASE = '/api';
+// Web serves the app and API from the same origin, so it uses the httpOnly
+// `croft_token` cookie unchanged. The native app is bundled and runs from
+// capacitor://localhost (cross-origin to the API), so it can't rely on that
+// cookie - it talks to the absolute API and carries a bearer token instead.
+export const isNative = Capacitor.isNativePlatform();
+const BASE = isNative ? 'https://www.croftapp.co.za/api' : '/api';
+
+const TOKEN_KEY = 'croft_session';
+function getToken(): string | null {
+  return isNative ? localStorage.getItem(TOKEN_KEY) : null;
+}
+/** Persist (or clear) the native session token. No-op on web (cookie is the source of truth). */
+export function setToken(t: string | null | undefined) {
+  if (!isNative) return;
+  if (t) localStorage.setItem(TOKEN_KEY, t);
+  else localStorage.removeItem(TOKEN_KEY);
+}
 
 async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
+  const token = getToken();
   const res = await fetch(BASE + path, {
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(opts.headers || {}),
+    },
     ...opts,
   });
   let body: any = null;
@@ -19,6 +41,7 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
     // signal the app to reset to the sign-in screen. Login/me 401s are handled
     // inline by their callers and must not trigger a global sign-out.
     if (res.status === 401 && !path.startsWith('/auth/')) {
+      setToken(null); // stale native token → drop it
       window.dispatchEvent(new CustomEvent('croft:unauthorized'));
     }
     const err = new Error(body?.error || `Request failed (${res.status})`) as Error & { status?: number };
@@ -28,14 +51,21 @@ async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   return body as T;
 }
 
+/** Auth calls that mint a session - persist the returned token on native. */
+async function reqAuth<T extends { token?: string }>(path: string, opts: RequestInit): Promise<T> {
+  const r = await req<T>(path, opts);
+  setToken(r.token);
+  return r;
+}
+
 export const api = {
   // ---- auth ----
   me: () => req<{ user: User | null }>('/auth/me'),
   signup: (data: { name: string; email: string; password: string; household?: string }) =>
-    req<{ user: User }>('/auth/signup', { method: 'POST', body: JSON.stringify(data) }),
+    reqAuth<{ user: User; token?: string }>('/auth/signup', { method: 'POST', body: JSON.stringify(data) }),
   login: (data: { email: string; password: string }) =>
-    req<{ user: User }>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
-  logout: () => req<{ ok: true }>('/auth/logout', { method: 'POST' }),
+    reqAuth<{ user: User; token?: string }>('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+  logout: async () => { const r = await req<{ ok: true }>('/auth/logout', { method: 'POST' }); setToken(null); return r; },
   markOnboarded: () => req<{ ok: true }>('/onboarded', { method: 'POST' }),
   googleUrl: () => `${BASE}/auth/google`,
 
@@ -43,10 +73,10 @@ export const api = {
   forgotPassword: (email: string) =>
     req<{ ok: true }>('/auth/forgot', { method: 'POST', body: JSON.stringify({ email }) }),
   resetPassword: (token: string, password: string) =>
-    req<{ user: User }>('/auth/reset', { method: 'POST', body: JSON.stringify({ token, password }) }),
+    reqAuth<{ user: User; token?: string }>('/auth/reset', { method: 'POST', body: JSON.stringify({ token, password }) }),
   changePassword: (d: { currentPassword?: string; newPassword: string }) =>
     req<{ ok: true }>('/auth/change-password', { method: 'POST', body: JSON.stringify(d) }),
-  deleteAccount: () => req<{ ok: true }>('/auth/delete-account', { method: 'POST' }),
+  deleteAccount: async () => { const r = await req<{ ok: true }>('/auth/delete-account', { method: 'POST' }); setToken(null); return r; },
   lockSet: (pin: string) => req<{ ok: true }>('/auth/lock/set', { method: 'POST', body: JSON.stringify({ pin }) }),
   lockVerify: (pin: string) => req<{ ok: boolean }>('/auth/lock/verify', { method: 'POST', body: JSON.stringify({ pin }) }),
   lockDisable: (pin: string) => req<{ ok: true }>('/auth/lock/disable', { method: 'POST', body: JSON.stringify({ pin }) }),
@@ -69,7 +99,7 @@ export const api = {
   getInvite: (token: string) =>
     req<{ household_name: string; inviter_name: string | null; role: string | null }>(`/auth/invite/${token}`),
   acceptInvite: (token: string, d: { name: string; email: string; password: string }) =>
-    req<{ user: User }>(`/auth/invite/${token}/accept`, { method: 'POST', body: JSON.stringify(d) }),
+    reqAuth<{ user: User; token?: string }>(`/auth/invite/${token}/accept`, { method: 'POST', body: JSON.stringify(d) }),
   googleInviteUrl: (token: string) => `${BASE}/auth/google?invite=${encodeURIComponent(token)}`,
   health: () => req<{ ok: boolean; google: boolean }>('/health'),
 

@@ -26,7 +26,10 @@ export interface AuthedRequest extends Request {
   memberId?: string;
 }
 
-function setAuthCookie(res: Response, userId: string) {
+// Set the web session cookie AND return the token. The web app uses the
+// httpOnly cookie (unchanged); the native app (bundled, cross-origin to the API)
+// stores the returned token and sends it as `Authorization: Bearer`.
+function issueSession(res: Response, userId: string): string {
   const token = jwt.sign({ uid: userId }, JWT_SECRET, { expiresIn: '30d' });
   res.cookie(COOKIE, token, {
     httpOnly: true,
@@ -34,6 +37,19 @@ function setAuthCookie(res: Response, userId: string) {
     secure: isProd,
     maxAge: 30 * 24 * 60 * 60 * 1000,
   });
+  return token;
+}
+
+/** Read a bearer token from the Authorization header (native clients). */
+function bearerToken(req: Request): string | null {
+  const h = req.headers.authorization;
+  if (typeof h === 'string' && h.startsWith('Bearer ')) return h.slice(7).trim() || null;
+  return null;
+}
+
+/** The session token for this request: header first (native), then cookie (web). */
+function sessionToken(req: AuthedRequest): string | null {
+  return bearerToken(req) || req.cookies?.[COOKIE] || null;
 }
 
 async function loadUser(userId: string) {
@@ -48,7 +64,7 @@ async function loadUser(userId: string) {
 }
 
 export async function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
-  const token = req.cookies?.[COOKIE];
+  const token = sessionToken(req);
   if (!token) return res.status(401).json({ error: 'Not signed in' });
   try {
     const payload = jwt.verify(token, JWT_SECRET) as { uid: string };
@@ -222,8 +238,8 @@ authRouter.post('/signup', rateLimit('signup', 10, 3600), async (req, res) => {
     return uid;
   });
   sendEmail({ to: email.toLowerCase(), ...welcomeEmail(name) }).catch(() => {});
-  setAuthCookie(res, userId);
-  res.json({ user: await loadUser(userId) });
+  const token = issueSession(res, userId);
+  res.json({ user: await loadUser(userId), token });
 });
 
 const loginSchema = z.object({
@@ -245,8 +261,8 @@ authRouter.post('/login', rateLimit('login', 20, 900), async (req, res) => {
   }
   const ok = await bcrypt.compare(password, row.password_hash);
   if (!ok) return res.status(401).json({ error: 'Incorrect email or password' });
-  setAuthCookie(res, row.id);
-  res.json({ user: await loadUser(row.id) });
+  const token = issueSession(res, row.id);
+  res.json({ user: await loadUser(row.id), token });
 });
 
 authRouter.post('/logout', (_req, res) => {
@@ -255,7 +271,7 @@ authRouter.post('/logout', (_req, res) => {
 });
 
 authRouter.get('/me', async (req: AuthedRequest, res) => {
-  const token = req.cookies?.[COOKIE];
+  const token = sessionToken(req);
   if (!token) return res.json({ user: null });
   try {
     const payload = jwt.verify(token, JWT_SECRET) as { uid: string };
@@ -313,8 +329,8 @@ authRouter.post('/invite/:token/accept', rateLimit('signup', 10, 3600), async (r
   }
   sendEmail({ to: email.toLowerCase(), ...welcomeEmail(name) }).catch(() => {});
   notifyInviterOfJoin(invite, name).catch(() => {});
-  setAuthCookie(res, userId);
-  res.json({ user: await loadUser(userId) });
+  const token = issueSession(res, userId);
+  res.json({ user: await loadUser(userId), token });
 });
 
 // ---- Password reset (email) ----
@@ -351,8 +367,8 @@ authRouter.post('/reset', rateLimit('forgot', 10, 900), async (req, res) => {
   });
   const u = await loadUser(r.user_id);
   if (u?.email) sendEmail({ to: u.email, ...passwordChangedEmail({ name: u.name }) }).catch(() => {});
-  setAuthCookie(res, r.user_id);
-  res.json({ user: u });
+  const token = issueSession(res, r.user_id);
+  res.json({ user: u, token });
 });
 
 // ---- Account management (authenticated) ----
@@ -378,7 +394,7 @@ authRouter.post('/change-password', requireAuth, async (req: AuthedRequest, res)
 // gone, so verify the session directly instead of using requireAuth (which
 // rejects household-less sessions).
 authRouter.post('/delete-account', async (req: AuthedRequest, res) => {
-  const token = req.cookies?.[COOKIE];
+  const token = sessionToken(req);
   if (!token) return res.status(401).json({ error: 'Not signed in' });
   let userId: string;
   try {
@@ -577,7 +593,7 @@ authRouter.get('/google/callback', async (req, res) => {
       sendEmail({ to: email, ...welcomeEmail(name) }).catch(() => {});
     }
     if (joinedViaInvite && invite) notifyInviterOfJoin(invite, name).catch(() => {});
-    setAuthCookie(res, userId);
+    issueSession(res, userId); // web OAuth redirect → cookie only
     res.redirect(`${APP_URL}/?auth=google_ok`);
   } catch (e) {
     console.error('google callback error', e);
