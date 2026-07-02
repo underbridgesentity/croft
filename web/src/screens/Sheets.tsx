@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { api, money } from '../lib/api';
 import type { FormData, FormType, Nav } from '../Shell';
 import Icon from '../components/Icon';
+import { parseRecur, buildInterval, buildPos, WEEKDAYS, ORDINALS, type Unit } from '../lib/recur';
 
 const grotesk = "'Geist', sans-serif";
 
@@ -213,7 +214,7 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
           <Lbl>Who's it for - pick any</Lbl>
           <Chips items={memberChips} value={fd.who || []} onToggle={(id) => toggle('who', id)} emptyHint="Nobody picked = the whole family" />
           <div style={{ height: 16 }} />
-          <RepeatField value={fd.recur} onChange={(v) => set('recur', v)} />
+          <RepeatField value={fd.recur} onChange={(v) => set('recur', v)} anchorDate={fd.date} showAdvanced />
         </div>
       )}
 
@@ -246,7 +247,7 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
           <Lbl>Paid by - pick any</Lbl>
           <Chips items={memberChips} value={fd.payer || []} onToggle={(id) => toggle('payer', id)} emptyHint="Nobody picked = shared" />
           <div style={{ height: 16 }} />
-          <RepeatField value={fd.recur} onChange={(v) => set('recur', v)} hint="A paid recurring bill creates next period's bill automatically." />
+          <RepeatField value={fd.recur} onChange={(v) => set('recur', v)} anchorDate={fd.due} showAdvanced hint="A paid recurring bill creates next period's bill automatically." />
         </div>
       )}
 
@@ -354,20 +355,62 @@ function Lbl({ children }: { children: React.ReactNode }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div style={{ marginBottom: 16 }}><Lbl>{label}</Lbl>{children}</div>;
 }
-/** Repeat-rule picker (none/daily/weekly/monthly/yearly) shared by events, tasks
- * and bills. */
-function RepeatField({ value, onChange, hint }: { value?: string; onChange: (v: string) => void; hint?: string }) {
-  const opts: [string, string][] = [['none', "Doesn't repeat"], ['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['yearly', 'Yearly']];
+const pillStyle = (sel: boolean): React.CSSProperties => ({ border: 'none', cursor: 'pointer', padding: '9px 13px', borderRadius: 100, fontWeight: 700, fontSize: 12.5, background: sel ? '#3B5BFF' : '#EBE7DF', color: sel ? '#fff' : '#181922' });
+const CHIP_TO_UNIT: Record<string, Unit> = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' };
+const UNIT_TO_CHIP: Record<Unit, string> = { day: 'daily', week: 'weekly', month: 'monthly', year: 'yearly' };
+
+/** Repeat-rule picker. Basic (tasks): frequency only. Advanced (events/bills):
+ * an "every N units" interval, and for Monthly an "on the Nth weekday" option
+ * derived from the anchor date. */
+function RepeatField({ value, onChange, hint, anchorDate, showAdvanced }: { value?: string; onChange: (v: string) => void; hint?: string; anchorDate?: string; showAdvanced?: boolean }) {
+  const rule = parseRecur(value);
+  const chip = rule.kind === 'none' ? 'none' : rule.kind === 'pos' ? 'monthly' : UNIT_TO_CHIP[rule.unit];
+  const interval = rule.kind === 'int' ? rule.n : 1;
+  const isPos = rule.kind === 'pos';
+  const anchor = anchorDate ? new Date(anchorDate + 'T00:00') : null;
+  const anchorOk = anchor && !isNaN(anchor.getTime());
+  const anchorWd = anchorOk ? anchor!.getDay() : null;
+  const anchorDom = anchorOk ? anchor!.getDate() : null;
+  const defOrd = anchorDom ? Math.min(4, Math.ceil(anchorDom / 7)) : 1;
+  const curWd = isPos ? rule.wd : anchorWd;
+  const curOrd = isPos ? rule.ord : defOrd;
+
+  const freqChips: [string, string][] = [['none', "Doesn't repeat"], ['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['yearly', 'Yearly']];
+  const setN = (n: number) => onChange(buildInterval(CHIP_TO_UNIT[chip], Math.min(30, Math.max(1, n))));
+
   return (
     <div style={{ marginBottom: 16 }}>
       <Lbl>Repeats</Lbl>
       <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-        {opts.map(([k, l]) => {
-          const sel = (value || 'none') === k;
-          return <button key={k} onClick={() => onChange(k)} aria-pressed={sel} style={{ border: 'none', cursor: 'pointer', padding: '9px 13px', borderRadius: 100, fontWeight: 700, fontSize: 12.5, background: sel ? '#3B5BFF' : '#EBE7DF', color: sel ? '#fff' : '#181922' }}>{l}</button>;
-        })}
+        {freqChips.map(([k, l]) => <button key={k} onClick={() => onChange(k)} aria-pressed={chip === k} style={pillStyle(chip === k)}>{l}</button>)}
       </div>
-      {hint && (value || 'none') !== 'none' && <div style={{ fontSize: 11.5, color: '#7D776E', marginTop: 8 }}>{hint}</div>}
+
+      {showAdvanced && chip !== 'none' && !isPos && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 12 }}>
+          <span style={{ fontSize: 12.5, color: '#6F6C67', fontWeight: 600 }}>Every</span>
+          <button onClick={() => setN(interval - 1)} aria-label="Fewer" style={{ width: 34, height: 34, borderRadius: 10, border: 'none', background: '#EBE7DF', cursor: 'pointer', fontSize: 18, color: '#181922', lineHeight: 1 }}>−</button>
+          <span style={{ minWidth: 20, textAlign: 'center', fontWeight: 700, fontFamily: grotesk, fontSize: 15 }}>{interval}</span>
+          <button onClick={() => setN(interval + 1)} aria-label="More" style={{ width: 34, height: 34, borderRadius: 10, border: 'none', background: '#EBE7DF', cursor: 'pointer', fontSize: 18, color: '#181922', lineHeight: 1 }}>+</button>
+          <span style={{ fontSize: 12.5, color: '#6F6C67', fontWeight: 600 }}>{CHIP_TO_UNIT[chip]}{interval > 1 ? 's' : ''}</span>
+        </div>
+      )}
+
+      {showAdvanced && chip === 'monthly' && anchorWd !== null && (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+            <button onClick={() => onChange(buildInterval('month', interval))} style={pillStyle(!isPos)}>On day {anchorDom}</button>
+            <button onClick={() => onChange(buildPos(defOrd, anchorWd))} style={pillStyle(isPos)}>On a weekday</button>
+          </div>
+          {isPos && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8, alignItems: 'center' }}>
+              {ORDINALS.map(([v, l]) => <button key={v} onClick={() => onChange(buildPos(v, curWd ?? 0))} style={{ ...pillStyle(curOrd === v), fontSize: 12, padding: '7px 11px' }}>{l}</button>)}
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#181922' }}>{WEEKDAYS[curWd ?? 0]}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {hint && chip !== 'none' && <div style={{ fontSize: 11.5, color: '#7D776E', marginTop: 8 }}>{hint}</div>}
     </div>
   );
 }

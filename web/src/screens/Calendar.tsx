@@ -5,7 +5,7 @@ import type { Nav } from '../Shell';
 import type { EventItem, Bill } from '../lib/types';
 import Icon from '../components/Icon';
 import PeopleFilter from '../components/PeopleFilter';
-import { occurrencesInRange, nextOccurrence } from '../lib/recur';
+import { occurrencesInRange, nextOccurrence, recurLabel } from '../lib/recur';
 
 const grotesk = "'Geist', sans-serif";
 const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -235,7 +235,7 @@ function EventRow({ e, onEdit, muted }: { e: EventItem; onEdit: (e: EventItem) =
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.25, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>
           {e.external && <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 800, letterSpacing: '.04em', textTransform: 'uppercase', color: '#6D5CD6', background: 'rgba(140,124,255,0.16)', padding: '2px 6px', borderRadius: 100 }}>Linked</span>}
-          {e.recur && e.recur !== 'none' && <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9.5, fontWeight: 800, letterSpacing: '.03em', textTransform: 'uppercase', color: '#3B5BFF', background: 'rgba(59,91,255,0.12)', padding: '2px 6px', borderRadius: 100 }}>↻ {e.recur[0].toUpperCase() + e.recur.slice(1)}</span>}
+          {e.recur && e.recur !== 'none' && <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9.5, fontWeight: 800, letterSpacing: '.03em', textTransform: 'uppercase', color: '#3B5BFF', background: 'rgba(59,91,255,0.12)', padding: '2px 6px', borderRadius: 100 }}>↻ {recurLabel(e.recur)}</span>}
         </div>
         <div style={{ fontSize: 12, color: '#6F6C67', marginTop: 2 }}>{e.date_label}{e.loc ? ' · ' + e.loc : ''}</div>
       </div>

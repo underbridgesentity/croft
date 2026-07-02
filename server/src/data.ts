@@ -189,18 +189,43 @@ function dateBits(date?: string, time?: string) {
   };
 }
 
-const RECURS = ['none', 'daily', 'weekly', 'monthly', 'yearly'] as const;
-const recurSchema = z.enum(RECURS).optional();
-/** Advance an ISO date (YYYY-MM-DD) by one recurrence period. null = no repeat. */
+// Recurrence tokens: none | daily|weekly|monthly|yearly | int/<unit>/<n> |
+// pos/<ord>/<wd> (ord = 1..4 or L for last, wd = 0..6 Sun..Sat).
+const recurSchema = z.string().regex(/^(none|daily|weekly|monthly|yearly|int\/(day|week|month|year)\/\d{1,3}|pos\/(L|[1-4])\/[0-6])$/).optional();
+const SIMPLE_UNIT: Record<string, string> = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' };
+function nthWeekdayUTC(year: number, month: number, ord: number, wd: number): number | null {
+  if (ord === -1) {
+    const last = new Date(Date.UTC(year, month + 1, 0));
+    return Date.UTC(year, month + 1, 0 - ((last.getUTCDay() - wd + 7) % 7));
+  }
+  const first = new Date(Date.UTC(year, month, 1));
+  const day = 1 + ((wd - first.getUTCDay() + 7) % 7) + (ord - 1) * 7;
+  return day > new Date(Date.UTC(year, month + 1, 0)).getUTCDate() ? null : Date.UTC(year, month, day);
+}
+/** The next occurrence ISO date strictly after `iso`. null = no repeat. */
 function advanceIso(iso: string, recur: string): string | null {
-  const [y, m, d] = iso.split('-').map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  if (recur === 'daily') dt.setUTCDate(dt.getUTCDate() + 1);
-  else if (recur === 'weekly') dt.setUTCDate(dt.getUTCDate() + 7);
-  else if (recur === 'monthly') dt.setUTCMonth(dt.getUTCMonth() + 1);
-  else if (recur === 'yearly') dt.setUTCFullYear(dt.getUTCFullYear() + 1);
-  else return null;
-  return dt.toISOString().slice(0, 10);
+  if (!recur || recur === 'none') return null;
+  const [Y, M, D] = iso.split('-').map(Number);
+  const cur = Date.UTC(Y, M - 1, D);
+  let unit: string | null = null, n = 1;
+  if (SIMPLE_UNIT[recur]) unit = SIMPLE_UNIT[recur];
+  else if (recur.startsWith('int/')) { const [, u, nn] = recur.split('/'); unit = u; n = Math.max(1, parseInt(nn) || 1); }
+  if (unit) {
+    const dt = new Date(cur);
+    if (unit === 'day') dt.setUTCDate(dt.getUTCDate() + n);
+    else if (unit === 'week') dt.setUTCDate(dt.getUTCDate() + 7 * n);
+    else if (unit === 'month') dt.setUTCMonth(dt.getUTCMonth() + n);
+    else dt.setUTCFullYear(dt.getUTCFullYear() + n);
+    return dt.toISOString().slice(0, 10);
+  }
+  if (recur.startsWith('pos/')) {
+    const [, o, w] = recur.split('/');
+    const ord = o === 'L' ? -1 : Math.min(4, Math.max(1, parseInt(o) || 1));
+    const wd = Math.min(6, Math.max(0, parseInt(w) || 0));
+    let y = Y, mo = M - 1, guard = 0;
+    while (guard < 48) { const occ = nthWeekdayUTC(y, mo, ord, wd); if (occ !== null && occ > cur) return new Date(occ).toISOString().slice(0, 10); mo++; if (mo > 11) { mo = 0; y++; } guard++; }
+  }
+  return null;
 }
 
 // ---------------- EVENTS ----------------
