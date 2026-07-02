@@ -292,6 +292,10 @@ CREATE INDEX IF NOT EXISTS idx_settle_hh ON settle(household_id);
 -- columns predate the constraints, so first null out any dangling references
 -- (from earlier account deletions), then add each FK once, idempotently.
 UPDATE members SET user_id = NULL WHERE user_id IS NOT NULL AND user_id NOT IN (SELECT id FROM users);
+-- Backfill: founders' members predate the user_id link (only invited members
+-- carried it) - link them via the users.member_id side so occupancy counts see
+-- every real person.
+UPDATE members m SET user_id = u.id FROM users u WHERE u.member_id = m.id AND m.user_id IS NULL;
 UPDATE invites SET created_by = NULL WHERE created_by IS NOT NULL AND created_by NOT IN (SELECT id FROM users);
 UPDATE invites SET accepted_by = NULL WHERE accepted_by IS NOT NULL AND accepted_by NOT IN (SELECT id FROM users);
 DO $$

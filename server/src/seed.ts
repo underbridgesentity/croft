@@ -9,15 +9,18 @@ import type { PoolClient } from 'pg';
 export async function seedHousehold(
   c: PoolClient,
   householdId: string,
-  userName: string
+  userName: string,
+  userId?: string
 ) {
   const youName = (userName || 'You').trim() || 'You';
   const youInitial = youName.charAt(0).toUpperCase() || 'Y';
 
+  // Link the founder's member to their user row (user_id), the same way invited
+  // members are linked - occupancy checks rely on it.
   const r = await c.query(
-    `INSERT INTO members (household_id, name, role, initial, color, is_you, sort)
-     VALUES ($1,$2,$3,$4,$5,true,0) RETURNING id`,
-    [householdId, youName, '', youInitial, '#3B5BFF']
+    `INSERT INTO members (household_id, name, role, initial, color, is_you, user_id, sort)
+     VALUES ($1,$2,$3,$4,$5,true,$6,0) RETURNING id`,
+    [householdId, youName, '', youInitial, '#3B5BFF', userId || null]
   );
   const youMemberId = r.rows[0].id as string;
 

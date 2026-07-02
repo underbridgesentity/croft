@@ -69,13 +69,24 @@ cronRouter.get('/digest', async (req, res) => {
       (await query(`SELECT COUNT(*) FROM tasks WHERE household_id=$1 AND done=false`, [hhId])).rows[0].count
     );
 
-    // Morning push for anything happening today.
+    // Morning push + in-app notification for anything happening today.
     if (eventsToday.length || billsDue.length) {
       const bits: string[] = [];
       if (eventsToday.length) bits.push(`${eventsToday.length} event${rand(eventsToday.length)}`);
       if (billsDue.length) bits.push(`${billsDue.length} bill${rand(billsDue.length)} due`);
+      const title = `Today in ${info.name}`;
+      const body = bits.join(' · ');
+      // In-app bell entry - guarded so a re-run of the cron doesn't duplicate it.
+      await query(
+        `INSERT INTO notifications (household_id, illo, color, title, body, time_label, unread)
+         SELECT $1,'calendar','#3B5BFF',$2,$3,'just now',true
+          WHERE NOT EXISTS (
+            SELECT 1 FROM notifications WHERE household_id=$1 AND title=$2 AND created_at::date = CURRENT_DATE
+          )`,
+        [hhId, title, body]
+      );
       try {
-        await pushToHousehold(hhId, { title: `Today in ${info.name}`, body: bits.join(' · '), url: '/' });
+        await pushToHousehold(hhId, { title, body, url: '/' });
         pushesSent++;
       } catch { /* ignore */ }
     }

@@ -81,7 +81,7 @@ async function provisionHousehold(
     [householdName?.trim() || `${(userName || 'My').split(' ')[0]}'s Home`]
   );
   const householdId = hh.rows[0].id;
-  const { youMemberId } = await seedHousehold(c, householdId, userName);
+  const { youMemberId } = await seedHousehold(c, householdId, userName, userId);
   await c.query(`UPDATE users SET household_id = $1, member_id = $2 WHERE id = $3`, [
     householdId,
     youMemberId,
@@ -164,6 +164,12 @@ async function joinHousehold(c: PoolClient, invite: Invite, userId: string, user
     `INSERT INTO feed (household_id, who, color, initial, txt, time_label)
      VALUES ($1,$2,'#3B5BFF',$3,'joined the household','just now')`,
     [invite.household_id, userName, (userName || '?').charAt(0).toUpperCase()]
+  );
+  // Ring the in-app bell for the rest of the household too.
+  await c.query(
+    `INSERT INTO notifications (household_id, illo, color, title, body, time_label, unread)
+     VALUES ($1,'bell','#16C098',$2,$3,'just now',true)`,
+    [invite.household_id, 'New family member', `${userName} joined the household`]
   );
   return memberId;
 }
@@ -366,24 +372,38 @@ authRouter.post('/change-password', requireAuth, async (req: AuthedRequest, res)
   res.json({ ok: true });
 });
 
-authRouter.post('/delete-account', requireAuth, async (req: AuthedRequest, res) => {
-  const householdId = req.householdId!;
+// Deleting an account must work even for a user whose household is already
+// gone, so verify the session directly instead of using requireAuth (which
+// rejects household-less sessions).
+authRouter.post('/delete-account', async (req: AuthedRequest, res) => {
+  const token = req.cookies?.[COOKIE];
+  if (!token) return res.status(401).json({ error: 'Not signed in' });
+  let userId: string;
+  try {
+    userId = (jwt.verify(token, JWT_SECRET) as { uid: string }).uid;
+  } catch {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+  const user = await loadUser(userId);
+  if (!user) return res.status(401).json({ error: 'Session expired' });
+
   await tx(async (c) => {
-    // Remove this user's membership (by link and by their member_id).
-    await c.query(`DELETE FROM members WHERE household_id=$1 AND user_id=$2`, [householdId, req.userId]);
-    if (req.memberId) await c.query(`DELETE FROM members WHERE id=$1`, [req.memberId]);
-    // Count only real occupants (members linked to a live user). Unclaimed
-    // placeholder/invited members (user_id IS NULL) must not keep an otherwise
-    // empty household - and all its data - alive forever.
-    const remaining = Number(
-      (await c.query(
-        `SELECT COUNT(*) FROM members WHERE household_id=$1 AND user_id IS NOT NULL AND user_id <> $2`,
-        [householdId, req.userId]
-      )).rows[0].count
-    );
-    await c.query(`DELETE FROM users WHERE id=$1`, [req.userId]);
-    // Last real person out → delete the household and all its data.
-    if (remaining === 0) await c.query(`DELETE FROM households WHERE id=$1`, [householdId]);
+    if (user.household_id) {
+      // Remove this user's membership (by link and by their member_id).
+      await c.query(`DELETE FROM members WHERE household_id=$1 AND user_id=$2`, [user.household_id, userId]);
+      if (user.member_id) await c.query(`DELETE FROM members WHERE id=$1`, [user.member_id]);
+      // The unambiguous occupancy measure is the users table: is any OTHER
+      // account still attached to this household? (Members can lag the user
+      // link, so counting members risks deleting a household still in use.)
+      const remaining = Number(
+        (await c.query(
+          `SELECT COUNT(*) FROM users WHERE household_id=$1 AND id <> $2`,
+          [user.household_id, userId]
+        )).rows[0].count
+      );
+      if (remaining === 0) await c.query(`DELETE FROM households WHERE id=$1`, [user.household_id]);
+    }
+    await c.query(`DELETE FROM users WHERE id=$1`, [userId]);
   });
   res.clearCookie(COOKIE);
   res.json({ ok: true });
