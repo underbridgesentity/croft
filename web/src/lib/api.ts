@@ -139,6 +139,7 @@ export const api = {
   updBudget: (id: string, d: { name: string; limit?: string; addSpend?: string; note?: string }) =>
     req<AppState>(`/budget/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   delBudget: (id: string) => req<AppState>(`/budget/${id}`, { method: 'DELETE' }),
+  delBudgetSpend: (id: string) => req<AppState>(`/budget/spend/${id}`, { method: 'DELETE' }),
 
   addSaving: (d: { name: string; target?: string; saved?: string }) =>
     req<AppState>('/savings', { method: 'POST', body: JSON.stringify(d) }),

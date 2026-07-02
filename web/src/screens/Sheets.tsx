@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useStore } from '../store';
-import { api } from '../lib/api';
+import { api, money } from '../lib/api';
 import type { FormData, FormType, Nav } from '../Shell';
 import Icon from '../components/Icon';
 
@@ -113,6 +113,14 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
   const noun = NOUNS[form];
   const title = form === 'settle' && !editing ? 'Who owes who' : `${editing ? 'Edit' : 'New'} ${noun}`;
   const memberChips = state.members.map((m) => ({ id: m.id, label: m.name, color: m.color }));
+  // This month's spends behind the budget being edited (SAST month = the user's
+  // local month here), newest first, so the full breakdown shows and any mistake
+  // can be removed.
+  const thisMonth = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
+  const budgetSpends = editing && form === 'budget'
+    ? (state.budgetSpends || []).filter((sp) => sp.budget_id === fd.editId && sp.month === thisMonth)
+    : [];
+  const fmtDay = (iso: string) => { try { return new Date(iso + 'T00:00').toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' }); } catch { return iso; } };
 
   const submit = async () => {
     if (busyRef.current) return;
@@ -266,6 +274,25 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
                 <div style={{ flex: 1.4, minWidth: 0 }}><Lbl>What for? (optional)</Lbl><input style={inp} value={fd.note || ''} onChange={(e) => set('note', e.target.value)} placeholder="e.g. Woolies run" /></div>
               </div>
               <div style={{ fontSize: 11.5, color: '#7D776E', margin: '-6px 2px 14px' }}>Spends tally up for the month. Use a minus amount to correct a mistake.</div>
+              {budgetSpends.length > 0 && (
+                <div style={{ marginBottom: 4 }}>
+                  <Lbl>This month's spends</Lbl>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {budgetSpends.map((sp) => (
+                      <div key={sp.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: '1px solid #EEEAE2', borderRadius: 12, padding: '9px 12px' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13.5, fontWeight: 600, color: '#181922', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{sp.note || 'Spend'}</div>
+                          <div style={{ fontSize: 11.5, color: '#7D776E', marginTop: 1 }}>{fmtDay(sp.date)}</div>
+                        </div>
+                        <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 14, color: sp.amount < 0 ? '#16C098' : '#181922' }}>{sp.amount < 0 ? '-' : ''}{money(Math.abs(sp.amount))}</div>
+                        <button onClick={() => run(api.delBudgetSpend(sp.id), 'Spend removed')} aria-label="Remove spend" style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 4, flexShrink: 0 }}>
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5h4v2M9 7l.7 12h8.6L19 7" stroke="#C9C3B9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>

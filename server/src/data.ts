@@ -27,7 +27,7 @@ const num = (v: any) => (v == null ? 0 : Number(v));
  * `meMemberId` marks which member is "you" for the requesting user. */
 async function assembleState(householdId: string, meMemberId?: string) {
   const [
-    hh, members, events, tasks, shopping, goals, bills, budget, savings, settle, notifications, feed, budgetMonths, calSources,
+    hh, members, events, tasks, shopping, goals, bills, budget, savings, settle, notifications, feed, budgetMonths, calSources, budgetSpendsRows,
   ] = await Promise.all([
     query(`SELECT name, settings FROM households WHERE id = $1`, [householdId]),
     query(`SELECT id, name, role, initial, color, is_you, sort FROM members WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
@@ -62,6 +62,16 @@ async function assembleState(householdId: string, meMemberId?: string) {
          FROM calendar_sources s WHERE s.household_id=$1 ORDER BY s.created_at`,
       [householdId]
     ),
+    // Individual budget spends (the ledger behind each category's total), newest
+    // first, so the app can show the full breakdown and let a mistake be removed.
+    // SAST date + month so the client groups them by the same month as the totals.
+    query(
+      `SELECT id, budget_id, amount, note,
+              to_char(created_at + interval '2 hours','YYYY-MM-DD') AS date,
+              to_char(created_at + interval '2 hours','YYYY-MM') AS month
+         FROM budget_spends WHERE household_id=$1 ORDER BY created_at DESC`,
+      [householdId]
+    ),
   ]);
 
   const household = hh.rows[0] || { name: 'My Home', settings: {} };
@@ -92,6 +102,7 @@ async function assembleState(householdId: string, meMemberId?: string) {
     })),
     budget: budget.rows.map((c) => ({ id: c.id, name: c.name, spent: num(c.spent), limit: num(c.budget_limit), color: c.color })),
     budgetMonths: budgetMonths.rows.map((r) => ({ budget_id: r.budget_id, month: r.month, total: num(r.total) })),
+    budgetSpends: budgetSpendsRows.rows.map((r) => ({ id: r.id, budget_id: r.budget_id, amount: num(r.amount), note: r.note, date: r.date, month: r.month })),
     savings: savings.rows.map((v) => ({ ...v, saved: num(v.saved), target: num(v.target) })),
     settle: settle.rows,
     // time_label is derived live from created_at so items never freeze at "just now".
@@ -443,6 +454,12 @@ dataRouter.patch('/budget/:id', async (req: AuthedRequest, res) => {
         ? `spent ${rands} on ${b.data.name}${noteBit ? ` (${noteBit})` : ''}`
         : `corrected ${b.data.name} spending down by ${rands}`);
   }
+  await sendState(req, res);
+});
+// Remove a single logged spend (fix a mis-entry). Distinct two-segment path so it
+// never collides with DELETE /budget/:id (one segment).
+dataRouter.delete('/budget/spend/:id', async (req: AuthedRequest, res) => {
+  await query(`DELETE FROM budget_spends WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)]);
   await sendState(req, res);
 });
 dataRouter.delete('/budget/:id', async (req: AuthedRequest, res) => {

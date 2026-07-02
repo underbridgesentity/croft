@@ -32,6 +32,9 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
   const [pinB, setPinB] = useState('');
   const [lockBusy, setLockBusy] = useState(false);
   const [editMember, setEditMember] = useState<{ id: string; name: string; role: string; color: string } | null>(null);
+  // Removing a member is a two-step confirm (the trash icon reveals Remove/Cancel)
+  // so nobody wipes a person - and their assignments - on an accidental tap.
+  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [importUrl, setImportUrl] = useState('');
   const [importBusy, setImportBusy] = useState(false);
   if (!state) return null;
@@ -238,8 +241,13 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
               <div style={{ fontWeight: 700, fontSize: 15.5 }}>{m.name}</div>
               <div style={{ fontSize: 12.5, color: '#6F6C67' }}>{m.role || 'Tap to edit'}</div>
             </div>
-            {m.you ? <YouBadge /> : (
-              <button onClick={() => run(api.delMember(m.id), `${m.name} removed`)} title="Remove" aria-label={`Remove ${m.name}`} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 4 }}>
+            {m.you ? <YouBadge /> : confirmRemove === m.id ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                <button onClick={() => { run(api.delMember(m.id), `${m.name} removed`); setConfirmRemove(null); }} style={{ border: 'none', background: '#E23A54', color: '#fff', fontWeight: 700, fontSize: 12, padding: '7px 12px', borderRadius: 100, cursor: 'pointer' }}>Remove</button>
+                <button onClick={() => setConfirmRemove(null)} style={{ border: '1.5px solid #E8E3DB', background: '#fff', color: '#181922', fontWeight: 700, fontSize: 12, padding: '6px 12px', borderRadius: 100, cursor: 'pointer' }}>Cancel</button>
+              </div>
+            ) : (
+              <button onClick={() => setConfirmRemove(m.id)} title="Remove" aria-label={`Remove ${m.name}`} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 4 }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5h4v2M9 7l.7 12h8.6L19 7" stroke="#C9C3B9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </button>
             )}

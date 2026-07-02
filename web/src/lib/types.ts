@@ -17,6 +17,7 @@ export interface Settings {
 }
 
 export interface BudgetMonth { budget_id: string; month: string; total: number; }
+export interface BudgetSpend { id: string; budget_id: string; amount: number; note: string; date: string; month: string; }
 
 export interface AppState {
   household: { name: string; settings: Settings };
@@ -28,6 +29,7 @@ export interface AppState {
   bills: Bill[];
   budget: BudgetCat[];
   budgetMonths?: BudgetMonth[];
+  budgetSpends?: BudgetSpend[];
   savings: Saving[];
   settle: Settle[];
   notifications: Notification[];
