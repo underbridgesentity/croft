@@ -6,7 +6,7 @@ import Calendar from './screens/Calendar';
 import Plans from './screens/Plans';
 import Money from './screens/Money';
 import Family from './screens/Family';
-import { AddSheet, NotifSheet, FormSheet } from './screens/Sheets';
+import { AddSheet, NotifSheet, FeedSheet, FormSheet } from './screens/Sheets';
 
 export type Tab = 'home' | 'calendar' | 'tasks' | 'money' | 'family';
 export type Plan = 'todos' | 'lists' | 'goals';
@@ -28,6 +28,7 @@ export interface Nav {
   goPlan: (p: Plan) => void;
   openAdd: () => void;
   openNotifs: () => void;
+  openFeed: () => void;
   /** Open a create form, or - when `data.editId` is set - an edit form. */
   openForm: (f: FormType, data?: FormData) => void;
   closeSheet: () => void;
@@ -48,7 +49,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   const isDesktop = useIsDesktop();
   const [tab, setTab] = useState<Tab>('home');
   const [plan, setPlan] = useState<Plan>('todos');
-  const [sheet, setSheet] = useState<null | 'add' | 'notifs' | 'form'>(null);
+  const [sheet, setSheet] = useState<null | 'add' | 'notifs' | 'feed' | 'form'>(null);
   const [form, setForm] = useState<FormType>('event');
   const [fd, setFd] = useState<FormData>({});
 
@@ -98,6 +99,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
     goPlan: (p) => setPlan(p),
     openAdd: () => setSheet('add'),
     openNotifs: () => setSheet('notifs'),
+    openFeed: () => setSheet('feed'),
     openForm: (f, data) => {
       const defaults: Record<FormType, FormData> = {
         event: { title: '', date: '', time: '', who: you ? [you.id] : [] },
@@ -158,6 +160,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
             {!isDesktop && <div style={{ width: 40, height: 5, borderRadius: 100, background: '#D8D2C8', margin: '4px auto 16px' }} />}
             {sheet === 'add' && <AddSheet nav={nav} />}
             {sheet === 'notifs' && <NotifSheet />}
+            {sheet === 'feed' && <FeedSheet />}
             {sheet === 'form' && <FormSheet form={form} fd={fd} setFd={setFd} nav={nav} />}
           </div>
         </div>

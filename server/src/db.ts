@@ -238,6 +238,10 @@ CREATE TABLE IF NOT EXISTS settle (
   sort INT NOT NULL DEFAULT 0
 );
 
+-- Who-owes-who rows keep the counterparty's member id so they can be edited.
+-- (Placed after the CREATE above so a fresh-DB init succeeds.)
+ALTER TABLE settle ADD COLUMN IF NOT EXISTS member_id UUID;
+
 CREATE TABLE IF NOT EXISTS notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,

@@ -37,7 +37,7 @@ async function assembleState(householdId: string, meMemberId?: string) {
     query(`SELECT id, name, cat, amount, due, status, payer, color, illo, to_char(due_date,'YYYY-MM-DD') AS due_date, assignee_ids FROM bills WHERE household_id=$1 ORDER BY due_date NULLS LAST, sort, created_at`, [householdId]),
     query(`SELECT id, name, spent, budget_limit, color FROM budget WHERE household_id=$1 ORDER BY sort`, [householdId]),
     query(`SELECT id, name, saved, target, color FROM savings WHERE household_id=$1 ORDER BY sort`, [householdId]),
-    query(`SELECT id, txt, detail, amount, dir, who, settled FROM settle WHERE household_id=$1 ORDER BY sort`, [householdId]),
+    query(`SELECT id, txt, detail, amount, dir, who, settled, member_id FROM settle WHERE household_id=$1 ORDER BY sort`, [householdId]),
     query(`SELECT id, illo, color, title, body, time_label, unread, created_at FROM notifications WHERE household_id=$1 ORDER BY created_at DESC`, [householdId]),
     query(`SELECT id, who, color, initial, txt, time_label, created_at FROM feed WHERE household_id=$1 ORDER BY created_at DESC LIMIT 30`, [householdId]),
   ]);
@@ -432,26 +432,45 @@ dataRouter.delete('/savings/:id', async (req: AuthedRequest, res) => {
 });
 
 // ---------------- SETTLE UP (who owes who) ----------------
+const settleSchema = z.object({
+  memberId: z.string().min(1),
+  dir: z.enum(['in', 'out']), // in = they owe you, out = you owe them
+  amount: z.union([z.string(), z.number()]),
+  note: z.string().max(120).optional(),
+});
+
+/** Validate the settle payload against the household; null if invalid. */
+async function settleFields(householdId: string, d: z.infer<typeof settleSchema>) {
+  const m = (await query(`SELECT id, name FROM members WHERE id=$1 AND household_id=$2`, [d.memberId, householdId])).rows[0];
+  if (!m) return null;
+  const amt = Math.abs(Number(d.amount) || 0);
+  if (!amt) return null;
+  return {
+    memberId: m.id as string,
+    txt: d.dir === 'in' ? `${m.name} owes you` : `You owe ${m.name}`,
+    detail: (d.note || '').trim(),
+    amount: 'R' + amt.toLocaleString('en-ZA'),
+    dir: d.dir,
+    who: m.name as string,
+  };
+}
+
 dataRouter.post('/settle', async (req: AuthedRequest, res) => {
-  const b = z.object({
-    memberId: z.string().min(1),
-    dir: z.enum(['in', 'out']), // in = they owe you, out = you owe them
-    amount: z.union([z.string(), z.number()]),
-    note: z.string().max(120).optional(),
-  }).safeParse(req.body);
+  const b = settleSchema.safeParse(req.body);
   if (!b.success) return res.status(400).json({ error: 'Pick a person and an amount' });
-  const m = (await query(`SELECT name FROM members WHERE id=$1 AND household_id=$2`, [b.data.memberId, hh(req)])).rows[0];
-  if (!m) return res.status(400).json({ error: 'Pick a family member' });
-  const amt = Math.abs(Number(b.data.amount) || 0);
-  if (!amt) return res.status(400).json({ error: 'Enter an amount' });
-  const txt = b.data.dir === 'in' ? `${m.name} owes you` : `You owe ${m.name}`;
+  const f = await settleFields(hh(req), b.data);
+  if (!f) return res.status(400).json({ error: 'Pick a family member and an amount' });
   await query(
-    `INSERT INTO settle (household_id, txt, detail, amount, dir, who, settled, sort)
-     VALUES ($1,$2,$3,$4,$5,$6,false,${nextSort('settle')})`,
-    [hh(req), txt, (b.data.note || '').trim(), 'R' + amt.toLocaleString('en-ZA'), b.data.dir, m.name]
+    `INSERT INTO settle (household_id, txt, detail, amount, dir, who, member_id, settled, sort)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,false,${nextSort('settle')})`,
+    [hh(req), f.txt, f.detail, f.amount, f.dir, f.who, f.memberId]
   );
   const me = await meMember(hh(req), req.memberId);
   await addFeed(hh(req), me.name, me.color, me.initial, `updated who owes who`);
+  await sendState(req, res);
+});
+dataRouter.delete('/settle/:id', async (req: AuthedRequest, res) => {
+  await query(`DELETE FROM settle WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)]);
   await sendState(req, res);
 });
 
@@ -570,7 +589,20 @@ dataRouter.post('/push/unsubscribe', async (req: AuthedRequest, res) => {
 });
 
 // ---------------- SETTLE ----------------
+// One PATCH, two shapes: `{}` marks the IOU as settled; a body with `memberId`
+// edits the row (person / direction / amount / note).
 dataRouter.patch('/settle/:id', async (req: AuthedRequest, res) => {
+  if (typeof req.body?.memberId === 'string') {
+    const b = settleSchema.safeParse(req.body);
+    if (!b.success) return res.status(400).json({ error: 'Pick a person and an amount' });
+    const f = await settleFields(hh(req), b.data);
+    if (!f) return res.status(400).json({ error: 'Pick a family member and an amount' });
+    await query(
+      `UPDATE settle SET txt=$1, detail=$2, amount=$3, dir=$4, who=$5, member_id=$6 WHERE id=$7 AND household_id=$8`,
+      [f.txt, f.detail, f.amount, f.dir, f.who, f.memberId, req.params.id, hh(req)]
+    );
+    return sendState(req, res);
+  }
   await query(`UPDATE settle SET settled=true WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)]);
   await sendState(req, res);
 });

@@ -112,6 +112,9 @@ export const api = {
 
   addSettle: (d: { memberId: string; dir: 'in' | 'out'; amount: string; note?: string }) =>
     req<AppState>('/settle', { method: 'POST', body: JSON.stringify(d) }),
+  updSettle: (id: string, d: { memberId: string; dir: 'in' | 'out'; amount: string; note?: string }) =>
+    req<AppState>(`/settle/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
+  delSettle: (id: string) => req<AppState>(`/settle/${id}`, { method: 'DELETE' }),
 
   addBill: (d: { name: string; amount?: string; due?: string; payer?: string[] }) =>
     req<AppState>('/bills', { method: 'POST', body: JSON.stringify(d) }),

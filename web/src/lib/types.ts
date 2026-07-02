@@ -6,7 +6,7 @@ export interface Goal { id: string; kind: string; tag: string; title: string; su
 export interface Bill { id: string; name: string; cat: string; amount: number; due: string; status: string; payer: string; color: string; illo: string; due_date?: string | null; assignee_ids?: string[] | null; }
 export interface BudgetCat { id: string; name: string; spent: number; limit: number; color: string; }
 export interface Saving { id: string; name: string; saved: number; target: number; color: string; }
-export interface Settle { id: string; txt: string; detail: string; amount: string; dir: string; who: string; settled: boolean; }
+export interface Settle { id: string; txt: string; detail: string; amount: string; dir: string; who: string; settled: boolean; member_id?: string | null; }
 export interface Notification { id: string; illo: string; color: string; title: string; body: string; time_label: string; unread: boolean; }
 export interface FeedItem { id: string; who: string; color: string; initial: string; txt: string; time_label: string; }
 

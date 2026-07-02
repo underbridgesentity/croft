@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useStore } from '../store';
 import { api, money } from '../lib/api';
 import type { Nav } from '../Shell';
@@ -8,30 +9,62 @@ const parseAmt = (s: string) => Number(String(s).replace(/[^\d.]/g, '')) || 0;
 
 export default function Money({ nav }: { nav: Nav }) {
   const { state, run } = useStore();
+  // Month navigator: browse bills (and their totals) month by month, so the
+  // household can review past months and plan ahead.
+  const [monthOffset, setMonthOffset] = useState(0);
   if (!state) return null;
 
-  const paid = state.bills.filter((b) => b.status === 'paid').reduce((a, b) => a + b.amount, 0);
-  const out = state.bills.filter((b) => b.status !== 'paid').reduce((a, b) => a + b.amount, 0);
+  const now = new Date();
+  const sel = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1);
+  const monthKey = `${sel.getFullYear()}-${String(sel.getMonth() + 1).padStart(2, '0')}`; // YYYY-MM
+  const monthLabel = sel.toLocaleDateString('en-ZA', { month: 'long', year: 'numeric' });
+  // Bills with a real due date belong to that month; undated ones show in the
+  // current month so nothing silently disappears.
+  const monthBills = state.bills.filter((b) =>
+    b.due_date ? b.due_date.startsWith(monthKey) : monthOffset === 0
+  );
+
+  const paid = monthBills.filter((b) => b.status === 'paid').reduce((a, b) => a + b.amount, 0);
+  const out = monthBills.filter((b) => b.status !== 'paid').reduce((a, b) => a + b.amount, 0);
   const total = paid + out;
   const paidPct = total ? Math.round((paid / total) * 100) : 0;
 
   const activeSettle = state.settle.filter((s) => !s.settled);
   const net = activeSettle.reduce((a, s) => a + (s.dir === 'out' ? parseAmt(s.amount) : -parseAmt(s.amount)), 0);
   // Open bills stay front and centre; paid ones drop into their own history section.
-  const openBills = state.bills.filter((b) => b.status !== 'paid');
-  const paidBills = state.bills.filter((b) => b.status === 'paid');
+  const openBills = monthBills.filter((b) => b.status !== 'paid');
+  const paidBills = monthBills.filter((b) => b.status === 'paid');
+  const you = state.members.find((m) => m.you);
+  // Adding a bill while browsing another month pre-fills a due date in it.
+  const addBill = () => nav.openForm('bill', monthOffset === 0 ? undefined : { name: '', amount: '', due: `${monthKey}-01`, payer: you ? [you.id] : [] });
 
   return (
     <div>
-      <div style={{ margin: '8px 2px 18px' }}>
+      <div style={{ margin: '8px 2px 14px' }}>
         <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 30, letterSpacing: '-0.02em' }}>Money</div>
-        <div style={{ marginTop: 4, color: '#6F6C67', fontSize: 14, fontWeight: 500 }}>Where the household stands this month</div>
+        <div style={{ marginTop: 4, color: '#6F6C67', fontSize: 14, fontWeight: 500 }}>Where the household stands, month by month</div>
+      </div>
+
+      {/* Month navigator */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 14 }}>
+        <button onClick={() => setMonthOffset(monthOffset - 1)} aria-label="Previous month" style={monthBtn}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="#181922" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 16 }}>{monthLabel}</div>
+          {monthOffset !== 0 && (
+            <button onClick={() => setMonthOffset(0)} style={{ border: 'none', background: 'none', color: '#3B5BFF', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', padding: '1px 0 0' }}>Back to this month</button>
+          )}
+        </div>
+        <button onClick={() => setMonthOffset(monthOffset + 1)} aria-label="Next month" style={monthBtn}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 5l7 7-7 7" stroke="#181922" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </button>
       </div>
 
       {/* Outstanding hero */}
       <div style={{ background: '#3B5BFF', borderRadius: 24, padding: 22, boxShadow: '0 10px 26px rgba(59,91,255,0.3)', color: '#fff', marginBottom: 24, position: 'relative', overflow: 'hidden' }}>
         <div style={{ position: 'absolute', top: -40, right: -30, width: 130, height: 130, borderRadius: '50%', background: 'rgba(255,255,255,0.1)' }} />
-        <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', letterSpacing: '.06em', position: 'relative' }}>Still outstanding</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.8)', textTransform: 'uppercase', letterSpacing: '.06em', position: 'relative' }}>{monthOffset === 0 ? 'Still outstanding' : `Outstanding in ${monthLabel.split(' ')[0]}`}</div>
         <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 38, margin: '6px 0 2px', letterSpacing: '-0.02em', position: 'relative' }}>{money(out)}</div>
         <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)', marginBottom: 16, position: 'relative' }}>{money(paid)} paid of {money(total)} total</div>
         <div style={{ height: 9, borderRadius: 100, background: 'rgba(255,255,255,0.22)', overflow: 'hidden', position: 'relative' }}>
@@ -40,14 +73,16 @@ export default function Money({ nav }: { nav: Nav }) {
       </div>
 
       {/* Bills */}
-      <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 12px' }}>Bills</div>
+      <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 12px' }}>Bills · {monthLabel.split(' ')[0]}</div>
       {openBills.length === 0 && paidBills.length === 0 && (
-        <div style={{ fontSize: 13, color: '#6F6C67', margin: '0 2px 12px' }}>Track rent, utilities and subscriptions with real due dates.</div>
+        <div style={{ fontSize: 13, color: '#6F6C67', margin: '0 2px 12px' }}>
+          {monthOffset === 0 ? 'Track rent, utilities and subscriptions with real due dates.' : `No bills for ${monthLabel} yet - add one below to plan ahead.`}
+        </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
         {openBills.map((b) => <BillRow key={b.id} b={b} nav={nav} run={run} />)}
       </div>
-      <button onClick={() => nav.openForm('bill')} style={dashedAdd}>+ Add a bill</button>
+      <button onClick={addBill} style={dashedAdd}>+ Add a bill</button>
       {paidBills.length > 0 && (
         <>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#7D776E', textTransform: 'uppercase', letterSpacing: '.05em', margin: '18px 2px 10px' }}>Paid</div>
@@ -99,9 +134,18 @@ export default function Money({ nav }: { nav: Nav }) {
         {net > 0 ? <>Overall, you owe <b style={{ color: '#FF5C8A' }}>{money(net)}</b></> : net < 0 ? <>Overall, you're owed <b style={{ color: '#16C098' }}>{money(-net)}</b></> : <>All square - nobody owes anyone.</>}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 }}>
-        {activeSettle.map((s) => (
+        {activeSettle.map((s) => {
+          const editSettle = () => nav.openForm('settle', { editId: s.id, dir: s.dir, amount: String(parseAmt(s.amount) || ''), note: s.detail, who: s.member_id ? [s.member_id] : [] });
+          return (
           <div key={s.id} style={{ background: '#fff', borderRadius: 18, padding: '14px 16px', boxShadow: '0 2px 8px rgba(16,20,38,0.04)', display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label={`Edit ${s.txt}`}
+              onClick={editSettle}
+              onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); editSettle(); } }}
+              style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+            >
               <div style={{ fontWeight: 600, fontSize: 13.5, lineHeight: 1.3 }}>{s.txt}</div>
               <div style={{ fontSize: 12, color: '#6F6C67', marginTop: 2 }}>{s.detail} <b style={{ color: s.dir === 'in' ? '#16C098' : '#FF5C8A' }}>{s.dir === 'in' ? '+' : '-'}{s.amount}</b></div>
             </div>
@@ -112,7 +156,8 @@ export default function Money({ nav }: { nav: Nav }) {
               <button onClick={() => run(api.settleUp(s.id), 'Settled up')} style={{ flexShrink: 0, border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 12, cursor: 'pointer', padding: '9px 2px' }}>Settle</button>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
       <button onClick={() => nav.openForm('settle')} style={{ ...dashedAdd, marginBottom: 24 }}>+ Add who owes who</button>
 
@@ -153,6 +198,10 @@ export default function Money({ nav }: { nav: Nav }) {
 const dashedAdd: React.CSSProperties = {
   width: '100%', border: '1.5px dashed #D2CCC1', background: 'transparent', color: '#6B6459',
   fontWeight: 700, fontSize: 14, padding: 15, borderRadius: 16, cursor: 'pointer',
+};
+const monthBtn: React.CSSProperties = {
+  width: 38, height: 38, borderRadius: 12, border: 'none', background: '#fff', cursor: 'pointer',
+  display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 2px rgba(24,25,34,0.05), 0 8px 20px -12px rgba(24,25,34,0.12)', flexShrink: 0,
 };
 
 function BillRow({ b, nav, run, muted }: { b: import('../lib/types').Bill; nav: Nav; run: (p: Promise<unknown>, msg?: string) => void; muted?: boolean }) {

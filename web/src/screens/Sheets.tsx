@@ -1,3 +1,4 @@
+import { useRef, useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../lib/api';
 import type { FormData, FormType, Nav } from '../Shell';
@@ -70,9 +71,37 @@ export function NotifSheet() {
   );
 }
 
+// ---------------- FAMILY ACTIVITY (full feed) ----------------
+export function FeedSheet() {
+  const { state } = useStore();
+  if (!state) return null;
+  return (
+    <div>
+      <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 22, margin: '0 2px 16px' }}>Family activity</div>
+      {state.feed.length === 0 && <div style={{ color: '#6F6C67', fontSize: 13.5, padding: '8px 2px' }}>No activity yet - it shows up here as the family adds and completes things.</div>}
+      <div style={{ background: '#fff', borderRadius: 18, padding: '4px 16px' }}>
+        {state.feed.map((f) => (
+          <div key={f.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderBottom: '1px solid #EFEBE3' }}>
+            <div style={{ flexShrink: 0, width: 32, height: 32, borderRadius: '50%', background: f.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: grotesk, fontWeight: 700, fontSize: 13 }}>{f.initial}</div>
+            <div style={{ flex: 1, fontSize: 13.5, color: '#3A362F', lineHeight: 1.4 }}><b style={{ fontWeight: 700, color: '#181922' }}>{f.who}</b> {f.txt}</div>
+            <div style={{ flexShrink: 0, fontSize: 11, color: '#7D776E', fontWeight: 600, paddingTop: 2 }}>{f.time_label}</div>
+          </div>
+        ))}
+        <div style={{ height: 6 }} />
+      </div>
+    </div>
+  );
+}
+
 // ---------------- FORMS ----------------
 export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormData; setFd: (d: FormData) => void; nav: Nav }) {
   const { state, run, flash } = useStore();
+  // In-flight guard: a slow (cold-start) request must not allow a second tap to
+  // submit twice - the cause of duplicated bills/IOUs. The ref blocks re-entry
+  // SYNCHRONOUSLY (state alone lags a render, so rapid taps slip through);
+  // the state drives the disabled/label visuals.
+  const busyRef = useRef(false);
+  const [busy, setBusy] = useState(false);
   if (!state) return null;
   const set = (k: keyof FormData, v: string) => setFd({ ...fd, [k]: v });
   const toggle = (k: 'who' | 'payer' | 'assignees', id: string) => {
@@ -82,10 +111,22 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
   const editing = !!fd.editId;
   const NOUNS: Record<FormType, string> = { event: 'event', bill: 'bill', task: 'to-do', goal: 'goal', budget: 'budget category', saving: 'savings goal', settle: 'IOU' };
   const noun = NOUNS[form];
-  const title = form === 'settle' ? 'Who owes who' : `${editing ? 'Edit' : 'New'} ${noun}`;
+  const title = form === 'settle' && !editing ? 'Who owes who' : `${editing ? 'Edit' : 'New'} ${noun}`;
   const memberChips = state.members.map((m) => ({ id: m.id, label: m.name, color: m.color }));
 
   const submit = async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      await doSubmit();
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
+
+  const doSubmit = async () => {
     if (form === 'event') {
       if (!fd.title?.trim()) return flash('Add a title first');
       const d = { title: fd.title, date: fd.date, time: fd.time, who: fd.who };
@@ -121,15 +162,24 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
       const memberId = (fd.who || [])[0];
       if (!memberId) return flash('Pick a family member');
       if (!Number(fd.amount)) return flash('Enter an amount');
-      await run(api.addSettle({ memberId, dir: (fd.dir as 'in' | 'out') || 'in', amount: fd.amount!, note: fd.note }), 'Added to who owes who');
+      const d = { memberId, dir: (fd.dir as 'in' | 'out') || 'in', amount: fd.amount!, note: fd.note };
+      await run(editing ? api.updSettle(fd.editId!, d) : api.addSettle(d), editing ? 'Updated' : 'Added to who owes who');
     }
     nav.closeSheet();
   };
 
   const remove = async () => {
-    const del = { event: api.delEvent, bill: api.delBill, task: api.delTask, goal: api.delGoal, budget: api.delBudget, saving: api.delSaving, settle: api.delTask }[form];
-    await run(del(fd.editId!), 'Removed');
-    nav.closeSheet();
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      const del = { event: api.delEvent, bill: api.delBill, task: api.delTask, goal: api.delGoal, budget: api.delBudget, saving: api.delSaving, settle: api.delSettle }[form];
+      await run(del(fd.editId!), 'Removed');
+      nav.closeSheet();
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
   };
 
   return (
@@ -241,9 +291,11 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
         </div>
       )}
 
-      <button onClick={submit} style={{ width: '100%', padding: 16, borderRadius: 16, border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 15.5, cursor: 'pointer', boxShadow: '0 8px 20px rgba(59,91,255,0.32)', marginTop: 22 }}>{editing ? 'Save changes' : 'Add'}</button>
+      <button onClick={submit} disabled={busy} style={{ width: '100%', padding: 16, borderRadius: 16, border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 15.5, cursor: 'pointer', boxShadow: '0 8px 20px rgba(59,91,255,0.32)', marginTop: 22, opacity: busy ? 0.6 : 1 }}>
+        {busy ? (editing ? 'Saving…' : 'Adding…') : editing ? 'Save changes' : 'Add'}
+      </button>
       {editing && (
-        <button onClick={remove} style={{ width: '100%', border: 'none', background: 'none', color: '#FF4D5E', fontWeight: 700, fontSize: 13.5, padding: '14px 0 2px', cursor: 'pointer' }}>Delete this {noun}</button>
+        <button onClick={remove} disabled={busy} style={{ width: '100%', border: 'none', background: 'none', color: '#FF4D5E', fontWeight: 700, fontSize: 13.5, padding: '14px 0 2px', cursor: 'pointer', opacity: busy ? 0.5 : 1 }}>Delete this {noun}</button>
       )}
     </div>
   );

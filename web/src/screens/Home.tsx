@@ -81,7 +81,7 @@ export default function Home({ nav }: { nav: Nav }) {
       </div>
 
       {/* Family activity */}
-      <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 12px' }}>Family activity</div>
+      <Row title="Family activity" action="See all" onAction={() => nav.openFeed()} />
       <div style={{ background: '#fff', borderRadius: 22, padding: '6px 16px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 26 }}>
         {state.feed.slice(0, 6).map((f) => (
           <div key={f.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderBottom: '1px solid #EFEBE3' }}>
