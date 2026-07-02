@@ -190,7 +190,7 @@ dataRouter.patch('/events/:id', async (req: AuthedRequest, res) => {
   const ms = await membersByIds(hh(req), toIds(b.data.who));
   const d = dateBits(b.data.date, b.data.time);
   await query(
-    `UPDATE events SET title=$1, time=$2, ampm=$3, day=$4, date_label=$5, event_date=$6, event_time=$7, loc=$8, color=$9, assignee_ids=$10
+    `UPDATE events SET title=$1, time=$2, ampm=$3, day=$4, date_label=$5, event_date=$6, event_time=$7, loc=$8, color=$9, assignee_ids=$10, updated_at=now()
       WHERE id=$11 AND household_id=$12`,
     [b.data.title, d.displayTime, d.ampm, d.dayFlag, d.label, d.iso, d.timeStr,
      'For ' + (ms.length ? joinNames(ms.map((m) => m.name)) : 'the family'),

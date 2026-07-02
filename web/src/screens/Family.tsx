@@ -290,6 +290,7 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
               <button onClick={copyCal} style={{ flex: 1, minWidth: 150, border: '1.5px solid #E8E3DB', background: '#fff', color: '#181922', fontWeight: 700, fontSize: 13.5, padding: '11px', borderRadius: 12, cursor: 'pointer' }}>Copy link for Google</button>
             </div>
             <div style={{ fontSize: 11.5, color: '#7D776E', marginTop: 10, lineHeight: 1.45 }}>In Google Calendar, choose "Other calendars", then "From URL", and paste the copied link.</div>
+            <div style={{ fontSize: 11.5, color: '#9C968D', marginTop: 8, lineHeight: 1.45 }}>Apple Calendar updates within minutes (set the refresh in Settings). Google refreshes subscribed calendars on its own schedule, so new events can take a few hours to appear there.</div>
           </>
         ) : (
           <button onClick={loadCal} disabled={calBusy} style={{ width: '100%', border: '1.5px dashed #D2CCC1', background: 'transparent', color: '#6B6459', fontWeight: 700, fontSize: 14, padding: 14, borderRadius: 14, cursor: 'pointer', opacity: calBusy ? 0.6 : 1 }}>

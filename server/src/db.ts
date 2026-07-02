@@ -262,6 +262,14 @@ CREATE TABLE IF NOT EXISTS bills (
 ALTER TABLE events ADD COLUMN IF NOT EXISTS event_date DATE;
 ALTER TABLE events ADD COLUMN IF NOT EXISTS event_time TEXT;
 ALTER TABLE bills ADD COLUMN IF NOT EXISTS due_date DATE;
+-- When an event last changed - drives LAST-MODIFIED/SEQUENCE in the ICS feed so
+-- calendar clients reliably re-render edits (many ignore changes otherwise).
+ALTER TABLE events ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
+-- Events imported from an external calendar (Google/Apple) carry their origin
+-- source + original UID; they are read-only and excluded from our own feed so a
+-- subscribe-back loop can't duplicate them.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS source_id UUID;
+ALTER TABLE events ADD COLUMN IF NOT EXISTS external_uid TEXT;
 
 -- Multi-member assignment (JSONB array of member ids). Display text (loc/payer)
 -- stays denormalized for the feed; these ids are the editable source of truth.

@@ -38,15 +38,16 @@ calendarRouter.get('/:token.ics', async (req, res) => {
   if (!hh) return res.status(404).send('Not found');
 
   const events = (
-    await query<{ id: string; title: string; loc: string; event_time: string; event_date: string }>(
-      `SELECT id, title, loc, event_time, to_char(event_date,'YYYYMMDD') AS event_date
-         FROM events WHERE household_id=$1 AND event_date IS NOT NULL ORDER BY event_date`,
+    await query<{ id: string; title: string; loc: string; event_time: string; event_date: string; updated_at: string }>(
+      `SELECT id, title, loc, event_time, to_char(event_date,'YYYYMMDD') AS event_date, updated_at
+         FROM events WHERE household_id=$1 AND event_date IS NOT NULL AND source_id IS NULL ORDER BY event_date`,
       [hh.id]
     )
   ).rows;
 
-  const now = new Date();
-  const stamp = `${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`;
+  const utcStamp = (dt: Date) =>
+    `${dt.getUTCFullYear()}${pad(dt.getUTCMonth() + 1)}${pad(dt.getUTCDate())}T${pad(dt.getUTCHours())}${pad(dt.getUTCMinutes())}${pad(dt.getUTCSeconds())}Z`;
+  const stamp = utcStamp(new Date());
 
   const lines: string[] = [
     'BEGIN:VCALENDAR',
@@ -55,20 +56,37 @@ calendarRouter.get('/:token.ics', async (req, res) => {
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     fold(`X-WR-CALNAME:${esc(hh.name)} · Croft`),
+    'X-WR-TIMEZONE:Africa/Johannesburg',
     'X-PUBLISHED-TTL:PT1H',
+    // SAST is a fixed UTC+2 with no DST, so a single STANDARD rule is exact.
+    'BEGIN:VTIMEZONE',
+    'TZID:Africa/Johannesburg',
+    'BEGIN:STANDARD',
+    'DTSTART:19700101T000000',
+    'TZOFFSETFROM:+0200',
+    'TZOFFSETTO:+0200',
+    'TZNAME:SAST',
+    'END:STANDARD',
+    'END:VTIMEZONE',
   ];
 
   for (const e of events) {
     const d = e.event_date; // YYYYMMDD
+    // SEQUENCE must climb when the event changes so clients re-render edits;
+    // epoch-seconds of updated_at is monotonic per event.
+    const modified = e.updated_at ? new Date(e.updated_at) : new Date();
     lines.push('BEGIN:VEVENT');
     lines.push(`UID:${e.id}@croftapp.co.za`);
     lines.push(`DTSTAMP:${stamp}`);
+    lines.push(`LAST-MODIFIED:${utcStamp(modified)}`);
+    lines.push(`SEQUENCE:${Math.floor(modified.getTime() / 1000)}`);
     const tm = parseTime(e.event_time);
     if (tm) {
-      lines.push(`DTSTART:${d}T${pad(tm.h)}${pad(tm.m)}00`);
-      // +1h end
+      // Anchor timed events to SAST so they land at the right wall-clock time in
+      // any viewer's calendar, instead of "floating" to the viewer's zone.
+      lines.push(`DTSTART;TZID=Africa/Johannesburg:${d}T${pad(tm.h)}${pad(tm.m)}00`);
       const endH = (tm.h + 1) % 24;
-      lines.push(`DTEND:${d}T${pad(endH)}${pad(tm.m)}00`);
+      lines.push(`DTEND;TZID=Africa/Johannesburg:${d}T${pad(endH)}${pad(tm.m)}00`);
     } else {
       // all-day: DTEND is exclusive next day
       const y = Number(d.slice(0, 4)), mo = Number(d.slice(4, 6)), da = Number(d.slice(6, 8));
@@ -84,6 +102,8 @@ calendarRouter.get('/:token.ics', async (req, res) => {
   lines.push('END:VCALENDAR');
 
   res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
-  res.setHeader('Cache-Control', 'public, max-age=3600');
+  // Short cache so an edit/delete is visible as soon as the client next refreshes
+  // (down from 1h). The subscriber's own refresh interval is the real limit.
+  res.setHeader('Cache-Control', 'public, max-age=300');
   res.send(lines.join('\r\n') + '\r\n');
 });
