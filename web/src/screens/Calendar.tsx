@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useStore } from '../store';
+import { money } from '../lib/api';
 import type { Nav } from '../Shell';
-import type { EventItem } from '../lib/types';
+import type { EventItem, Bill } from '../lib/types';
 import Icon from '../components/Icon';
+import PeopleFilter from '../components/PeopleFilter';
 
 const grotesk = "'Geist', sans-serif";
 const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -11,6 +13,13 @@ export default function Calendar({ nav }: { nav: Nav }) {
   const { state, flash } = useStore();
   // Month navigator: browse the grid and each month's events, like the Money tab.
   const [monthOffset, setMonthOffset] = useState(0);
+  // Tapping a day opens that day's detail (events + bills due). Day number is
+  // relative to the displayed month, so it resets when the month changes.
+  const [openDay, setOpenDay] = useState<number | null>(null);
+  const goMonth = (n: number) => { setMonthOffset(n); setOpenDay(null); };
+  // Filter the whole calendar (dots, lists, day detail) to one person's items.
+  const [who, setWho] = useState<string | null>(null);
+  const inWho = (ids?: string[] | null) => !who || (ids || []).includes(who);
   if (!state) return null;
 
   const now = new Date();
@@ -30,6 +39,7 @@ export default function Calendar({ nav }: { nav: Nav }) {
   // dots: mark days in the DISPLAYED month that have an event (real dates only)
   const dotMap: Record<number, string> = {};
   for (const e of state.events) {
+    if (!inWho(e.assignee_ids)) continue;
     if (e.event_date?.startsWith(monthKey + '-')) {
       dotMap[Number(e.event_date.slice(8, 10))] = e.color;
     } else if (isCurrentMonth && !e.event_date && e.day === 'today') {
@@ -49,12 +59,20 @@ export default function Calendar({ nav }: { nav: Nav }) {
   // Tap a day to add an event on it (nice for planning ahead in any month).
   const addOnDay = (d: number) =>
     nav.openForm('event', { title: '', date: `${monthKey}-${String(d).padStart(2, '0')}`, time: '', who: you ? [you.id] : [] });
+  const openBill = (b: Bill) =>
+    nav.openForm('bill', { editId: b.id, name: b.name, amount: String(b.amount || ''), due: b.due_date || '', payer: b.assignee_ids || [] });
+
+  // Day detail: everything happening on the tapped day - events + bills due.
+  const dayIso = openDay ? `${monthKey}-${String(openDay).padStart(2, '0')}` : null;
+  const dayEvents = dayIso ? state.events.filter((e) => e.event_date === dayIso && inWho(e.assignee_ids)) : [];
+  const dayBills = dayIso ? state.bills.filter((b) => b.due_date === dayIso && inWho(b.assignee_ids)) : [];
+  const dayLabel = openDay ? new Date(year, month, openDay).toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
 
   // Current month keeps the agenda view (everything upcoming + a past section).
   // Any other month shows just that month's events, newest first.
-  const upcoming = state.events.filter((e) => !e.event_date || e.event_date >= todayIso);
-  const past = state.events.filter((e) => e.event_date && e.event_date < todayIso).reverse();
-  const monthEvents = state.events.filter((e) => e.event_date?.startsWith(monthKey + '-'));
+  const upcoming = state.events.filter((e) => (!e.event_date || e.event_date >= todayIso) && inWho(e.assignee_ids));
+  const past = state.events.filter((e) => e.event_date && e.event_date < todayIso && inWho(e.assignee_ids)).reverse();
+  const monthEvents = state.events.filter((e) => e.event_date?.startsWith(monthKey + '-') && inWho(e.assignee_ids));
 
   return (
     <div>
@@ -65,19 +83,21 @@ export default function Calendar({ nav }: { nav: Nav }) {
 
       {/* Month navigator */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 14 }}>
-        <button onClick={() => setMonthOffset(monthOffset - 1)} aria-label="Previous month" style={monthBtn}>
+        <button onClick={() => goMonth(monthOffset - 1)} aria-label="Previous month" style={monthBtn}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M15 5l-7 7 7 7" stroke="#181922" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 16 }}>{monthLabel}</div>
           {!isCurrentMonth && (
-            <button onClick={() => setMonthOffset(0)} style={{ border: 'none', background: 'none', color: '#3B5BFF', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', padding: '1px 0 0' }}>Back to this month</button>
+            <button onClick={() => goMonth(0)} style={{ border: 'none', background: 'none', color: '#3B5BFF', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', padding: '1px 0 0' }}>Back to this month</button>
           )}
         </div>
-        <button onClick={() => setMonthOffset(monthOffset + 1)} aria-label="Next month" style={monthBtn}>
+        <button onClick={() => goMonth(monthOffset + 1)} aria-label="Next month" style={monthBtn}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 5l7 7-7 7" stroke="#181922" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
       </div>
+
+      <PeopleFilter members={state.members} value={who} onChange={setWho} />
 
       <div style={{ background: '#fff', borderRadius: 22, padding: '16px 12px 18px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 24 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 8 }}>
@@ -92,11 +112,11 @@ export default function Calendar({ nav }: { nav: Nav }) {
             ) : (
               <button
                 key={c.key}
-                onClick={() => addOnDay(c.label)}
-                aria-label={`Add an event on ${c.label} ${monthShort}`}
+                onClick={() => setOpenDay(openDay === c.label ? null : c.label)}
+                aria-label={`View ${c.label} ${monthShort}`}
                 style={{ height: 42, border: 'none', background: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 3, padding: 0 }}
               >
-                <div style={{ width: 31, height: 31, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: grotesk, fontSize: 13.5, fontWeight: 600, background: c.today ? '#3B5BFF' : 'transparent', color: c.today ? '#fff' : '#181922' }}>
+                <div style={{ width: 31, height: 31, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: grotesk, fontSize: 13.5, fontWeight: 600, background: c.today ? '#3B5BFF' : openDay === c.label ? 'rgba(59,91,255,0.14)' : 'transparent', color: c.today ? '#fff' : '#181922', boxShadow: openDay === c.label && !c.today ? 'inset 0 0 0 2px #3B5BFF' : 'none' }}>
                   {c.label}
                 </div>
                 <div style={{ width: 5, height: 5, borderRadius: '50%', background: c.dot }} />
@@ -105,6 +125,34 @@ export default function Calendar({ nav }: { nav: Nav }) {
           ))}
         </div>
       </div>
+
+      {dayIso && (
+        <div style={{ background: '#fff', borderRadius: 20, padding: '16px 16px 14px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 16 }}>{dayLabel}</div>
+            <button onClick={() => setOpenDay(null)} aria-label="Close day" style={{ width: 30, height: 30, borderRadius: 10, border: 'none', background: '#EBE7DF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#181922" strokeWidth="2.2" strokeLinecap="round" /></svg>
+            </button>
+          </div>
+          {dayEvents.length === 0 && dayBills.length === 0 && (
+            <div style={{ fontSize: 13, color: '#6F6C67', margin: '0 2px 12px' }}>Nothing on this day yet.</div>
+          )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {dayEvents.map((e) => <EventRow key={e.id} e={e} onEdit={openEdit} />)}
+            {dayBills.map((b) => (
+              <div key={b.id} role="button" tabIndex={0} aria-label={`Edit bill ${b.name}`} onClick={() => openBill(b)} onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); openBill(b); } }} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 13px', background: '#F7F5F1', borderRadius: 16, cursor: 'pointer' }}>
+                <Icon name={b.illo} color={b.color} size={40} radius={12} glyph={20} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{b.name}</div>
+                  <div style={{ fontSize: 11.5, color: '#6F6C67', marginTop: 1 }}>{b.payer} · bill due{b.status === 'paid' ? ' · paid' : ''}</div>
+                </div>
+                <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 14, flexShrink: 0 }}>{money(b.amount)}</div>
+              </div>
+            ))}
+          </div>
+          <button onClick={() => addOnDay(openDay!)} style={{ ...dashedAdd, marginTop: dayEvents.length || dayBills.length ? 12 : 0 }}>+ Add an event on this day</button>
+        </div>
+      )}
 
       {isCurrentMonth ? (
         <>

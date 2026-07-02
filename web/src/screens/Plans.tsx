@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { api } from '../lib/api';
 import type { Nav } from '../Shell';
 import Art from '../components/Art';
+import PeopleFilter from '../components/PeopleFilter';
 
 const grotesk = "'Geist', sans-serif";
 
@@ -41,11 +42,16 @@ function Seg({ label, active, onClick }: { label: string; active: boolean; onCli
 function Todos({ nav }: { nav: Nav }) {
   const { state, run } = useStore();
   const [draft, setDraft] = useState('');
+  // Filter to one person's to-dos; each task also carries a colour bar for its
+  // assignee so "who's it for" reads at a glance.
+  const [who, setWho] = useState<string | null>(null);
   if (!state) return null;
-  const open = state.tasks.filter((t) => !t.done);
-  const done = state.tasks.filter((t) => t.done);
+  const inWho = (ids?: string[] | null) => !who || (ids || []).includes(who);
+  const open = state.tasks.filter((t) => !t.done && inWho(t.assignee_ids));
+  const done = state.tasks.filter((t) => t.done && inWho(t.assignee_ids));
   const namesFor = (ids?: string[] | null) =>
     (ids || []).map((id) => state.members.find((m) => m.id === id)?.name).filter(Boolean).join(', ');
+  const colorFor = (ids?: string[] | null) => state.members.find((m) => m.id === (ids || [])[0])?.color || '#D2CCC1';
 
   const add = () => {
     const v = draft.trim();
@@ -64,10 +70,13 @@ function Todos({ nav }: { nav: Nav }) {
         <AddBtn onClick={add} />
       </div>
 
+      <PeopleFilter members={state.members} value={who} onChange={setWho} />
+
       {open.length > 0 ? (
         <div style={{ background: '#fff', borderRadius: 20, padding: '4px 14px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 18 }}>
           {open.map((t) => (
-            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '13px 2px', borderBottom: '1px solid #EFEBE3' }}>
+            <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 2px', borderBottom: '1px solid #EFEBE3' }}>
+              <span aria-hidden="true" style={{ width: 4, height: 30, borderRadius: 100, background: colorFor(t.assignee_ids), flexShrink: 0 }} />
               <button onClick={() => run(api.toggleTask(t.id, true), 'Nice - one less thing')} role="checkbox" aria-checked={false} aria-label={`Mark "${t.title}" as done`} style={checkbox} />
               <div
                 role="button"
