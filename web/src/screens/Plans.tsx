@@ -61,7 +61,7 @@ function Todos({ nav }: { nav: Nav }) {
   };
 
   const edit = (t: (typeof open)[number]) =>
-    nav.openForm('task', { editId: t.id, title: t.title, type: t.type, assignees: t.assignee_ids || [] });
+    nav.openForm('task', { editId: t.id, title: t.title, type: t.type, assignees: t.assignee_ids || [], recur: t.recur });
 
   return (
     <div>

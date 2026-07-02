@@ -137,17 +137,17 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
   const doSubmit = async () => {
     if (form === 'event') {
       if (!fd.title?.trim()) return flash('Add a title first');
-      const d = { title: fd.title, date: fd.date, time: fd.time, who: fd.who };
+      const d = { title: fd.title, date: fd.date, time: fd.time, who: fd.who, recur: fd.recur };
       await run(editing ? api.updEvent(fd.editId!, d) : api.addEvent(d), editing ? 'Event updated' : 'Event added');
       if (!editing) nav.goTab('calendar');
     } else if (form === 'bill') {
       if (!fd.name?.trim()) return flash('Add a bill name');
-      const d = { name: fd.name, amount: fd.amount, due: fd.due, payer: fd.payer };
+      const d = { name: fd.name, amount: fd.amount, due: fd.due, payer: fd.payer, recur: fd.recur };
       await run(editing ? api.updBill(fd.editId!, d) : api.addBill(d), editing ? 'Bill updated' : 'Bill added');
       if (!editing) nav.goTab('money');
     } else if (form === 'task') {
       if (!fd.title?.trim()) return flash('Type a to-do');
-      const d = { title: fd.title, type: fd.type, assignees: fd.assignees };
+      const d = { title: fd.title, type: fd.type, assignees: fd.assignees, recur: fd.recur };
       await run(editing ? api.updTask(fd.editId!, d) : api.addTask(d), editing ? 'To-do updated' : 'To-do added');
       if (!editing) { nav.goTab('tasks'); nav.goPlan('todos'); }
     } else if (form === 'goal') {
@@ -212,6 +212,8 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
           </div>
           <Lbl>Who's it for - pick any</Lbl>
           <Chips items={memberChips} value={fd.who || []} onToggle={(id) => toggle('who', id)} emptyHint="Nobody picked = the whole family" />
+          <div style={{ height: 16 }} />
+          <RepeatField value={fd.recur} onChange={(v) => set('recur', v)} />
         </div>
       )}
 
@@ -229,6 +231,8 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
           </div>
           <Lbl>Who's responsible - pick any</Lbl>
           <Chips items={memberChips} value={fd.assignees || []} onToggle={(id) => toggle('assignees', id)} emptyHint="Nobody picked = anyone can do it" />
+          <div style={{ height: 16 }} />
+          <RepeatField value={fd.recur} onChange={(v) => set('recur', v)} />
         </div>
       )}
 
@@ -241,6 +245,8 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
           </div>
           <Lbl>Paid by - pick any</Lbl>
           <Chips items={memberChips} value={fd.payer || []} onToggle={(id) => toggle('payer', id)} emptyHint="Nobody picked = shared" />
+          <div style={{ height: 16 }} />
+          <RepeatField value={fd.recur} onChange={(v) => set('recur', v)} hint="A paid recurring bill creates next period's bill automatically." />
         </div>
       )}
 
@@ -347,6 +353,23 @@ function Lbl({ children }: { children: React.ReactNode }) {
 }
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div style={{ marginBottom: 16 }}><Lbl>{label}</Lbl>{children}</div>;
+}
+/** Repeat-rule picker (none/daily/weekly/monthly/yearly) shared by events, tasks
+ * and bills. */
+function RepeatField({ value, onChange, hint }: { value?: string; onChange: (v: string) => void; hint?: string }) {
+  const opts: [string, string][] = [['none', "Doesn't repeat"], ['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['yearly', 'Yearly']];
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <Lbl>Repeats</Lbl>
+      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+        {opts.map(([k, l]) => {
+          const sel = (value || 'none') === k;
+          return <button key={k} onClick={() => onChange(k)} aria-pressed={sel} style={{ border: 'none', cursor: 'pointer', padding: '9px 13px', borderRadius: 100, fontWeight: 700, fontSize: 12.5, background: sel ? '#3B5BFF' : '#EBE7DF', color: sel ? '#fff' : '#181922' }}>{l}</button>;
+        })}
+      </div>
+      {hint && (value || 'none') !== 'none' && <div style={{ fontSize: 11.5, color: '#7D776E', marginTop: 8 }}>{hint}</div>}
+    </div>
+  );
 }
 /** Multi-select member chips: tap to toggle any number of people in or out. */
 function Chips({ items, value, onToggle, emptyHint }: { items: { id: string; label: string; color: string }[]; value: string[]; onToggle: (id: string) => void; emptyHint?: string }) {

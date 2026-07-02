@@ -277,6 +277,13 @@ ALTER TABLE events ADD COLUMN IF NOT EXISTS assignee_ids JSONB;
 ALTER TABLE bills ADD COLUMN IF NOT EXISTS assignee_ids JSONB;
 ALTER TABLE tasks ADD COLUMN IF NOT EXISTS assignee_ids JSONB;
 
+-- Recurrence rule: none | daily | weekly | monthly | yearly. Events are expanded
+-- into occurrences client-side; a paid recurring bill spawns the next one; a
+-- completed recurring task re-opens for next time.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS recur TEXT NOT NULL DEFAULT 'none';
+ALTER TABLE bills ADD COLUMN IF NOT EXISTS recur TEXT NOT NULL DEFAULT 'none';
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS recur TEXT NOT NULL DEFAULT 'none';
+
 CREATE TABLE IF NOT EXISTS budget (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,

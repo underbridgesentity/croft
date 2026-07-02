@@ -15,7 +15,7 @@ export type FormType = 'event' | 'bill' | 'goal' | 'task' | 'budget' | 'saving' 
 export interface FormData {
   title?: string; name?: string; amount?: string; date?: string;
   time?: string; due?: string; target?: string; kind?: string; type?: string;
-  limit?: string; spent?: string; saved?: string; note?: string; dir?: string;
+  limit?: string; spent?: string; saved?: string; note?: string; dir?: string; recur?: string;
   // Multi-select member assignment (member ids).
   who?: string[]; payer?: string[]; assignees?: string[];
   // Present when the form edits an existing item instead of creating one.

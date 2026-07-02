@@ -5,6 +5,7 @@ import type { Nav } from '../Shell';
 import type { EventItem, Bill } from '../lib/types';
 import Icon from '../components/Icon';
 import PeopleFilter from '../components/PeopleFilter';
+import { occurrencesInRange, nextOccurrence } from '../lib/recur';
 
 const grotesk = "'Geist', sans-serif";
 const DOW = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -36,15 +37,31 @@ export default function Calendar({ nav }: { nav: Nav }) {
   const firstDow = new Date(year, month, 1).getDay();
   const you = state.members.find((m) => m.you);
 
-  // dots: mark days in the DISPLAYED month that have an event (real dates only)
-  const dotMap: Record<number, string> = {};
+  // Expand recurring events into their occurrences within the displayed month,
+  // so a weekly/monthly event paints every time it lands - not just its anchor.
+  const monthStartIso = `${monthKey}-01`;
+  const monthEndIso = `${monthKey}-${String(daysInMonth).padStart(2, '0')}`;
+  const monthOccs: { e: EventItem; iso: string }[] = [];
   for (const e of state.events) {
-    if (!inWho(e.assignee_ids)) continue;
-    if (e.event_date?.startsWith(monthKey + '-')) {
-      dotMap[Number(e.event_date.slice(8, 10))] = e.color;
-    } else if (isCurrentMonth && !e.event_date && e.day === 'today') {
-      dotMap[todayDate] = e.color;
-    }
+    if (!inWho(e.assignee_ids) || !e.event_date) continue;
+    for (const iso of occurrencesInRange(e.event_date, e.recur, monthStartIso, monthEndIso)) monthOccs.push({ e, iso });
+  }
+  // A friendly label for an occurrence date (Today / Tomorrow / Wed 8 Jul).
+  const occLabel = (iso: string) => {
+    const d = new Date(iso + 'T00:00');
+    const t = new Date(); t.setHours(0, 0, 0, 0);
+    const diff = Math.round((d.getTime() - t.getTime()) / 86400000);
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Tomorrow';
+    if (diff === -1) return 'Yesterday';
+    return d.toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short' });
+  };
+
+  // dots: mark every day in the DISPLAYED month that has an occurrence.
+  const dotMap: Record<number, string> = {};
+  for (const { e, iso } of monthOccs) dotMap[Number(iso.slice(8, 10))] = e.color;
+  for (const e of state.events) {
+    if (isCurrentMonth && !e.event_date && e.day === 'today' && inWho(e.assignee_ids)) dotMap[todayDate] = e.color;
   }
 
   const cells: { key: string; label: number; today: boolean; dot: string; faded: boolean }[] = [];
@@ -54,25 +71,36 @@ export default function Calendar({ nav }: { nav: Nav }) {
 
   const openEdit = (e: EventItem) => {
     if (e.external) { flash('Imported from a linked calendar - edit it in that calendar'); return; }
-    nav.openForm('event', { editId: e.id, title: e.title, date: e.event_date || '', time: e.event_time || '', who: e.assignee_ids || [] });
+    nav.openForm('event', { editId: e.id, title: e.title, date: e.event_date || '', time: e.event_time || '', who: e.assignee_ids || [], recur: e.recur });
   };
   // Tap a day to add an event on it (nice for planning ahead in any month).
   const addOnDay = (d: number) =>
     nav.openForm('event', { title: '', date: `${monthKey}-${String(d).padStart(2, '0')}`, time: '', who: you ? [you.id] : [] });
   const openBill = (b: Bill) =>
-    nav.openForm('bill', { editId: b.id, name: b.name, amount: String(b.amount || ''), due: b.due_date || '', payer: b.assignee_ids || [] });
+    nav.openForm('bill', { editId: b.id, name: b.name, amount: String(b.amount || ''), due: b.due_date || '', payer: b.assignee_ids || [], recur: b.recur });
 
-  // Day detail: everything happening on the tapped day - events + bills due.
+  // Day detail: everything happening on the tapped day - events (incl. recurring
+  // occurrences) + bills due.
   const dayIso = openDay ? `${monthKey}-${String(openDay).padStart(2, '0')}` : null;
-  const dayEvents = dayIso ? state.events.filter((e) => e.event_date === dayIso && inWho(e.assignee_ids)) : [];
+  const dayEvents = dayIso ? monthOccs.filter((o) => o.iso === dayIso).map((o) => ({ ...o.e, date_label: occLabel(o.iso), event_date: o.iso })) : [];
   const dayBills = dayIso ? state.bills.filter((b) => b.due_date === dayIso && inWho(b.assignee_ids)) : [];
   const dayLabel = openDay ? new Date(year, month, openDay).toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
 
   // Current month keeps the agenda view (everything upcoming + a past section).
   // Any other month shows just that month's events, newest first.
-  const upcoming = state.events.filter((e) => (!e.event_date || e.event_date >= todayIso) && inWho(e.assignee_ids));
-  const past = state.events.filter((e) => e.event_date && e.event_date < todayIso && inWho(e.assignee_ids)).reverse();
-  const monthEvents = state.events.filter((e) => e.event_date?.startsWith(monthKey + '-') && inWho(e.assignee_ids));
+  // Current-month agenda: each event once, at its next occurrence from today
+  // (recurring events show their upcoming instance, not their old anchor).
+  const upcoming = state.events
+    .filter((e) => inWho(e.assignee_ids))
+    .map((e) => (e.event_date ? { e, iso: nextOccurrence(e.event_date, e.recur, todayIso) } : { e, iso: null as string | null }))
+    .filter((o) => o.iso !== null || !o.e.event_date)
+    .sort((a, b) => ((a.iso || '9999') < (b.iso || '9999') ? -1 : 1));
+  // Past = non-recurring events whose date has gone (recurring always have a next).
+  const past = state.events
+    .filter((e) => inWho(e.assignee_ids) && e.event_date && e.event_date < todayIso && (!e.recur || e.recur === 'none'))
+    .reverse();
+  // Other-month list: every occurrence that lands in the displayed month.
+  const monthEvents = [...monthOccs].sort((a, b) => (a.iso < b.iso ? -1 : 1));
 
   return (
     <div>
@@ -161,7 +189,7 @@ export default function Calendar({ nav }: { nav: Nav }) {
             <div style={{ fontSize: 13, color: '#6F6C67', margin: '0 2px 12px' }}>No dates yet - add birthdays, appointments and school events below.</div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {upcoming.map((e) => <EventRow key={e.id} e={e} onEdit={openEdit} />)}
+            {upcoming.map((o) => <EventRow key={o.e.id + (o.iso || '')} e={o.iso ? { ...o.e, date_label: occLabel(o.iso) } : o.e} onEdit={openEdit} />)}
           </div>
 
           <button onClick={() => nav.openForm('event')} style={dashedAdd}>+ Add an important date</button>
@@ -182,7 +210,7 @@ export default function Calendar({ nav }: { nav: Nav }) {
             <div style={{ fontSize: 13, color: '#6F6C67', margin: '0 2px 12px' }}>Nothing in {monthLabel} yet - add something below to plan ahead.</div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {monthEvents.map((e) => <EventRow key={e.id} e={e} onEdit={openEdit} />)}
+            {monthEvents.map((o) => <EventRow key={o.e.id + o.iso} e={{ ...o.e, date_label: occLabel(o.iso) }} onEdit={openEdit} />)}
           </div>
           <button onClick={() => addOnDay(1)} style={dashedAdd}>+ Add an event in {monthShort}</button>
         </>
@@ -207,6 +235,7 @@ function EventRow({ e, onEdit, muted }: { e: EventItem; onEdit: (e: EventItem) =
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.25, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</div>
           {e.external && <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 800, letterSpacing: '.04em', textTransform: 'uppercase', color: '#6D5CD6', background: 'rgba(140,124,255,0.16)', padding: '2px 6px', borderRadius: 100 }}>Linked</span>}
+          {e.recur && e.recur !== 'none' && <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9.5, fontWeight: 800, letterSpacing: '.03em', textTransform: 'uppercase', color: '#3B5BFF', background: 'rgba(59,91,255,0.12)', padding: '2px 6px', borderRadius: 100 }}>↻ {e.recur[0].toUpperCase() + e.recur.slice(1)}</span>}
         </div>
         <div style={{ fontSize: 12, color: '#6F6C67', marginTop: 2 }}>{e.date_label}{e.loc ? ' · ' + e.loc : ''}</div>
       </div>

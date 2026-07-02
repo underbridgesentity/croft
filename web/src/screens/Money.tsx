@@ -211,7 +211,7 @@ const monthBtn: React.CSSProperties = {
 };
 
 function BillRow({ b, nav, run, muted }: { b: import('../lib/types').Bill; nav: Nav; run: (p: Promise<unknown>, msg?: string) => void; muted?: boolean }) {
-  const edit = () => nav.openForm('bill', { editId: b.id, name: b.name, amount: String(b.amount || ''), due: b.due_date || '', payer: b.assignee_ids || [] });
+  const edit = () => nav.openForm('bill', { editId: b.id, name: b.name, amount: String(b.amount || ''), due: b.due_date || '', payer: b.assignee_ids || [], recur: b.recur });
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '13px 14px', background: muted ? '#EFEBE3' : '#fff', borderRadius: 18, boxShadow: muted ? 'none' : '0 2px 8px rgba(16,20,38,0.04)', opacity: muted ? 0.8 : 1 }}>
       <Icon name={b.illo} color={b.color} size={42} radius={13} glyph={22} />

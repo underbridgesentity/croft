@@ -31,11 +31,11 @@ async function assembleState(householdId: string, meMemberId?: string) {
   ] = await Promise.all([
     query(`SELECT name, settings FROM households WHERE id = $1`, [householdId]),
     query(`SELECT id, name, role, initial, color, is_you, sort FROM members WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
-    query(`SELECT id, title, time, ampm, day, date_label, loc, color, illo, to_char(event_date,'YYYY-MM-DD') AS event_date, event_time, assignee_ids, source_id FROM events WHERE household_id=$1 ORDER BY event_date NULLS LAST, sort, created_at`, [householdId]),
-    query(`SELECT id, title, from_name, from_color, due, due_key, done, type, assignee_ids FROM tasks WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
+    query(`SELECT id, title, time, ampm, day, date_label, loc, color, illo, to_char(event_date,'YYYY-MM-DD') AS event_date, event_time, assignee_ids, source_id, recur FROM events WHERE household_id=$1 ORDER BY event_date NULLS LAST, sort, created_at`, [householdId]),
+    query(`SELECT id, title, from_name, from_color, due, due_key, done, type, assignee_ids, recur FROM tasks WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
     query(`SELECT id, name, by_member, got FROM shopping WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
     query(`SELECT id, kind, tag, title, sub, pct, color, target FROM goals WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
-    query(`SELECT id, name, cat, amount, due, status, payer, color, illo, to_char(due_date,'YYYY-MM-DD') AS due_date, assignee_ids FROM bills WHERE household_id=$1 ORDER BY due_date NULLS LAST, sort, created_at`, [householdId]),
+    query(`SELECT id, name, cat, amount, due, status, payer, color, illo, to_char(due_date,'YYYY-MM-DD') AS due_date, assignee_ids, recur FROM bills WHERE household_id=$1 ORDER BY due_date NULLS LAST, sort, created_at`, [householdId]),
     // Spend totals are derived from the budget_spends ledger per SAST month, so
     // "this month" resets itself and past months stay browsable.
     query(
@@ -189,8 +189,22 @@ function dateBits(date?: string, time?: string) {
   };
 }
 
+const RECURS = ['none', 'daily', 'weekly', 'monthly', 'yearly'] as const;
+const recurSchema = z.enum(RECURS).optional();
+/** Advance an ISO date (YYYY-MM-DD) by one recurrence period. null = no repeat. */
+function advanceIso(iso: string, recur: string): string | null {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (recur === 'daily') dt.setUTCDate(dt.getUTCDate() + 1);
+  else if (recur === 'weekly') dt.setUTCDate(dt.getUTCDate() + 7);
+  else if (recur === 'monthly') dt.setUTCMonth(dt.getUTCMonth() + 1);
+  else if (recur === 'yearly') dt.setUTCFullYear(dt.getUTCFullYear() + 1);
+  else return null;
+  return dt.toISOString().slice(0, 10);
+}
+
 // ---------------- EVENTS ----------------
-const eventSchema = z.object({ title: z.string().min(1), date: z.string().optional(), time: z.string().optional(), who: idsSchema });
+const eventSchema = z.object({ title: z.string().min(1), date: z.string().optional(), time: z.string().optional(), who: idsSchema, recur: recurSchema });
 
 dataRouter.post('/events', async (req: AuthedRequest, res) => {
   const b = eventSchema.safeParse(req.body);
@@ -198,11 +212,11 @@ dataRouter.post('/events', async (req: AuthedRequest, res) => {
   const ms = await membersByIds(hh(req), toIds(b.data.who));
   const d = dateBits(b.data.date, b.data.time);
   await query(
-    `INSERT INTO events (household_id, title, time, ampm, day, date_label, event_date, event_time, loc, color, illo, assignee_ids, sort)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'calendar',$11,${nextSort('events')})`,
+    `INSERT INTO events (household_id, title, time, ampm, day, date_label, event_date, event_time, loc, color, illo, assignee_ids, recur, sort)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'calendar',$11,$12,${nextSort('events')})`,
     [hh(req), b.data.title, d.displayTime, d.ampm, d.dayFlag, d.label, d.iso, d.timeStr,
      'For ' + (ms.length ? joinNames(ms.map((m) => m.name)) : 'the family'),
-     ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id))]
+     ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none']
   );
   const me = await meMember(hh(req), req.memberId);
   await addFeed(hh(req), me.name, me.color, me.initial, `added "${b.data.title}" to the calendar`);
@@ -214,11 +228,11 @@ dataRouter.patch('/events/:id', async (req: AuthedRequest, res) => {
   const ms = await membersByIds(hh(req), toIds(b.data.who));
   const d = dateBits(b.data.date, b.data.time);
   await query(
-    `UPDATE events SET title=$1, time=$2, ampm=$3, day=$4, date_label=$5, event_date=$6, event_time=$7, loc=$8, color=$9, assignee_ids=$10, updated_at=now()
-      WHERE id=$11 AND household_id=$12 AND source_id IS NULL`,
+    `UPDATE events SET title=$1, time=$2, ampm=$3, day=$4, date_label=$5, event_date=$6, event_time=$7, loc=$8, color=$9, assignee_ids=$10, recur=$11, updated_at=now()
+      WHERE id=$12 AND household_id=$13 AND source_id IS NULL`,
     [b.data.title, d.displayTime, d.ampm, d.dayFlag, d.label, d.iso, d.timeStr,
      'For ' + (ms.length ? joinNames(ms.map((m) => m.name)) : 'the family'),
-     ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), req.params.id, hh(req)]
+     ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none', req.params.id, hh(req)]
   );
   await sendState(req, res);
 });
@@ -230,14 +244,14 @@ dataRouter.delete('/events/:id', async (req: AuthedRequest, res) => {
 
 // ---------------- TASKS ----------------
 dataRouter.post('/tasks', async (req: AuthedRequest, res) => {
-  const b = z.object({ title: z.string().min(1), type: z.string().optional(), assignees: idsSchema }).safeParse(req.body);
+  const b = z.object({ title: z.string().min(1), type: z.string().optional(), assignees: idsSchema, recur: recurSchema }).safeParse(req.body);
   if (!b.success) return res.status(400).json({ error: 'Type a to-do' });
   const me = await meMember(hh(req), req.memberId);
   const ms = await membersByIds(hh(req), toIds(b.data.assignees));
   await query(
-    `INSERT INTO tasks (household_id, title, from_name, from_color, due, due_key, done, type, assignee_ids, sort)
-     VALUES ($1,$2,$3,$4,'Today','today',false,$5,$6,${nextSort('tasks')})`,
-    [hh(req), b.data.title, me.name, me.color, b.data.type || 'Task', JSON.stringify(ms.map((m) => m.id))]
+    `INSERT INTO tasks (household_id, title, from_name, from_color, due, due_key, done, type, assignee_ids, recur, sort)
+     VALUES ($1,$2,$3,$4,'Today','today',false,$5,$6,$7,${nextSort('tasks')})`,
+    [hh(req), b.data.title, me.name, me.color, b.data.type || 'Task', JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none']
   );
   await addFeed(hh(req), me.name, me.color, me.initial, `added a ${b.data.type === 'Reminder' ? 'reminder' : 'to-do'}: "${b.data.title}"`);
   await sendState(req, res);
@@ -246,21 +260,31 @@ dataRouter.post('/tasks', async (req: AuthedRequest, res) => {
 // `title` edits the task's fields.
 dataRouter.patch('/tasks/:id', async (req: AuthedRequest, res) => {
   if (typeof req.body?.title === 'string') {
-    const b = z.object({ title: z.string().min(1), type: z.string().optional(), assignees: idsSchema }).safeParse(req.body);
+    const b = z.object({ title: z.string().min(1), type: z.string().optional(), assignees: idsSchema, recur: recurSchema }).safeParse(req.body);
     if (!b.success) return res.status(400).json({ error: 'Type a to-do' });
     const ms = await membersByIds(hh(req), toIds(b.data.assignees));
     await query(
-      `UPDATE tasks SET title=$1, type=COALESCE($2, type), assignee_ids=$3 WHERE id=$4 AND household_id=$5`,
-      [b.data.title, b.data.type || null, JSON.stringify(ms.map((m) => m.id)), req.params.id, hh(req)]
+      `UPDATE tasks SET title=$1, type=COALESCE($2, type), assignee_ids=$3, recur=$4 WHERE id=$5 AND household_id=$6`,
+      [b.data.title, b.data.type || null, JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none', req.params.id, hh(req)]
     );
     return sendState(req, res);
   }
   const done = !!req.body?.done;
+  // Read the task first so a recurring chore, when completed, re-opens for next
+  // time (a fresh not-done copy) and never falls off the list. Only spawn on the
+  // not-done → done transition so toggling can't pile up duplicates.
+  const before = (await query(`SELECT title, from_name, from_color, type, assignee_ids, recur, done FROM tasks WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)])).rows[0];
   await query(`UPDATE tasks SET done=$1 WHERE id=$2 AND household_id=$3`, [done, req.params.id, hh(req)]);
-  if (done) {
-    const t = (await query(`SELECT title FROM tasks WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)])).rows[0];
+  if (done && before) {
     const me = await meMember(hh(req), req.memberId);
-    if (t) await addFeed(hh(req), me.name, me.color, me.initial, `completed "${t.title}"`);
+    await addFeed(hh(req), me.name, me.color, me.initial, `completed "${before.title}"`);
+    if (before.recur && before.recur !== 'none' && !before.done) {
+      await query(
+        `INSERT INTO tasks (household_id, title, from_name, from_color, due, due_key, done, type, assignee_ids, recur, sort)
+         VALUES ($1,$2,$3,$4,'Today','today',false,$5,$6,$7,${nextSort('tasks')})`,
+        [hh(req), before.title, before.from_name, before.from_color, before.type, JSON.stringify(before.assignee_ids || []), before.recur]
+      );
+    }
   }
   await sendState(req, res);
 });
@@ -361,7 +385,7 @@ dataRouter.delete('/goals/:id', async (req: AuthedRequest, res) => {
 });
 
 // ---------------- BILLS ----------------
-const billSchema = z.object({ name: z.string().min(1), amount: z.union([z.string(), z.number()]).optional(), due: z.string().optional(), payer: idsSchema });
+const billSchema = z.object({ name: z.string().min(1), amount: z.union([z.string(), z.number()]).optional(), due: z.string().optional(), payer: idsSchema, recur: recurSchema });
 
 dataRouter.post('/bills', async (req: AuthedRequest, res) => {
   const b = billSchema.safeParse(req.body);
@@ -371,11 +395,11 @@ dataRouter.post('/bills', async (req: AuthedRequest, res) => {
   const dueLabel = iso ? formatDateLabel(iso) : (String(b.data.due || '').trim() || 'This month');
   const status = iso && iso < sastToday() ? 'overdue' : 'unpaid';
   await query(
-    `INSERT INTO bills (household_id, name, cat, amount, due, due_date, status, payer, color, illo, assignee_ids, sort)
-     VALUES ($1,$2,'Other',$3,$4,$5,$6,$7,$8,'wallet',$9,${nextSort('bills')})`,
+    `INSERT INTO bills (household_id, name, cat, amount, due, due_date, status, payer, color, illo, assignee_ids, recur, sort)
+     VALUES ($1,$2,'Other',$3,$4,$5,$6,$7,$8,'wallet',$9,$10,${nextSort('bills')})`,
     [hh(req), b.data.name, Number(b.data.amount) || 0, dueLabel, iso, status,
      ms.length ? joinNames(ms.map((m) => m.name)) : 'Shared',
-     ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id))]
+     ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none']
   );
   const me = await meMember(hh(req), req.memberId);
   await addFeed(hh(req), me.name, me.color, me.initial, `added the bill "${b.data.name}"`);
@@ -391,22 +415,42 @@ dataRouter.patch('/bills/:id', async (req: AuthedRequest, res) => {
     const iso = b.data.due && isoRe.test(b.data.due) ? b.data.due : null;
     const dueLabel = iso ? formatDateLabel(iso) : (String(b.data.due || '').trim() || 'This month');
     await query(
-      `UPDATE bills SET name=$1, amount=$2, due=$3, due_date=$4, payer=$5, color=$6, assignee_ids=$7,
-              status = CASE WHEN status='paid' THEN 'paid' WHEN $4::date IS NOT NULL AND $4::date < $8::date THEN 'overdue' ELSE 'unpaid' END
-        WHERE id=$9 AND household_id=$10`,
+      `UPDATE bills SET name=$1, amount=$2, due=$3, due_date=$4, payer=$5, color=$6, assignee_ids=$7, recur=$8,
+              status = CASE WHEN status='paid' THEN 'paid' WHEN $4::date IS NOT NULL AND $4::date < $9::date THEN 'overdue' ELSE 'unpaid' END
+        WHERE id=$10 AND household_id=$11`,
       [b.data.name, Number(b.data.amount) || 0, dueLabel, iso,
        ms.length ? joinNames(ms.map((m) => m.name)) : 'Shared',
-       ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), sastToday(), req.params.id, hh(req)]
+       ms[0]?.color || '#3B5BFF', JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none', sastToday(), req.params.id, hh(req)]
     );
     return sendState(req, res);
   }
   const parsed = z.enum(['paid', 'unpaid', 'overdue']).safeParse(req.body?.status);
   if (!parsed.success) return res.status(400).json({ error: 'Invalid bill status' });
+  // Read the bill first so a recurring bill, when paid, can spawn the next
+  // period's bill (fresh + unpaid) - each month tracked on its own row.
+  const before = (await query(
+    `SELECT name, cat, amount, due, to_char(due_date,'YYYY-MM-DD') AS due_date, payer, color, illo, assignee_ids, recur, status
+       FROM bills WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)])).rows[0];
   await query(`UPDATE bills SET status=$1 WHERE id=$2 AND household_id=$3`, [parsed.data, req.params.id, hh(req)]);
-  if (parsed.data === 'paid') {
-    const bill = (await query(`SELECT name FROM bills WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)])).rows[0];
+  if (parsed.data === 'paid' && before) {
     const me = await meMember(hh(req), req.memberId);
-    if (bill) await addFeed(hh(req), me.name, me.color, me.initial, `marked "${bill.name}" as paid`);
+    await addFeed(hh(req), me.name, me.color, me.initial, `marked "${before.name}" as paid`);
+    // Only on the unpaid → paid transition, and only if the next occurrence
+    // doesn't already exist (idempotent against re-marking paid).
+    if (before.recur && before.recur !== 'none' && before.due_date && before.status !== 'paid') {
+      const nextIso = advanceIso(before.due_date, before.recur);
+      if (nextIso) {
+        const dup = await query(`SELECT 1 FROM bills WHERE household_id=$1 AND name=$2 AND due_date=$3 LIMIT 1`, [hh(req), before.name, nextIso]);
+        if (!dup.rows.length) {
+          const nStatus = nextIso < sastToday() ? 'overdue' : 'unpaid';
+          await query(
+            `INSERT INTO bills (household_id, name, cat, amount, due, due_date, status, payer, color, illo, assignee_ids, recur, sort)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,${nextSort('bills')})`,
+            [hh(req), before.name, before.cat, before.amount, formatDateLabel(nextIso), nextIso, nStatus, before.payer, before.color, before.illo, JSON.stringify(before.assignee_ids || []), before.recur]
+          );
+        }
+      }
+    }
   }
   await sendState(req, res);
 });
