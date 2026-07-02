@@ -69,6 +69,16 @@ app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     // Postgres unique-violation → friendly conflict (e.g. duplicate email).
     return res.status(409).json({ error: 'That already exists.' });
   }
+  // A malformed/oversized request body is the client's fault - 400, not a 500
+  // (and not worth alerting on).
+  if (err && (err.type === 'entity.parse.failed' || err.status === 400 || err instanceof SyntaxError)) {
+    if (res.headersSent) return;
+    return res.status(400).json({ error: 'Invalid request.' });
+  }
+  if (err && err.type === 'entity.too.large') {
+    if (res.headersSent) return;
+    return res.status(413).json({ error: 'That request was too large.' });
+  }
   console.error('[croft] unhandled error:', err);
   reportError(err, req);
   if (res.headersSent) return;
