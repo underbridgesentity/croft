@@ -30,6 +30,7 @@ export default function Money({ nav }: { nav: Nav }) {
   const paidPct = total ? Math.round((paid / total) * 100) : 0;
 
   const activeSettle = state.settle.filter((s) => !s.settled);
+  const settledItems = state.settle.filter((s) => s.settled);
   const net = activeSettle.reduce((a, s) => a + (s.dir === 'out' ? parseAmt(s.amount) : -parseAmt(s.amount)), 0);
   // Open bills stay front and centre; paid ones drop into their own history section.
   const openBills = monthBills.filter((b) => b.status !== 'paid');
@@ -168,7 +169,28 @@ export default function Money({ nav }: { nav: Nav }) {
           );
         })}
       </div>
-      <button onClick={() => nav.openForm('settle')} style={{ ...dashedAdd, marginBottom: 24 }}>+ Add who owes who</button>
+      <button onClick={() => nav.openForm('settle')} style={{ ...dashedAdd, marginBottom: settledItems.length ? 16 : 24 }}>+ Add who owes who</button>
+
+      {/* Settled history - what's been squared up (was previously hidden). */}
+      {settledItems.length > 0 && (
+        <>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#7D776E', textTransform: 'uppercase', letterSpacing: '.05em', margin: '4px 2px 10px' }}>Settled</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+            {settledItems.map((s) => (
+              <div key={s.id} style={{ background: '#EFEBE3', borderRadius: 18, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, opacity: 0.85 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 13.5, color: '#6B6459' }}>{s.txt}</div>
+                  <div style={{ fontSize: 12, color: '#8A847B', marginTop: 2 }}>{s.detail ? s.detail + ' · ' : ''}<b>{s.amount}</b></div>
+                </div>
+                <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 700, color: '#16C098', background: 'rgba(22,192,152,0.12)', padding: '3px 10px', borderRadius: 100 }}>Settled</span>
+                <button onClick={() => run(api.delSettle(s.id), 'Removed')} aria-label={`Remove ${s.txt}`} style={{ flexShrink: 0, border: 'none', background: 'none', cursor: 'pointer', padding: 4 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5h4v2M9 7l.7 12h8.6L19 7" stroke="#C9C3B9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* Savings */}
       <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 12px' }}>Savings goals</div>

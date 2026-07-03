@@ -218,7 +218,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
             </button>
           </aside>
 
-          <main className="croft-scroll" style={{ flex: 1, overflowY: 'auto', background: 'transparent' }}>
+          <main className="croft-scroll" style={{ flex: 1, minHeight: 0, minWidth: 0, overflowY: 'auto', background: 'transparent' }}>
             <div style={{ maxWidth: 880, margin: '0 auto', padding: '30px 40px 64px' }}>{screen}</div>
           </main>
         </div>
@@ -249,7 +249,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         </div>
       </div>
 
-      <div className="croft-scroll" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 18px calc(120px + env(safe-area-inset-bottom))' }}>
+      <div className="croft-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: '4px 18px calc(120px + env(safe-area-inset-bottom))' }}>
         {screen}
       </div>
 
