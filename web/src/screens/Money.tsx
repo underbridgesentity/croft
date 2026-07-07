@@ -31,7 +31,9 @@ export default function Money({ nav }: { nav: Nav }) {
 
   const activeSettle = state.settle.filter((s) => !s.settled);
   const settledItems = state.settle.filter((s) => s.settled);
-  const net = activeSettle.reduce((a, s) => a + (s.dir === 'out' ? parseAmt(s.amount) : -parseAmt(s.amount)), 0);
+  // Only IOUs you're actually part of count toward your balance (a debt between
+  // two other members shows in the list but isn't yours to owe or be owed).
+  const net = activeSettle.filter((s) => s.mine !== false).reduce((a, s) => a + (s.dir === 'out' ? parseAmt(s.amount) : -parseAmt(s.amount)), 0);
   // Open bills stay front and centre; paid ones drop into their own history section.
   const openBills = monthBills.filter((b) => b.status !== 'paid');
   const paidBills = monthBills.filter((b) => b.status === 'paid');

@@ -48,7 +48,7 @@ async function assembleState(householdId: string, meMemberId?: string) {
       [householdId, sastToday().slice(0, 7)]
     ),
     query(`SELECT id, name, saved, target, color FROM savings WHERE household_id=$1 ORDER BY sort`, [householdId]),
-    query(`SELECT id, txt, detail, amount, dir, who, settled, member_id FROM settle WHERE household_id=$1 ORDER BY sort`, [householdId]),
+    query(`SELECT id, txt, detail, amount, dir, who, settled, member_id, from_member, to_member FROM settle WHERE household_id=$1 ORDER BY sort`, [householdId]),
     query(`SELECT id, illo, color, title, body, time_label, unread, created_at FROM notifications WHERE household_id=$1 ORDER BY created_at DESC`, [householdId]),
     query(`SELECT id, who, color, initial, txt, time_label, created_at FROM feed WHERE household_id=$1 ORDER BY created_at DESC LIMIT 30`, [householdId]),
     // Per-month spend totals per category (SAST months) for the month navigator.
@@ -79,6 +79,28 @@ async function assembleState(householdId: string, meMemberId?: string) {
 
   const household = hh.rows[0] || { name: 'My Home', settings: {} };
   const today = sastToday();
+  // Who-owes-who is stored absolutely (from_member = debtor, to_member = creditor)
+  // so the SAME row reads correctly for every member. Re-word it from the current
+  // viewer's angle; `mine` marks the IOUs the viewer is actually part of (only
+  // those count toward their personal balance — a debt between two other members
+  // is shown neutrally). Rows predating the absolute columns fall back to their
+  // stored (creator-perspective) text.
+  const nameOf = new Map<string, string>(members.rows.map((m) => [m.id, m.name]));
+  const settleView = settle.rows.map((s) => {
+    const debtor = s.from_member as string | null;
+    const creditor = s.to_member as string | null;
+    if (debtor && creditor && nameOf.has(debtor) && nameOf.has(creditor)) {
+      const dn = nameOf.get(debtor)!, cn = nameOf.get(creditor)!;
+      const base = { id: s.id, detail: s.detail, amount: s.amount, settled: s.settled };
+      if (meMemberId && meMemberId === creditor)
+        return { ...base, dir: 'in', who: dn, member_id: debtor, txt: `${dn} owes you`, mine: true };
+      if (meMemberId && meMemberId === debtor)
+        return { ...base, dir: 'out', who: cn, member_id: creditor, txt: `You owe ${cn}`, mine: true };
+      return { ...base, dir: 'in', who: dn, member_id: debtor, txt: `${dn} owes ${cn}`, mine: false };
+    }
+    // Legacy row (no absolute parties): keep what was stored.
+    return { id: s.id, detail: s.detail, amount: s.amount, settled: s.settled, dir: s.dir, who: s.who, member_id: s.member_id, txt: s.txt, mine: true };
+  });
   return {
     household: { name: household.name, settings: household.settings || {} },
     members: members.rows.map((m) => ({
@@ -109,7 +131,7 @@ async function assembleState(householdId: string, meMemberId?: string) {
     meals: mealsRows.rows,
     householdInfo: infoRows.rows,
     savings: savings.rows.map((v) => ({ ...v, saved: num(v.saved), target: num(v.target) })),
-    settle: settle.rows,
+    settle: settleView,
     // time_label is derived live from created_at so items never freeze at "just now".
     notifications: notifications.rows.map((n) => ({ ...n, time_label: relativeTime(n.created_at) })),
     feed: feed.rows.map((f) => ({ ...f, time_label: relativeTime(f.created_at) })),
@@ -551,14 +573,22 @@ const settleSchema = z.object({
   note: z.string().max(120).optional(),
 });
 
-/** Validate the settle payload against the household; null if invalid. */
-async function settleFields(householdId: string, d: z.infer<typeof settleSchema>) {
+/** Validate the settle payload against the household; null if invalid.
+ * `actingId` is the member recording the IOU ("you" in their view) — combined
+ * with the picked counterparty + direction it yields the absolute debtor
+ * (from_member) / creditor (to_member) so the row reads right for everyone. */
+async function settleFields(householdId: string, actingId: string | undefined, d: z.infer<typeof settleSchema>) {
   const m = (await query(`SELECT id, name FROM members WHERE id=$1 AND household_id=$2`, [d.memberId, householdId])).rows[0];
   if (!m) return null;
   const amt = Math.abs(Number(d.amount) || 0);
   if (!amt) return null;
+  // in = the counterparty owes me → they are the debtor; out = I owe them.
+  const fromMember = d.dir === 'in' ? m.id : (actingId || m.id); // debtor
+  const toMember = d.dir === 'in' ? (actingId || m.id) : m.id;   // creditor
   return {
     memberId: m.id as string,
+    fromMember: fromMember as string,
+    toMember: toMember as string,
     txt: d.dir === 'in' ? `${m.name} owes you` : `You owe ${m.name}`,
     detail: (d.note || '').trim(),
     amount: 'R' + amt.toLocaleString('en-ZA'),
@@ -570,12 +600,12 @@ async function settleFields(householdId: string, d: z.infer<typeof settleSchema>
 dataRouter.post('/settle', async (req: AuthedRequest, res) => {
   const b = settleSchema.safeParse(req.body);
   if (!b.success) return res.status(400).json({ error: 'Pick a person and an amount' });
-  const f = await settleFields(hh(req), b.data);
+  const f = await settleFields(hh(req), req.memberId, b.data);
   if (!f) return res.status(400).json({ error: 'Pick a family member and an amount' });
   await query(
-    `INSERT INTO settle (household_id, txt, detail, amount, dir, who, member_id, settled, sort)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,false,${nextSort('settle')})`,
-    [hh(req), f.txt, f.detail, f.amount, f.dir, f.who, f.memberId]
+    `INSERT INTO settle (household_id, txt, detail, amount, dir, who, member_id, from_member, to_member, settled, sort)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,${nextSort('settle')})`,
+    [hh(req), f.txt, f.detail, f.amount, f.dir, f.who, f.memberId, f.fromMember, f.toMember]
   );
   const me = await meMember(hh(req), req.memberId);
   await addFeed(hh(req), me.name, me.color, me.initial, `updated who owes who`);
@@ -707,11 +737,11 @@ dataRouter.patch('/settle/:id', async (req: AuthedRequest, res) => {
   if (typeof req.body?.memberId === 'string') {
     const b = settleSchema.safeParse(req.body);
     if (!b.success) return res.status(400).json({ error: 'Pick a person and an amount' });
-    const f = await settleFields(hh(req), b.data);
+    const f = await settleFields(hh(req), req.memberId, b.data);
     if (!f) return res.status(400).json({ error: 'Pick a family member and an amount' });
     await query(
-      `UPDATE settle SET txt=$1, detail=$2, amount=$3, dir=$4, who=$5, member_id=$6 WHERE id=$7 AND household_id=$8`,
-      [f.txt, f.detail, f.amount, f.dir, f.who, f.memberId, req.params.id, hh(req)]
+      `UPDATE settle SET txt=$1, detail=$2, amount=$3, dir=$4, who=$5, member_id=$6, from_member=$7, to_member=$8 WHERE id=$9 AND household_id=$10`,
+      [f.txt, f.detail, f.amount, f.dir, f.who, f.memberId, f.fromMember, f.toMember, req.params.id, hh(req)]
     );
     return sendState(req, res);
   }

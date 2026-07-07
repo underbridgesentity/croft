@@ -323,6 +323,24 @@ CREATE TABLE IF NOT EXISTS settle (
 -- Who-owes-who rows keep the counterparty's member id so they can be edited.
 -- (Placed after the CREATE above so a fresh-DB init succeeds.)
 ALTER TABLE settle ADD COLUMN IF NOT EXISTS member_id UUID;
+-- Absolute debtor/creditor so an IOU reads correctly for EVERY member (the old
+-- txt/dir were baked from the creator's view → "you owe yourself" for others).
+ALTER TABLE settle ADD COLUMN IF NOT EXISTS from_member UUID; -- debtor (owes)
+ALTER TABLE settle ADD COLUMN IF NOT EXISTS to_member UUID;   -- creditor (owed)
+-- Backfill existing IOUs in two-member households, where the creator must be the
+-- member who isn't the stored counterparty. (In larger households the creator is
+-- unrecoverable; those keep the legacy display until edited/re-added.)
+UPDATE settle s SET
+  from_member = CASE WHEN s.dir = 'out' THEN o.other_id ELSE s.member_id END,
+  to_member   = CASE WHEN s.dir = 'out' THEN s.member_id ELSE o.other_id END
+FROM (
+  SELECT s2.id AS sid, m.id AS other_id
+    FROM settle s2
+    JOIN members m ON m.household_id = s2.household_id AND m.id <> s2.member_id
+   WHERE s2.from_member IS NULL AND s2.member_id IS NOT NULL
+     AND (SELECT COUNT(*) FROM members mm WHERE mm.household_id = s2.household_id) = 2
+) o
+WHERE s.id = o.sid AND s.from_member IS NULL;
 
 -- External calendars a household imports (Google/Apple secret iCal URLs). Their
 -- events live in the events table with source_id set, refreshed on a schedule.
