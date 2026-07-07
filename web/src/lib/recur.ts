@@ -77,10 +77,18 @@ export function nthWeekdayUTC(year: number, month: number, ord: number, wd: numb
 function stepInt(t: number, unit: Unit, n: number): number {
   const d = new Date(t);
   if (unit === 'day') d.setUTCDate(d.getUTCDate() + n);
-  else if (unit === 'week') d.setUTCDate(d.getUTCDate() + 7 * n);
-  else if (unit === 'month') d.setUTCMonth(d.getUTCMonth() + n);
-  else d.setUTCFullYear(d.getUTCFullYear() + n);
+  else d.setUTCDate(d.getUTCDate() + 7 * n); // week (month/year handled from the anchor, see below)
   return d.getTime();
+}
+const daysInMonth = (y: number, m: number) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+/** The k-th month/year occurrence measured FROM the anchor (not the previous
+ * occurrence), clamped to the target month's length. Computing from the anchor
+ * avoids drift: stepping Jan 31 by +1 month repeatedly with setUTCMonth would
+ * overflow to Mar 3 and then march forward on the 3rd forever. */
+function monthlyOcc(anchorY: number, anchorM: number, anchorDay: number, k: number, stepMonths: number): number {
+  const idx = anchorY * 12 + anchorM + k * stepMonths;
+  const y = Math.floor(idx / 12), m = idx % 12;
+  return Date.UTC(y, m, Math.min(anchorDay, daysInMonth(y, m)));
 }
 
 /** Occurrence ISO dates within [startIso, endIso] inclusive, never before the
@@ -95,9 +103,21 @@ export function occurrencesInRange(anchorIso: string | null | undefined, recur: 
   const out: string[] = [];
   let guard = 0;
   if (rule.kind === 'int') {
-    let t = anchor;
-    while (t < start && guard < 6000) { t = stepInt(t, rule.unit, rule.n); guard++; }
-    while (t <= end && guard < 6000) { if (t >= anchor) out.push(utcToIso(t)); t = stepInt(t, rule.unit, rule.n); guard++; }
+    if (rule.unit === 'day' || rule.unit === 'week') {
+      let t = anchor;
+      while (t < start && guard < 6000) { t = stepInt(t, rule.unit, rule.n); guard++; }
+      while (t <= end && guard < 6000) { if (t >= anchor) out.push(utcToIso(t)); t = stepInt(t, rule.unit, rule.n); guard++; }
+      return out;
+    }
+    // month/year: enumerate occurrences from the anchor, clamped per month.
+    const a = new Date(anchor);
+    const aY = a.getUTCFullYear(), aM = a.getUTCMonth(), aDay = a.getUTCDate();
+    const stepMonths = rule.unit === 'year' ? 12 * rule.n : rule.n;
+    for (let k = 0; guard < 6000; k++, guard++) {
+      const occ = monthlyOcc(aY, aM, aDay, k, stepMonths);
+      if (occ > end) break;
+      if (occ >= anchor && occ >= start) out.push(utcToIso(occ));
+    }
     return out;
   }
   // positional monthly

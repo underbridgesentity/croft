@@ -739,9 +739,18 @@ dataRouter.patch('/settle/:id', async (req: AuthedRequest, res) => {
     if (!b.success) return res.status(400).json({ error: 'Pick a person and an amount' });
     const f = await settleFields(hh(req), req.memberId, b.data);
     if (!f) return res.status(400).json({ error: 'Pick a family member and an amount' });
+    // If the editor isn't a party to this IOU (they're viewing a debt between two
+    // other members), keep the original debtor/creditor - otherwise recomputing
+    // from the editor's perspective would silently reassign the debt to them.
+    const existing = (await query(`SELECT from_member, to_member FROM settle WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)])).rows[0];
+    let fromMember = f.fromMember, toMember = f.toMember;
+    if (existing?.from_member && existing?.to_member &&
+        req.memberId !== existing.from_member && req.memberId !== existing.to_member) {
+      fromMember = existing.from_member; toMember = existing.to_member;
+    }
     await query(
-      `UPDATE settle SET txt=$1, detail=$2, amount=$3, dir=$4, who=$5, member_id=$6, from_member=$7, to_member=$8 WHERE id=$9 AND household_id=$10`,
-      [f.txt, f.detail, f.amount, f.dir, f.who, f.memberId, f.fromMember, f.toMember, req.params.id, hh(req)]
+      `UPDATE settle SET detail=$1, amount=$2, member_id=$3, from_member=$4, to_member=$5 WHERE id=$6 AND household_id=$7`,
+      [f.detail, f.amount, f.memberId, fromMember, toMember, req.params.id, hh(req)]
     );
     return sendState(req, res);
   }

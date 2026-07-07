@@ -41,6 +41,11 @@ export function nthWeekdayUTC(year: number, month: number, ord: number, wd: numb
 
 const toUTC = (iso: string) => { const [y, m, d] = iso.split('-').map(Number); return Date.UTC(y, m - 1, d); };
 const monthsBetween = (a: Date, b: Date) => (b.getUTCFullYear() - a.getUTCFullYear()) * 12 + (b.getUTCMonth() - a.getUTCMonth());
+const daysInMonth = (y: number, m: number) => new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+/** The day-of-month for a monthly/yearly occurrence in (y, m), anchored on
+ * `anchorDay` but clamped to that month's length so a 31st becomes the 28th in
+ * February and never rolls over into the next month. */
+const clampDay = (y: number, m: number, anchorDay: number) => Math.min(anchorDay, daysInMonth(y, m));
 
 /** The next occurrence ISO date strictly after `iso`. null = no repeat. */
 export function advanceIso(iso: string, recur: string): string | null {
@@ -48,12 +53,16 @@ export function advanceIso(iso: string, recur: string): string | null {
   const [Y, M, D] = iso.split('-').map(Number);
   const cur = Date.UTC(Y, M - 1, D);
   if (r.kind === 'int') {
-    const dt = new Date(cur);
-    if (r.unit === 'day') dt.setUTCDate(dt.getUTCDate() + r.n);
-    else if (r.unit === 'week') dt.setUTCDate(dt.getUTCDate() + 7 * r.n);
-    else if (r.unit === 'month') dt.setUTCMonth(dt.getUTCMonth() + r.n);
-    else dt.setUTCFullYear(dt.getUTCFullYear() + r.n);
-    return dt.toISOString().slice(0, 10);
+    if (r.unit === 'day' || r.unit === 'week') {
+      const dt = new Date(cur);
+      dt.setUTCDate(dt.getUTCDate() + (r.unit === 'week' ? 7 : 1) * r.n);
+      return dt.toISOString().slice(0, 10);
+    }
+    // month/year: step whole months and clamp, so Jan 31 + 1 month = Feb 28
+    // (not Mar 3), and Feb 29 + 1 year = Feb 28 in a non-leap year.
+    const idx = Y * 12 + (M - 1) + (r.unit === 'year' ? 12 * r.n : r.n);
+    const ty = Math.floor(idx / 12), tm = idx % 12;
+    return new Date(Date.UTC(ty, tm, clampDay(ty, tm, D))).toISOString().slice(0, 10);
   }
   if (r.kind === 'pos') {
     let y = Y, mo = M - 1, guard = 0;
@@ -74,8 +83,11 @@ export function occursOn(anchorIso: string, recur: string | null | undefined, ta
     if (r.unit === 'day') return days % r.n === 0;
     if (r.unit === 'week') return days % (7 * r.n) === 0;
     const a = new Date(anchor), t = new Date(target);
-    if (r.unit === 'month') return t.getUTCDate() === a.getUTCDate() && monthsBetween(a, t) % r.n === 0;
-    return t.getUTCMonth() === a.getUTCMonth() && t.getUTCDate() === a.getUTCDate() && (t.getUTCFullYear() - a.getUTCFullYear()) % r.n === 0;
+    const ty = t.getUTCFullYear(), tm = t.getUTCMonth();
+    // Day must match the anchor day clamped to the target month, so a 31st anchor
+    // does land on Feb 28 / Apr 30 rather than skipping those months entirely.
+    if (r.unit === 'month') return t.getUTCDate() === clampDay(ty, tm, a.getUTCDate()) && monthsBetween(a, t) % r.n === 0;
+    return tm === a.getUTCMonth() && t.getUTCDate() === clampDay(ty, tm, a.getUTCDate()) && (ty - a.getUTCFullYear()) % r.n === 0;
   }
   const t = new Date(target);
   return nthWeekdayUTC(t.getUTCFullYear(), t.getUTCMonth(), r.ord, r.wd) === target;

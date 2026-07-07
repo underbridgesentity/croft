@@ -5,7 +5,10 @@ import type { Nav } from '../Shell';
 import Icon from '../components/Icon';
 
 const grotesk = "'Geist', sans-serif";
-const parseAmt = (s: string) => Number(String(s).replace(/[^\d.]/g, '')) || 0;
+// Settle amounts are stored en-ZA formatted ("R1 500,50" - space thousands,
+// comma decimal). Strip the currency + grouping and treat the comma as the
+// decimal point, otherwise "R527,84" would parse as 52784 (100x too big).
+const parseAmt = (s: string) => Number(String(s).replace(/[^\d,]/g, '').replace(',', '.')) || 0;
 
 export default function Money({ nav }: { nav: Nav }) {
   const { state, run } = useStore();
