@@ -11,8 +11,9 @@ export interface Settle { id: string; txt: string; detail: string; amount: strin
 export interface Notification { id: string; illo: string; color: string; title: string; body: string; time_label: string; unread: boolean; }
 export interface FeedItem { id: string; who: string; color: string; initial: string; txt: string; time_label: string; }
 
+export type EmailCadence = 'off' | 'daily' | 'weekly' | 'both';
 export interface Settings {
-  push?: boolean; email?: boolean; appleCal?: boolean; googleCal?: boolean;
+  push?: boolean; email?: boolean; emailCadence?: EmailCadence; appleCal?: boolean; googleCal?: boolean;
   iphoneReminders?: boolean; faceId?: boolean; backup?: boolean;
 }
 

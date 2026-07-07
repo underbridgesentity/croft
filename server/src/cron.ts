@@ -22,6 +22,17 @@ function authorized(req: Request): boolean {
 const ul = (items: string[]) =>
   items.length ? `<ul style="padding-left:18px;margin:6px 0 0">${items.map((i) => `<li>${i}</li>`).join('')}</ul>` : '';
 const rand = (n: number) => (n === 1 ? '' : 's');
+const rands = (n: number) => 'R' + Math.round(Number(n || 0)).toLocaleString('en-ZA'); // whole rands for summaries
+
+// Email cadence lives in household settings. Legacy rows only had a boolean
+// `email` (true = daily digest, false = none); those map to 'both'/'off' so the
+// new weekly digest reaches existing active households too.
+type Cadence = 'off' | 'daily' | 'weekly' | 'both';
+function cadenceOf(settings: any): Cadence {
+  const c = settings?.emailCadence;
+  if (c === 'off' || c === 'daily' || c === 'weekly' || c === 'both') return c;
+  return settings?.email === false ? 'off' : 'both';
+}
 
 /** Daily run: mark overdue bills, push a morning reminder for what's happening
  * today, and email each household a summary (today's events, tomorrow's events,
@@ -40,10 +51,10 @@ cronRouter.get('/digest', async (req, res) => {
     )
   ).rows;
 
-  const byHh = new Map<string, { name: string; users: typeof users; emailOff: boolean }>();
+  const byHh = new Map<string, { name: string; users: typeof users; cadence: Cadence }>();
   for (const u of users) {
     if (!byHh.has(u.household_id)) {
-      byHh.set(u.household_id, { name: u.hh_name, users: [], emailOff: u.settings?.email === false });
+      byHh.set(u.household_id, { name: u.hh_name, users: [], cadence: cadenceOf(u.settings) });
     }
     byHh.get(u.household_id)!.users.push(u);
   }
@@ -109,9 +120,9 @@ cronRouter.get('/digest', async (req, res) => {
       } catch { /* ignore */ }
     }
 
-    // Email summary (respect the email-off setting).
+    // Email summary (only households whose cadence includes the daily digest).
     const hasContent = openTasks || billsDue.length || eventsToday.length || eventsTom.length || soonCount;
-    if (!info.emailOff && hasContent) {
+    if ((info.cadence === 'daily' || info.cadence === 'both') && hasContent) {
       const sections =
         (eventsToday.length ? `<p style="margin:16px 0 2px;font-weight:700">Today</p>${ul(eventsToday.map((e) => `${e.event_time ? e.event_time + ' - ' : ''}${e.title}`))}` : '') +
         (eventsTom.length ? `<p style="margin:16px 0 2px;font-weight:700">Tomorrow</p>${ul(eventsTom.map((e) => `${e.event_time ? e.event_time + ' - ' : ''}${e.title}`))}` : '') +
@@ -147,4 +158,112 @@ cronRouter.get('/digest', async (req, res) => {
   }
 
   res.json({ ok: true, households: byHh.size, emailsSent, pushesSent, calsSynced });
+});
+
+/** Weekly run (Sunday evening): a calm "week ahead" overview - the next 7 days
+ * of events, bills due this week + overdue + still-unpaid, a money snapshot
+ * (budget, savings, who-owes-who) and open to-dos. Purely read-only: unlike the
+ * daily digest it never marks bills overdue, writes notifications, or pushes -
+ * it only emails households whose cadence includes the weekly summary. */
+cronRouter.get('/weekly', async (req, res) => {
+  if (!authorized(req)) return res.status(401).json({ error: 'unauthorized' });
+
+  const today = sastToday();
+  const weekEnd = sastPlus(6);
+  const weekDates = Array.from({ length: 7 }, (_, i) => sastPlus(i));
+  const fmtDay = (iso: string) => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+
+  const users = (
+    await query<{ id: string; email: string; name: string; household_id: string; hh_name: string; settings: any }>(
+      `SELECT u.id, u.email, u.name, u.household_id, h.name AS hh_name, h.settings
+         FROM users u JOIN households h ON h.id = u.household_id
+        WHERE u.email IS NOT NULL AND u.household_id IS NOT NULL`
+    )
+  ).rows;
+
+  const byHh = new Map<string, { name: string; users: typeof users; cadence: Cadence }>();
+  for (const u of users) {
+    if (!byHh.has(u.household_id)) byHh.set(u.household_id, { name: u.hh_name, users: [], cadence: cadenceOf(u.settings) });
+    byHh.get(u.household_id)!.users.push(u);
+  }
+
+  let emailsSent = 0;
+  for (const [hhId, info] of byHh) {
+    if (info.cadence !== 'weekly' && info.cadence !== 'both') continue;
+
+    // Events across the next 7 days (recurrence-aware, so repeats show).
+    const dated = (await query<{ title: string; event_time: string; event_date: string; recur: string }>(
+      `SELECT title, event_time, to_char(event_date,'YYYY-MM-DD') AS event_date, recur
+         FROM events WHERE household_id=$1 AND event_date IS NOT NULL`, [hhId]
+    )).rows;
+    const weekEvents: { date: string; title: string; time: string }[] = [];
+    for (const d of weekDates) for (const e of dated) if (occursOn(e.event_date, e.recur, d)) weekEvents.push({ date: d, title: e.title, time: e.event_time });
+    weekEvents.sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
+
+    // Bills: overdue + due within the week, plus still-unpaid ones with no date
+    // (which the daily digest never surfaces, so they'd otherwise be forgotten).
+    const billsWeek = (await query<{ name: string; amount: number; due: string; status: string }>(
+      `SELECT name, amount, to_char(due_date,'YYYY-MM-DD') AS due, status FROM bills
+        WHERE household_id=$1 AND status IN ('unpaid','overdue') AND due_date IS NOT NULL AND due_date <= $2 ORDER BY due_date`, [hhId, weekEnd]
+    )).rows;
+    const billsNoDate = (await query<{ name: string; amount: number }>(
+      `SELECT name, amount FROM bills WHERE household_id=$1 AND status='unpaid' AND due_date IS NULL ORDER BY sort`, [hhId]
+    )).rows;
+
+    // Money snapshot: this SAST month's budget, savings, and who-owes-who.
+    const month = today.slice(0, 7);
+    const budget = (await query<{ name: string; budget_limit: number; spent: number }>(
+      `SELECT b.name, b.budget_limit,
+              COALESCE((SELECT SUM(s.amount) FROM budget_spends s WHERE s.budget_id=b.id
+                         AND to_char(s.created_at + interval '2 hours','YYYY-MM')=$2),0) AS spent
+         FROM budget b WHERE b.household_id=$1 ORDER BY b.sort`, [hhId, month]
+    )).rows;
+    const savings = (await query<{ name: string; saved: number; target: number }>(
+      `SELECT name, saved, target FROM savings WHERE household_id=$1 ORDER BY sort`, [hhId]
+    )).rows;
+    const members = (await query<{ id: string; name: string }>(`SELECT id, name FROM members WHERE household_id=$1`, [hhId])).rows;
+    const nameOf = new Map(members.map((m) => [m.id, m.name]));
+    const settle = (await query<{ amount: string; from_member: string; to_member: string }>(
+      `SELECT amount, from_member, to_member FROM settle WHERE household_id=$1 AND settled=false`, [hhId]
+    )).rows.filter((s) => s.from_member && s.to_member && nameOf.has(s.from_member) && nameOf.has(s.to_member));
+    const openCount = Number((await query(`SELECT COUNT(*) AS c FROM tasks WHERE household_id=$1 AND done=false`, [hhId])).rows[0].c);
+    const openTasks = (await query<{ title: string }>(`SELECT title FROM tasks WHERE household_id=$1 AND done=false ORDER BY sort, created_at LIMIT 8`, [hhId])).rows;
+
+    const spentTotal = budget.reduce((a, b) => a + Number(b.spent), 0);
+    const limitTotal = budget.reduce((a, b) => a + Number(b.budget_limit), 0);
+    const hasContent = weekEvents.length || billsWeek.length || billsNoDate.length || savings.length || settle.length || openCount || spentTotal > 0;
+    if (!hasContent) continue;
+
+    const overBudget = budget.filter((b) => Number(b.budget_limit) > 0 && Number(b.spent) > Number(b.budget_limit));
+    const heading = (t: string) => `<p style="margin:18px 0 2px;font-weight:700">${t}</p>`;
+    const sections =
+      (weekEvents.length ? heading('This week') + ul(weekEvents.map((e) => `${fmtDay(e.date)}${e.time ? ' · ' + e.time : ''} — ${e.title.trim()}`)) : '') +
+      (billsWeek.length || billsNoDate.length
+        ? heading('Bills') + ul([
+            ...billsWeek.map((b) => `${b.name.trim()} — ${rands(b.amount)} · ${b.due < today ? 'overdue' : 'due ' + fmtDay(b.due)}`),
+            ...billsNoDate.map((b) => `${b.name.trim()} — ${rands(b.amount)} · unpaid (no due date set)`),
+          ])
+        : '') +
+      (spentTotal > 0 || limitTotal > 0
+        ? heading('Budget this month') +
+          `<div style="font-size:15px">Spent <strong>${rands(spentTotal)}</strong>${limitTotal > 0 ? ` of ${rands(limitTotal)} budgeted` : ''}.</div>` +
+          (overBudget.length ? ul(overBudget.map((b) => `${b.name.trim()} is over budget — ${rands(b.spent)} / ${rands(b.budget_limit)}`)) : '')
+        : '') +
+      (settle.length ? heading('Who owes who') + ul(settle.map((s) => `${nameOf.get(s.from_member)} owes ${nameOf.get(s.to_member)} ${s.amount}`)) : '') +
+      (savings.length ? heading('Savings goals') + ul(savings.map((v) => `${v.name.trim()} — ${rands(v.saved)} / ${rands(v.target)}`)) : '') +
+      (openCount ? heading(`To-dos (${openCount} open)`) + ul(openTasks.map((t) => t.title.trim())) : '');
+
+    const head = `Here's the week ahead in <strong>${info.name}</strong>.`;
+    for (const u of info.users) {
+      const ok = await sendEmail({
+        to: u.email,
+        subject: `The week ahead in ${info.name}`,
+        html: emailLayout(`Your week ahead${u.name ? `, ${u.name.split(' ')[0]}` : ''}`, head + sections, { label: 'Open Croft', url: APP_URL }),
+        text: `The week ahead in ${info.name}: ${weekEvents.length} event${rand(weekEvents.length)}, ${billsWeek.length + billsNoDate.length} bill${rand(billsWeek.length + billsNoDate.length)}, ${openCount} open to-do${rand(openCount)}. ${APP_URL}`,
+      });
+      if (ok) emailsSent++;
+    }
+  }
+
+  res.json({ ok: true, households: byHh.size, emailsSent });
 });

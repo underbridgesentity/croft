@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { enablePush, disablePush } from '../lib/push';
 import { nativeShare } from '../lib/native';
 import type { Nav } from '../Shell';
-import type { Settings } from '../lib/types';
+import type { Settings, EmailCadence } from '../lib/types';
 import Icon from '../components/Icon';
 import { Avatar, YouBadge } from './Onboarding';
 
@@ -183,7 +183,6 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
   };
 
   const onOff = (key: keyof Settings) => (s[key] ? 'On' : 'Off');
-  const toggle = (key: keyof Settings, msg?: string) => run(api.setSetting(key, !s[key]), msg);
 
   const togglePush = async () => {
     if (!s.push) {
@@ -198,8 +197,20 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
 
   const notifRows = [
     { key: 'push' as const, illo: 'bell', label: 'Push notifications', detail: onOff('push'), good: !!s.push },
-    { key: 'email' as const, illo: 'mail', label: 'Email reminders', detail: onOff('email'), good: !!s.email },
   ];
+
+  // Email cadence: what summaries land in your inbox. Legacy households only had
+  // an on/off `email` flag; mirror the server's mapping (on -> both, off -> off).
+  const CADENCES = [
+    { key: 'off' as const, label: 'Off', detail: 'No summary emails' },
+    { key: 'daily' as const, label: 'Daily', detail: 'A short digest each morning when there’s something on' },
+    { key: 'weekly' as const, label: 'Weekly', detail: 'A “week ahead” overview every Sunday evening' },
+    { key: 'both' as const, label: 'Both', detail: 'Daily digest and the weekly overview' },
+  ];
+  const cadence: EmailCadence = CADENCES.some((c) => c.key === s.emailCadence)
+    ? (s.emailCadence as EmailCadence)
+    : (s.email === false ? 'off' : 'both');
+  const cadenceDetail = CADENCES.find((c) => c.key === cadence)!.detail;
 
   return (
     <div>
@@ -297,9 +308,31 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
       <div style={{ fontSize: 12.5, color: '#6F6C67', margin: '0 2px 12px' }}>How Croft reaches you and the family</div>
       <div style={{ background: '#fff', borderRadius: 22, padding: '4px 16px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 26 }}>
         {notifRows.map((r) => (
-          <SettingRow key={r.key} illo={r.illo} iconColor={(r as any).iconColor} label={r.label} detail={r.detail} good={r.good} onClick={() => (r.key === 'push' ? togglePush() : toggle(r.key, 'Updated'))} />
+          <SettingRow key={r.key} illo={r.illo} iconColor={(r as any).iconColor} label={r.label} detail={r.detail} good={r.good} onClick={() => togglePush()} />
         ))}
-        <div style={{ height: 4 }} />
+        {/* Email summaries: a segmented cadence picker rather than a plain toggle. */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '12px 0 10px' }}>
+          <Icon name="mail" color="#3B5BFF" size={38} radius={11} glyph={20} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 14.5 }}>Email summaries</div>
+            <div style={{ fontSize: 12, color: '#6F6C67', marginTop: 2 }}>{cadenceDetail}</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 6, paddingBottom: 12 }}>
+          {CADENCES.map((c) => {
+            const on = cadence === c.key;
+            return (
+              <button
+                key={c.key}
+                onClick={() => run(api.setSetting('emailCadence', c.key), `Email summaries: ${c.label.toLowerCase()}`)}
+                aria-pressed={on}
+                style={{ flex: 1, padding: '9px 0', borderRadius: 11, border: on ? '1.5px solid #3B5BFF' : '1.5px solid #E8E3DB', background: on ? '#EEF1FF' : '#fff', color: on ? '#3B5BFF' : '#6B6459', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
+              >
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* calendar subscription */}
