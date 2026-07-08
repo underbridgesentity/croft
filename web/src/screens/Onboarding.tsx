@@ -275,6 +275,13 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
               <button onClick={() => (window.location.href = api.googleUrl())} style={oauthBtn}><GoogleMark />Continue with Google</button>
             </>
           )}
+          {/* Google sign-in isn't offered in the app, so give Google users a way
+              in: set a password once, then sign in by email. */}
+          {isNative() && (
+            <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12.5, color: '#7D776E', lineHeight: 1.5 }}>
+              Signed up with Google? <Link onClick={() => { setErr(''); setForgotSent(false); setStep('forgot'); }}>Set a password</Link> to sign in here.
+            </div>
+          )}
           <div style={{ textAlign: 'center', marginTop: 'auto', paddingTop: 22, fontSize: 14, color: '#6F6C67' }}>
             New here? <Link onClick={() => setStep('signup')}>Create account</Link>
           </div>

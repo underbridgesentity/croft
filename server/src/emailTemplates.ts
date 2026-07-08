@@ -47,15 +47,21 @@ export function memberJoinedEmail(opts: { joinerName: string; householdName: str
 }
 
 /** Password reset request. */
-export function passwordResetEmail(opts: { name?: string; resetUrl: string }): Email {
+// `setup` is true for accounts that have no password yet (they signed up with
+// Google) and are setting one so they can sign in by email - e.g. in the iOS
+// app, where Google sign-in isn't offered.
+export function passwordResetEmail(opts: { name?: string; resetUrl: string; setup?: boolean }): Email {
+  const body = opts.setup
+    ? `Hi ${firstName(opts.name)},<br><br>Here's a link to set a password for your Croft account, so you can sign in with your email and password - including in the app. This link expires in 1 hour. If you didn't ask for this, you can safely ignore this email.`
+    : `Hi ${firstName(opts.name)},<br><br>We got a request to reset your Croft password. This link expires in 1 hour. If you didn't ask for this, you can safely ignore this email - your password won't change.`;
   return {
-    subject: 'Reset your Croft password',
+    subject: opts.setup ? 'Set your Croft password' : 'Reset your Croft password',
     html: emailLayout(
-      'Reset your password',
-      `Hi ${firstName(opts.name)},<br><br>We got a request to reset your Croft password. This link expires in 1 hour. If you didn't ask for this, you can safely ignore this email - your password won't change.`,
-      { label: 'Reset password', url: opts.resetUrl }
+      opts.setup ? 'Set your password' : 'Reset your password',
+      body,
+      { label: opts.setup ? 'Set password' : 'Reset password', url: opts.resetUrl }
     ),
-    text: `Reset your Croft password (expires in 1 hour): ${opts.resetUrl}`,
+    text: `${opts.setup ? 'Set' : 'Reset'} your Croft password (expires in 1 hour): ${opts.resetUrl}`,
   };
 }
 

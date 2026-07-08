@@ -338,15 +338,18 @@ authRouter.post('/forgot', rateLimit('forgot', 10, 900), async (req, res) => {
   const email = String(req.body?.email || '').toLowerCase().trim();
   // Always respond ok - never reveal whether an account exists.
   if (email) {
+    // Also send to Google-only accounts (no password_hash yet): the link lets
+    // them SET a password so they can sign in by email - the only option in the
+    // iOS app, where Google sign-in isn't offered.
     const u = (await query(`SELECT id, name, password_hash FROM users WHERE email=$1`, [email])).rows[0];
-    if (u && u.password_hash) {
+    if (u) {
       const token = crypto.randomBytes(32).toString('base64url');
       await query(
         `INSERT INTO password_resets (token, user_id, expires_at) VALUES ($1,$2, now() + interval '1 hour')`,
         [token, u.id]
       );
       const link = `${APP_URL}/reset/${token}`;
-      await sendEmail({ to: email, ...passwordResetEmail({ name: u.name, resetUrl: link }) });
+      await sendEmail({ to: email, ...passwordResetEmail({ name: u.name, resetUrl: link, setup: !u.password_hash }) });
     }
   }
   res.json({ ok: true });
