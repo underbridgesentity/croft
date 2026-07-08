@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../lib/api';
 import { enablePush } from '../lib/push';
+import { isNative } from '../lib/native';
 import Art from '../components/Art';
 
 type Step = 'welcome' | 'intro' | 'signup' | 'login' | 'forgot' | 'family' | 'notify';
@@ -203,10 +204,16 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
           <div style={{ fontSize: 12, color: '#7D776E', textAlign: 'center', marginBottom: 16, lineHeight: 1.5 }}>
             By creating an account, you agree to our <a href="/terms" style={{ color: '#6F6C67', fontWeight: 700 }}>Terms</a> and <a href="/privacy" style={{ color: '#6F6C67', fontWeight: 700 }}>Privacy Policy</a>.
           </div>
-          <Divider />
-          <button onClick={() => (window.location.href = api.googleUrl())} style={oauthBtn}>
-            <GoogleMark />Continue with Google
-          </button>
+          {/* Third-party login is hidden in the native app: it would redirect out
+              to the system browser (App Review 4.0/4.8). Web keeps Google. */}
+          {!isNative() && (
+            <>
+              <Divider />
+              <button onClick={() => (window.location.href = api.googleUrl())} style={oauthBtn}>
+                <GoogleMark />Continue with Google
+              </button>
+            </>
+          )}
           <div style={{ textAlign: 'center', marginTop: 'auto', paddingTop: 22, fontSize: 14, color: '#6F6C67' }}>
             Already have an account? <Link onClick={() => setStep('login')}>Log in</Link>
           </div>
@@ -262,8 +269,12 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
           <button style={{ ...primaryBtn, marginTop: 12, opacity: busy ? 0.7 : 1 }} disabled={busy} onClick={doLogin}>
             {busy ? 'Logging in…' : 'Log in'}
           </button>
-          <Divider />
-          <button onClick={() => (window.location.href = api.googleUrl())} style={oauthBtn}><GoogleMark />Continue with Google</button>
+          {!isNative() && (
+            <>
+              <Divider />
+              <button onClick={() => (window.location.href = api.googleUrl())} style={oauthBtn}><GoogleMark />Continue with Google</button>
+            </>
+          )}
           <div style={{ textAlign: 'center', marginTop: 'auto', paddingTop: 22, fontSize: 14, color: '#6F6C67' }}>
             New here? <Link onClick={() => setStep('signup')}>Create account</Link>
           </div>

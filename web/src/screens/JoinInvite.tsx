@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../lib/api';
+import { isNative } from '../lib/native';
 import { EyeBtn } from './Onboarding';
 
 const grotesk = "'Geist', sans-serif";
@@ -123,14 +124,19 @@ export default function JoinInvite({ token, onJoined, onCancel }: { token: strin
             <button style={{ ...primaryBtn, opacity: busy ? 0.7 : 1 }} disabled={busy} onClick={join}>
               {busy ? 'Joining…' : `Join ${info.household_name}`}
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '18px 0' }}>
-              <div style={{ flex: 1, height: 1, background: '#E8E3DB' }} />
-              <span style={{ fontSize: 12.5, color: '#7D776E', fontWeight: 600 }}>or</span>
-              <div style={{ flex: 1, height: 1, background: '#E8E3DB' }} />
-            </div>
-            <button onClick={() => (window.location.href = api.googleInviteUrl(token))} style={oauthBtn}>
-              <GoogleMark />Continue with Google
-            </button>
+            {/* Native app omits Google to avoid the external-browser OAuth redirect. */}
+            {!isNative() && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '18px 0' }}>
+                  <div style={{ flex: 1, height: 1, background: '#E8E3DB' }} />
+                  <span style={{ fontSize: 12.5, color: '#7D776E', fontWeight: 600 }}>or</span>
+                  <div style={{ flex: 1, height: 1, background: '#E8E3DB' }} />
+                </div>
+                <button onClick={() => (window.location.href = api.googleInviteUrl(token))} style={oauthBtn}>
+                  <GoogleMark />Continue with Google
+                </button>
+              </>
+            )}
             <div style={{ textAlign: 'center', marginTop: 22, fontSize: 14, color: '#6F6C67' }}>
               Not you? <button onClick={onCancel} style={{ border: 'none', background: 'none', color: '#3B5BFF', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Go to sign in</button>
             </div>
