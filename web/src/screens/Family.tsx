@@ -388,7 +388,6 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
       <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 12px' }}>Account & security</div>
       <div style={{ background: '#fff', borderRadius: 22, padding: '4px 16px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 12 }}>
         <SettingRow illo="lock" label="Change password" detail="" onClick={() => setPwOpen((v) => !v)} />
-        <SettingRow illo="cloud" label="Auto-backup & sync" detail="On" good onClick={() => flash('Your data backs up and syncs automatically')} />
         <SettingRow illo="lock" label="App lock (passcode)" detail={locked ? 'On' : 'Off'} good={locked} onClick={() => { setLockOpen((v) => !v); setPinA(''); setPinB(''); }} />
         <div style={{ height: 4 }} />
       </div>

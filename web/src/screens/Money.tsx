@@ -5,6 +5,21 @@ import type { Nav } from '../Shell';
 import Icon from '../components/Icon';
 
 const grotesk = "'Geist', sans-serif";
+
+/** Two-tap trash: first tap arms ("Sure?"), second deletes. */
+function SureTrash({ label, onConfirm }: { label: string; onConfirm: () => void }) {
+  const [armed, setArmed] = useState(false);
+  if (armed) {
+    return (
+      <button onClick={() => { setArmed(false); onConfirm(); }} onBlur={() => setArmed(false)} autoFocus aria-label={`Confirm remove ${label}`} style={{ flexShrink: 0, border: 'none', background: '#FF4D5E', color: '#fff', fontWeight: 700, fontSize: 11, padding: '6px 10px', borderRadius: 100, cursor: 'pointer' }}>Sure?</button>
+    );
+  }
+  return (
+    <button onClick={() => setArmed(true)} aria-label={`Remove ${label}`} style={{ flexShrink: 0, border: 'none', background: 'none', cursor: 'pointer', padding: 4 }}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5h4v2M9 7l.7 12h8.6L19 7" stroke="#C9C3B9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    </button>
+  );
+}
 // Settle amounts are stored en-ZA formatted ("R1 500,50" - space thousands,
 // comma decimal). Strip the currency + grouping and treat the comma as the
 // decimal point, otherwise "R527,84" would parse as 52784 (100x too big).
@@ -105,7 +120,7 @@ export default function Money({ nav }: { nav: Nav }) {
         <div style={{ background: '#fff', borderRadius: 22, padding: '18px 16px 8px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 12 }}>
           {state.budget.map((c) => {
             const spent = (state.budgetMonths || []).find((m) => m.budget_id === c.id && m.month === monthKey)?.total || 0;
-            const over = spent > c.limit;
+            const over = c.limit > 0 && spent > c.limit;
             const barColor = over ? '#FF4D5E' : c.color;
             const w = Math.min(100, c.limit ? Math.round((spent / c.limit) * 100) : 0);
             const canEdit = monthOffset === 0;
@@ -187,10 +202,8 @@ export default function Money({ nav }: { nav: Nav }) {
                   <div style={{ fontWeight: 600, fontSize: 13.5, color: '#6B6459' }}>{s.txt}</div>
                   <div style={{ fontSize: 12, color: '#8A847B', marginTop: 2 }}>{s.detail ? s.detail + ' · ' : ''}<b>{s.amount}</b></div>
                 </div>
-                <span style={{ flexShrink: 0, fontSize: 10.5, fontWeight: 700, color: '#16C098', background: 'rgba(22,192,152,0.12)', padding: '3px 10px', borderRadius: 100 }}>Settled</span>
-                <button onClick={() => run(api.delSettle(s.id), 'Removed')} aria-label={`Remove ${s.txt}`} style={{ flexShrink: 0, border: 'none', background: 'none', cursor: 'pointer', padding: 4 }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5h4v2M9 7l.7 12h8.6L19 7" stroke="#C9C3B9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                </button>
+                <button onClick={() => run(api.reopenSettle(s.id), 'Reopened')} aria-label={`Reopen ${s.txt}`} style={{ flexShrink: 0, border: 'none', fontSize: 10.5, fontWeight: 700, color: '#3B5BFF', background: 'rgba(59,91,255,0.1)', padding: '3px 10px', borderRadius: 100, cursor: 'pointer' }}>Reopen</button>
+                <SureTrash label={s.txt} onConfirm={() => run(api.delSettle(s.id), 'Removed')} />
               </div>
             ))}
           </div>
@@ -338,7 +351,7 @@ function BillRow({ b, nav, run, muted }: { b: import('../lib/types').Bill; nav: 
         {b.status !== 'paid' ? (
           <button onClick={() => run(api.payBill(b.id), 'Marked as paid')} style={{ border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 11, padding: '5px 12px', borderRadius: 100, cursor: 'pointer' }}>Mark paid</button>
         ) : (
-          <span style={{ fontSize: 10.5, fontWeight: 700, color: '#16C098', background: 'rgba(22,192,152,0.12)', padding: '3px 10px', borderRadius: 100 }}>Paid</span>
+          <button onClick={() => run(api.unpayBill(b.id), 'Marked as unpaid')} title="Tap to mark unpaid" aria-label={`Mark ${b.name} as unpaid`} style={{ border: 'none', fontSize: 10.5, fontWeight: 700, color: '#16C098', background: 'rgba(22,192,152,0.12)', padding: '3px 10px', borderRadius: 100, cursor: 'pointer' }}>Paid ↺</button>
         )}
       </div>
     </div>

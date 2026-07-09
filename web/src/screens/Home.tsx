@@ -21,20 +21,24 @@ export default function Home({ nav }: { nav: Nav }) {
   const openTasks = state.tasks.filter((t) => !t.done);
   const todayEvents = state.events.filter((e) => e.day === 'today');
   const todayTasks = state.tasks.filter((t) => t.due_key === 'today' && !t.done);
-  const unpaid = state.bills.filter((b) => b.status !== 'paid');
+  const thisMonth = new Date().toLocaleDateString('en-CA').slice(0, 7);
+  const unpaid = state.bills.filter(
+    (b) => b.status !== 'paid' && (!b.due_date || b.due_date.slice(0, 7) <= thisMonth)
+  );
 
   const todayList = [
     ...todayEvents.map((e) => ({
       key: e.id, illo: e.illo, color: e.color, title: e.title, meta: e.loc, time: `${e.time} ${e.ampm}`.trim(), tappable: false as const,
-      onEdit: () => nav.openForm('event', { editId: e.id, title: e.title, date: e.event_date || '', time: e.event_time || '', who: e.assignee_ids || [] }),
+      onEdit: () => nav.openForm('event', { editId: e.id, title: e.title, date: e.event_date || '', time: e.event_time || '', who: e.assignee_ids || [], recur: e.recur, remindDays: e.remind_days }),
     })),
     ...todayTasks.map((t) => ({
-      key: t.id, illo: t.type === 'Reminder' ? 'bell' : 'todo', color: t.from_color, title: t.title, meta: `From ${t.from_name} · ${t.type}`, tappable: true as const, id: t.id,
-      onEdit: () => nav.openForm('task', { editId: t.id, title: t.title, type: t.type, assignees: t.assignee_ids || [] }),
+      key: t.id, illo: t.type === 'Reminder' ? 'bell' : 'todo', color: t.from_color, title: t.title, meta: `${t.type}${t.due_time ? ' · ' + t.due_time : ''} · From ${t.from_name}`, tappable: true as const, id: t.id,
+      onEdit: () => nav.openForm('task', { editId: t.id, title: t.title, type: t.type, assignees: t.assignee_ids || [], recur: t.recur, dueDate: t.due_date || '', dueTime: t.due_time || '' }),
     })),
   ];
 
-  const goal = state.goals.find((g) => g.kind === 'Family') || state.goals[0];
+  const goal = state.goals.find((g) => g.kind === 'Family');
+  const editGoal = () => goal && nav.openForm('goal', { editId: goal.id, title: goal.title, kind: 'family', target: goal.target ? String(goal.target) : '', amount: '' });
 
   return (
     <div className="stagger">
@@ -55,7 +59,12 @@ export default function Home({ nav }: { nav: Nav }) {
       {/* Today */}
       <Row title="Today" action="Calendar" onAction={() => nav.goTab('calendar')} />
       <div style={{ background: '#fff', borderRadius: 22, padding: '6px 14px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 26 }}>
-        {todayList.length === 0 && <div style={{ padding: '18px 2px', color: '#6F6C67', fontSize: 13.5 }}>Nothing scheduled today - enjoy the calm.</div>}
+        {todayList.length === 0 && (
+          <div style={{ padding: '14px 2px 12px', color: '#6F6C67', fontSize: 13.5 }}>
+            Nothing scheduled today - enjoy the calm.
+            <button onClick={nav.openAdd} style={{ display: 'block', marginTop: 8, border: 'none', background: 'none', color: '#3B5BFF', fontWeight: 700, fontSize: 13, cursor: 'pointer', padding: 0 }}>+ Add something</button>
+          </div>
+        )}
         {todayList.map((it) => (
           <div key={it.key} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '12px 2px', borderBottom: '1px solid #EFEBE3' }}>
             <Icon name={it.illo} color={it.color} size={42} radius={13} glyph={22} />
@@ -83,6 +92,9 @@ export default function Home({ nav }: { nav: Nav }) {
       {/* Family activity */}
       <Row title="Family activity" action="See all" onAction={() => nav.openFeed()} />
       <div style={{ background: '#fff', borderRadius: 22, padding: '6px 16px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 26 }}>
+        {state.feed.length === 0 && (
+          <div style={{ padding: '16px 2px', color: '#6F6C67', fontSize: 13.5 }}>Quiet so far - as the family adds and completes things, it shows up here.</div>
+        )}
         {state.feed.slice(0, 6).map((f) => (
           <div key={f.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderBottom: '1px solid #EFEBE3' }}>
             <div style={{ flexShrink: 0, width: 32, height: 32, borderRadius: '50%', background: f.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: grotesk, fontWeight: 700, fontSize: 13 }}>{f.initial}</div>
@@ -97,7 +109,15 @@ export default function Home({ nav }: { nav: Nav }) {
       {goal && (
         <>
           <Row title="A goal you're chasing" action="View all" onAction={() => { nav.goTab('tasks'); nav.goPlan('goals'); }} />
-          <div style={{ background: '#13182B', borderRadius: 24, padding: 20, boxShadow: '0 10px 26px rgba(19,24,43,0.22)', color: '#fff', position: 'relative', overflow: 'hidden' }}>
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label={`Edit goal ${goal.title}`}
+            onClick={editGoal}
+            onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); editGoal(); } }}
+            className="tap"
+            style={{ background: '#13182B', borderRadius: 24, padding: 20, boxShadow: '0 10px 26px rgba(19,24,43,0.22)', color: '#fff', position: 'relative', overflow: 'hidden', cursor: 'pointer' }}
+          >
             <div style={{ position: 'absolute', top: -30, right: -30, width: 120, height: 120, borderRadius: '50%', background: 'rgba(198,242,78,0.16)' }} />
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
               <div style={{ fontSize: 11.5, fontWeight: 700, color: '#C6F24E', textTransform: 'uppercase', letterSpacing: '.08em' }}>{goal.kind} · {goal.tag}</div>

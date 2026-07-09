@@ -16,6 +16,7 @@ export interface FormData {
   title?: string; name?: string; amount?: string; date?: string;
   time?: string; due?: string; target?: string; kind?: string; type?: string;
   limit?: string; spent?: string; saved?: string; note?: string; dir?: string; recur?: string; remindDays?: number;
+  dueDate?: string; dueTime?: string;
   // Multi-select member assignment (member ids).
   who?: string[]; payer?: string[]; assignees?: string[];
   // Present when the form edits an existing item instead of creating one.
@@ -149,6 +150,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
               background: '#F5F4F1',
               borderRadius: isDesktop ? 24 : '28px 28px 0 0',
               padding: isDesktop ? '20px 22px 26px' : '10px 18px calc(30px + env(safe-area-inset-bottom))',
+              overscrollBehavior: 'contain',
               width: isDesktop ? '100%' : 'auto',
               maxWidth: isDesktop ? 460 : 'none',
               maxHeight: isDesktop ? '84vh' : '86%',
@@ -166,7 +168,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         </div>
       )}
       {toast && (
-        <div role="status" aria-live="polite" className="toast-in" style={{ position: 'absolute', bottom: isDesktop ? 28 : 110, left: '50%', zIndex: 60, background: '#181922', color: '#fff', padding: '12px 20px', borderRadius: 100, fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}>
+        <div role="status" aria-live="polite" className="toast-in" style={{ position: 'absolute', bottom: isDesktop ? 28 : 'calc(164px + env(safe-area-inset-bottom))', left: '50%', zIndex: 60, background: '#181922', color: '#fff', padding: '12px 20px', borderRadius: 100, fontSize: 13.5, fontWeight: 600, whiteSpace: 'nowrap', boxShadow: '0 8px 24px rgba(0,0,0,0.25)' }}>
           {toast}
         </div>
       )}
@@ -236,7 +238,6 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3.5 11L12 4l8.5 7v8.2a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1z" stroke="#3B5BFF" strokeWidth="1.9" strokeLinejoin="round" /><path d="M9.5 20.5v-6h5v6" stroke="#3B5BFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </span>
           <span style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 14.5, letterSpacing: '-0.01em' }}>{state.household.name}</span>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ opacity: 0.35 }}><path d="M6 9l6 6 6-6" stroke="#181922" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </button>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <button onClick={nav.openNotifs} aria-label={`Notifications${hasUnread ? ' (unread)' : ''}`} className="glass" style={{ position: 'relative', width: 42, height: 42, borderRadius: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -249,7 +250,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         </div>
       </div>
 
-      <div className="croft-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: '4px 18px calc(120px + env(safe-area-inset-bottom))' }}>
+      <div className="croft-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'contain', padding: '4px 18px calc(172px + env(safe-area-inset-bottom))' }}>
         {screen}
       </div>
 

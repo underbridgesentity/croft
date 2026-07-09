@@ -117,9 +117,9 @@ export const api = {
     req<AppState>(`/events/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   delEvent: (id: string) => req<AppState>(`/events/${id}`, { method: 'DELETE' }),
 
-  addTask: (d: { title: string; type?: string; assignees?: string[]; recur?: string }) =>
+  addTask: (d: { title: string; type?: string; assignees?: string[]; recur?: string; dueDate?: string; dueTime?: string }) =>
     req<AppState>('/tasks', { method: 'POST', body: JSON.stringify(d) }),
-  updTask: (id: string, d: { title: string; type?: string; assignees?: string[]; recur?: string }) =>
+  updTask: (id: string, d: { title: string; type?: string; assignees?: string[]; recur?: string; dueDate?: string; dueTime?: string }) =>
     req<AppState>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   toggleTask: (id: string, done: boolean) =>
     req<AppState>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ done }) }),
@@ -128,7 +128,8 @@ export const api = {
   addShop: (name: string) => req<AppState>('/shopping', { method: 'POST', body: JSON.stringify({ name }) }),
   renameShop: (id: string, name: string) =>
     req<AppState>(`/shopping/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
-  toggleShop: (id: string) => req<AppState>(`/shopping/${id}`, { method: 'PATCH', body: '{}' }),
+  toggleShop: (id: string, got: boolean) => req<AppState>(`/shopping/${id}`, { method: 'PATCH', body: JSON.stringify({ got }) }),
+  clearGotShopping: () => req<AppState>('/shopping/clear-got', { method: 'POST' }),
   delShop: (id: string) => req<AppState>(`/shopping/${id}`, { method: 'DELETE' }),
 
   addGoal: (d: { title: string; kind?: string; target?: string }) =>
@@ -162,6 +163,7 @@ export const api = {
   updBill: (id: string, d: { name: string; amount?: string; due?: string; payer?: string[]; recur?: string; remindDays?: number }) =>
     req<AppState>(`/bills/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   payBill: (id: string) => req<AppState>(`/bills/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'paid' }) }),
+  unpayBill: (id: string) => req<AppState>(`/bills/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'unpaid' }) }),
   delBill: (id: string) => req<AppState>(`/bills/${id}`, { method: 'DELETE' }),
 
   addMember: (d: { name: string; role?: string }) =>
@@ -179,8 +181,10 @@ export const api = {
   delInfo: (id: string) => req<AppState>(`/household-info/${id}`, { method: 'DELETE' }),
 
   markAllRead: () => req<AppState>('/notifications/read-all', { method: 'POST' }),
-  nudge: (name: string) => req<AppState>('/nudge', { method: 'POST', body: JSON.stringify({ name }) }),
+  nudge: (name: string, memberIds?: string[], about?: string) =>
+    req<AppState>('/nudge', { method: 'POST', body: JSON.stringify({ name, memberIds, about }) }),
   settleUp: (id: string) => req<AppState>(`/settle/${id}`, { method: 'PATCH', body: '{}' }),
+  reopenSettle: (id: string) => req<AppState>(`/settle/${id}`, { method: 'PATCH', body: JSON.stringify({ settled: false }) }),
   setSetting: (key: string, value: unknown) =>
     req<AppState>('/settings', { method: 'PATCH', body: JSON.stringify({ key, value }) }),
   renameHousehold: (name: string) =>

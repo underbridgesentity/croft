@@ -111,7 +111,7 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
   };
   const editing = !!fd.editId;
   const NOUNS: Record<FormType, string> = { event: 'event', bill: 'bill', task: 'to-do', goal: 'goal', budget: 'budget category', saving: 'savings goal', settle: 'IOU' };
-  const noun = NOUNS[form];
+  const noun = form === 'task' && fd.type === 'Reminder' ? 'reminder' : NOUNS[form];
   const title = form === 'settle' && !editing ? 'Who owes who' : `${editing ? 'Edit' : 'New'} ${noun}`;
   const memberChips = state.members.map((m) => ({ id: m.id, label: m.name, color: m.color }));
   // This month's spends behind the budget being edited (SAST month = the user's
@@ -136,19 +136,23 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
   };
 
   const doSubmit = async () => {
+    const recurring = fd.recur && fd.recur !== 'none';
     if (form === 'event') {
       if (!fd.title?.trim()) return flash('Add a title first');
+      if (recurring && !fd.date) return flash('Pick a date for a repeating event');
       const d = { title: fd.title, date: fd.date, time: fd.time, who: fd.who, recur: fd.recur, remindDays: fd.remindDays };
       await run(editing ? api.updEvent(fd.editId!, d) : api.addEvent(d), editing ? 'Event updated' : 'Event added');
       if (!editing) nav.goTab('calendar');
     } else if (form === 'bill') {
       if (!fd.name?.trim()) return flash('Add a bill name');
+      if (recurring && !fd.due) return flash('Pick a due date for a repeating bill');
       const d = { name: fd.name, amount: fd.amount, due: fd.due, payer: fd.payer, recur: fd.recur, remindDays: fd.remindDays };
       await run(editing ? api.updBill(fd.editId!, d) : api.addBill(d), editing ? 'Bill updated' : 'Bill added');
       if (!editing) nav.goTab('money');
     } else if (form === 'task') {
       if (!fd.title?.trim()) return flash('Type a to-do');
-      const d = { title: fd.title, type: fd.type, assignees: fd.assignees, recur: fd.recur };
+      if (recurring && !fd.dueDate) return flash('Pick a due date for a repeating to-do');
+      const d = { title: fd.title, type: fd.type, assignees: fd.assignees, recur: fd.recur, dueDate: fd.dueDate, dueTime: fd.dueTime };
       await run(editing ? api.updTask(fd.editId!, d) : api.addTask(d), editing ? 'To-do updated' : 'To-do added');
       if (!editing) { nav.goTab('tasks'); nav.goPlan('todos'); }
     } else if (form === 'goal') {
@@ -181,7 +185,9 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
     nav.closeSheet();
   };
 
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const remove = async () => {
+    if (!confirmDelete) { setConfirmDelete(true); return; }
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
@@ -192,6 +198,7 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
     } finally {
       busyRef.current = false;
       setBusy(false);
+      setConfirmDelete(false);
     }
   };
 
@@ -231,10 +238,15 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
               })}
             </div>
           </div>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+            <div style={{ flex: 1, minWidth: 0 }}><Lbl>Due date (optional)</Lbl><input style={inp} type="date" value={fd.dueDate || ''} onChange={(e) => set('dueDate', e.target.value)} /></div>
+            <div style={{ flex: 1, minWidth: 0 }}><Lbl>Time (optional)</Lbl><input style={inp} type="time" value={fd.dueTime || ''} onChange={(e) => set('dueTime', e.target.value)} /></div>
+          </div>
+          <div style={{ fontSize: 11.5, color: '#7D776E', margin: '-8px 2px 14px' }}>With a time set, everyone responsible gets a push about an hour before.</div>
           <Lbl>Who's responsible - pick any</Lbl>
           <Chips items={memberChips} value={fd.assignees || []} onToggle={(id) => toggle('assignees', id)} emptyHint="Nobody picked = anyone can do it" />
           <div style={{ height: 16 }} />
-          <RepeatField value={fd.recur} onChange={(v) => set('recur', v)} />
+          <RepeatField value={fd.recur} onChange={(v) => set('recur', v)} hint="Completing it schedules the next one on its following date." />
         </div>
       )}
 
@@ -242,7 +254,7 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
         <div>
           <Field label="Bill name"><input style={inp} value={fd.name || ''} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Water & lights" /></Field>
           <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-            <div style={{ flex: 1, minWidth: 0 }}><Lbl>Amount (R)</Lbl><input style={inp} type="number" value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="0" /></div>
+            <div style={{ flex: 1, minWidth: 0 }}><Lbl>Amount (R)</Lbl><input style={inp} type="number" inputMode="decimal" min={0} value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="0" /></div>
             <div style={{ flex: 1, minWidth: 0 }}><Lbl>Due date</Lbl><input style={inp} type="date" value={fd.due || ''} onChange={(e) => set('due', e.target.value)} /></div>
           </div>
           <Lbl>Paid by - pick any</Lbl>
@@ -265,9 +277,9 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
               })}
             </div>
           </div>
-          <Field label="Target amount (optional)"><input style={inp} type="number" value={fd.target || ''} onChange={(e) => set('target', e.target.value)} placeholder="e.g. 15000" /></Field>
+          <Field label="Target amount (optional)"><input style={inp} type="number" inputMode="decimal" min={0} value={fd.target || ''} onChange={(e) => set('target', e.target.value)} placeholder="e.g. 15000" /></Field>
           {editing && Number(fd.target) > 0 && (
-            <Field label="Add to progress (R, optional)"><input style={inp} type="number" value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="e.g. 500" /></Field>
+            <Field label="Add to progress (R, optional)"><input style={inp} type="number" inputMode="decimal" min={0} value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="e.g. 500" /></Field>
           )}
         </div>
       )}
@@ -275,11 +287,11 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
       {form === 'budget' && (
         <div>
           <Field label="Category name"><input style={inp} value={fd.name || ''} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Groceries" /></Field>
-          <Field label="Monthly limit (R)"><input style={inp} type="number" value={fd.limit || ''} onChange={(e) => set('limit', e.target.value)} placeholder="0" /></Field>
+          <Field label="Monthly limit (R)"><input style={inp} type="number" inputMode="decimal" min={0} value={fd.limit || ''} onChange={(e) => set('limit', e.target.value)} placeholder="0" /></Field>
           {editing && (
             <>
               <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-                <div style={{ flex: 1, minWidth: 0 }}><Lbl>Log a spend (R)</Lbl><input style={inp} type="number" value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="e.g. 250" /></div>
+                <div style={{ flex: 1, minWidth: 0 }}><Lbl>Log a spend (R)</Lbl><input style={inp} type="number" inputMode="decimal" min={0} value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="e.g. 250" /></div>
                 <div style={{ flex: 1.4, minWidth: 0 }}><Lbl>What for? (optional)</Lbl><input style={inp} value={fd.note || ''} onChange={(e) => set('note', e.target.value)} placeholder="e.g. Woolies run" /></div>
               </div>
               <div style={{ fontSize: 11.5, color: '#7D776E', margin: '-6px 2px 14px' }}>Spends tally up for the month. Use a minus amount to correct a mistake.</div>
@@ -294,9 +306,7 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
                           <div style={{ fontSize: 11.5, color: '#7D776E', marginTop: 1 }}>{fmtDay(sp.date)}</div>
                         </div>
                         <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 14, color: sp.amount < 0 ? '#16C098' : '#181922' }}>{sp.amount < 0 ? '-' : ''}{money(Math.abs(sp.amount))}</div>
-                        <button onClick={() => run(api.delBudgetSpend(sp.id), 'Spend removed')} aria-label="Remove spend" style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 4, flexShrink: 0 }}>
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5h4v2M9 7l.7 12h8.6L19 7" stroke="#C9C3B9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                        </button>
+                        <SpendDelete onConfirm={() => run(api.delBudgetSpend(sp.id), 'Spend removed')} />
                       </div>
                     ))}
                   </div>
@@ -311,11 +321,11 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
         <div>
           <Field label="What are you saving for?"><input style={inp} value={fd.name || ''} onChange={(e) => set('name', e.target.value)} placeholder="e.g. December holiday" /></Field>
           <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
-            <div style={{ flex: 1, minWidth: 0 }}><Lbl>Target (R)</Lbl><input style={inp} type="number" value={fd.target || ''} onChange={(e) => set('target', e.target.value)} placeholder="0" /></div>
-            <div style={{ flex: 1, minWidth: 0 }}><Lbl>Saved so far (R)</Lbl><input style={inp} type="number" value={fd.saved || ''} onChange={(e) => set('saved', e.target.value)} placeholder="0" /></div>
+            <div style={{ flex: 1, minWidth: 0 }}><Lbl>Target (R)</Lbl><input style={inp} type="number" inputMode="decimal" min={0} value={fd.target || ''} onChange={(e) => set('target', e.target.value)} placeholder="0" /></div>
+            <div style={{ flex: 1, minWidth: 0 }}><Lbl>Saved so far (R)</Lbl><input style={inp} type="number" inputMode="decimal" min={0} value={fd.saved || ''} onChange={(e) => set('saved', e.target.value)} placeholder="0" /></div>
           </div>
           {editing && (
-            <Field label="Add to savings (R)"><input style={inp} type="number" value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="e.g. 500" /></Field>
+            <Field label="Add to savings (R)"><input style={inp} type="number" inputMode="decimal" min={0} value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="e.g. 500" /></Field>
           )}
         </div>
       )}
@@ -335,7 +345,7 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
             <Lbl>Who</Lbl>
             <Chips items={memberChips} value={fd.who || []} onToggle={(id) => setFd({ ...fd, who: [id] })} />
           </div>
-          <Field label="Amount (R)"><input style={inp} type="number" value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="e.g. 450" /></Field>
+          <Field label="Amount (R)"><input style={inp} type="number" inputMode="decimal" min={0} value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="e.g. 450" /></Field>
           <Field label="What for? (optional)"><input style={inp} value={fd.note || ''} onChange={(e) => set('note', e.target.value)} placeholder="e.g. Groceries last week" /></Field>
         </div>
       )}
@@ -344,9 +354,26 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
         {busy ? (editing ? 'Saving…' : 'Adding…') : editing ? 'Save changes' : 'Add'}
       </button>
       {editing && (
-        <button onClick={remove} disabled={busy} style={{ width: '100%', border: 'none', background: 'none', color: '#FF4D5E', fontWeight: 700, fontSize: 13.5, padding: '14px 0 2px', cursor: 'pointer', opacity: busy ? 0.5 : 1 }}>Delete this {noun}</button>
+        <button onClick={remove} onBlur={() => setConfirmDelete(false)} disabled={busy} style={{ width: '100%', border: 'none', background: confirmDelete ? '#FF4D5E' : 'none', color: confirmDelete ? '#fff' : '#FF4D5E', fontWeight: 700, fontSize: 13.5, padding: confirmDelete ? '13px 0' : '14px 0 2px', borderRadius: confirmDelete ? 14 : 0, marginTop: confirmDelete ? 10 : 0, cursor: 'pointer', opacity: busy ? 0.5 : 1 }}>
+          {confirmDelete ? `Tap again to delete this ${noun}` : `Delete this ${noun}`}
+        </button>
       )}
     </div>
+  );
+}
+
+/** Two-tap delete for a logged spend row. */
+function SpendDelete({ onConfirm }: { onConfirm: () => void }) {
+  const [armed, setArmed] = useState(false);
+  if (armed) {
+    return (
+      <button onClick={() => { setArmed(false); onConfirm(); }} onBlur={() => setArmed(false)} autoFocus aria-label="Confirm remove spend" style={{ border: 'none', background: '#FF4D5E', color: '#fff', fontWeight: 700, fontSize: 11, padding: '6px 10px', borderRadius: 100, cursor: 'pointer', flexShrink: 0 }}>Sure?</button>
+    );
+  }
+  return (
+    <button onClick={() => setArmed(true)} aria-label="Remove spend" style={{ border: 'none', background: 'none', cursor: 'pointer', padding: 4, flexShrink: 0 }}>
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5h4v2M9 7l.7 12h8.6L19 7" stroke="#C9C3B9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    </button>
   );
 }
 

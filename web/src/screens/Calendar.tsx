@@ -20,7 +20,9 @@ export default function Calendar({ nav }: { nav: Nav }) {
   const goMonth = (n: number) => { setMonthOffset(n); setOpenDay(null); };
   // Filter the whole calendar (dots, lists, day detail) to one person's items.
   const [who, setWho] = useState<string | null>(null);
-  const inWho = (ids?: string[] | null) => !who || (ids || []).includes(who);
+  // Family-wide items (no assignees - includes imported school calendars) are
+  // everyone's, so they stay visible under any person filter.
+  const inWho = (ids?: string[] | null) => !who || (ids || []).length === 0 || (ids || []).includes(who);
   if (!state) return null;
 
   const now = new Date();
@@ -82,7 +84,12 @@ export default function Calendar({ nav }: { nav: Nav }) {
   // Day detail: everything happening on the tapped day - events (incl. recurring
   // occurrences) + bills due.
   const dayIso = openDay ? `${monthKey}-${String(openDay).padStart(2, '0')}` : null;
-  const dayEvents = dayIso ? monthOccs.filter((o) => o.iso === dayIso).map((o) => ({ ...o.e, date_label: occLabel(o.iso), event_date: o.iso })) : [];
+  const dayEvents = dayIso
+    ? monthOccs
+        .filter((o) => o.iso === dayIso)
+        .map((o) => ({ ...o.e, date_label: occLabel(o.iso) })) // event_date stays the ANCHOR - edits must not rewrite the series
+        .sort((a, b) => (a.event_time || '99:99').localeCompare(b.event_time || '99:99'))
+    : [];
   const dayBills = dayIso ? state.bills.filter((b) => b.due_date === dayIso && inWho(b.assignee_ids)) : [];
   const dayLabel = openDay ? new Date(year, month, openDay).toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
 
@@ -94,13 +101,19 @@ export default function Calendar({ nav }: { nav: Nav }) {
     .filter((e) => inWho(e.assignee_ids))
     .map((e) => (e.event_date ? { e, iso: nextOccurrence(e.event_date, e.recur, todayIso) } : { e, iso: null as string | null }))
     .filter((o) => o.iso !== null || !o.e.event_date)
-    .sort((a, b) => ((a.iso || '9999') < (b.iso || '9999') ? -1 : 1));
+    .sort((a, b) => {
+      const ai = a.iso || '9999', bi = b.iso || '9999';
+      if (ai !== bi) return ai < bi ? -1 : 1;
+      return (a.e.event_time || '99:99').localeCompare(b.e.event_time || '99:99');
+    });
   // Past = non-recurring events whose date has gone (recurring always have a next).
   const past = state.events
     .filter((e) => inWho(e.assignee_ids) && e.event_date && e.event_date < todayIso && (!e.recur || e.recur === 'none'))
     .reverse();
   // Other-month list: every occurrence that lands in the displayed month.
-  const monthEvents = [...monthOccs].sort((a, b) => (a.iso < b.iso ? -1 : 1));
+  const monthEvents = [...monthOccs].sort(
+    (a, b) => (a.iso === b.iso ? (a.e.event_time || '99:99').localeCompare(b.e.event_time || '99:99') : a.iso < b.iso ? -1 : 1)
+  );
 
   return (
     <div>

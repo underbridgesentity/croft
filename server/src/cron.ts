@@ -1,7 +1,7 @@
 import { Router, type Request } from 'express';
 import { query } from './db.js';
 import { sendEmail, emailLayout, esc } from './mailer.js';
-import { pushToHousehold } from './push.js';
+import { pushToHousehold, pushToMembers } from './push.js';
 import { sastToday, sastPlus } from './dates.js';
 import { occursOn } from './recur.js';
 import { syncSource } from './importCalendar.js';
@@ -87,6 +87,14 @@ cronRouter.get('/digest', async (req, res) => {
     const openTasks = Number(
       (await query(`SELECT COUNT(*) FROM tasks WHERE household_id=$1 AND done=false`, [hhId])).rows[0].count
     );
+    // To-dos/reminders with a real due date participate like events: due-today
+    // items appear in the morning push + email, overdue ones get flagged.
+    const tasksToday = (await query<{ title: string; type: string }>(
+      `SELECT title, type FROM tasks WHERE household_id=$1 AND done=false AND due_date=$2 ORDER BY due_time NULLS LAST, sort`, [hhId, today]
+    )).rows;
+    const tasksOver = Number(
+      (await query(`SELECT COUNT(*) FROM tasks WHERE household_id=$1 AND done=false AND due_date < $2`, [hhId, today])).rows[0].count
+    );
     // Lead-time reminders: items whose "remind me N days before" lands today.
     const eventsSoon = dated
       .filter((e) => e.remind_days > 0 && occursOn(e.event_date, e.recur, sastPlus(e.remind_days)))
@@ -100,24 +108,27 @@ cronRouter.get('/digest', async (req, res) => {
     // Morning push + in-app notification for anything happening today or with a
     // lead-time reminder landing today.
     const soonCount = eventsSoon.length + billsSoon.length;
-    if (eventsToday.length || billsDue.length || soonCount) {
+    if (eventsToday.length || billsDue.length || soonCount || tasksToday.length || tasksOver) {
       const bits: string[] = [];
       if (eventsToday.length) bits.push(`${eventsToday.length} event${rand(eventsToday.length)}`);
+      if (tasksToday.length) bits.push(`${tasksToday.length} to-do${rand(tasksToday.length)} due`);
+      if (tasksOver) bits.push(`${tasksOver} overdue`);
       if (billsDue.length) bits.push(`${billsDue.length} bill${rand(billsDue.length)} due`);
       if (soonCount) bits.push(`${soonCount} coming up`);
-      // To-dos ride along in the same push (they don't trigger one on their own,
-      // or every household with a standing list would get pinged daily).
-      if (openTasks) bits.push(`${openTasks} to-do${rand(openTasks)} open`);
-      const title = (eventsToday.length || billsDue.length) ? `Today in ${info.name}` : `Coming up in ${info.name}`;
+      // Undated to-dos ride along as a count only (they don't trigger a push on
+      // their own, or every household with a standing list would ping daily).
+      if (!tasksToday.length && !tasksOver && openTasks) bits.push(`${openTasks} to-do${rand(openTasks)} open`);
+      const title = (eventsToday.length || billsDue.length || tasksToday.length) ? `Today in ${info.name}` : `Coming up in ${info.name}`;
       const body = bits.join(' · ');
       // In-app bell entry - guarded so a re-run of the cron doesn't duplicate it.
+      // The guard compares SAST calendar days (created_at is UTC).
       await query(
         `INSERT INTO notifications (household_id, illo, color, title, body, time_label, unread)
          SELECT $1,'calendar','#3B5BFF',$2,$3,'just now',true
           WHERE NOT EXISTS (
-            SELECT 1 FROM notifications WHERE household_id=$1 AND title=$2 AND created_at::date = CURRENT_DATE
+            SELECT 1 FROM notifications WHERE household_id=$1 AND title=$2 AND (created_at + interval '2 hours')::date = $4::date
           )`,
-        [hhId, title, body]
+        [hhId, title, body, today]
       );
       try {
         await pushToHousehold(hhId, { title, body, url: '/' });
@@ -126,10 +137,15 @@ cronRouter.get('/digest', async (req, res) => {
     }
 
     // Email summary (only households whose cadence includes the daily digest).
-    const hasContent = openTasks || billsDue.length || eventsToday.length || eventsTom.length || soonCount;
+    const hasContent = openTasks || billsDue.length || eventsToday.length || eventsTom.length || soonCount || tasksToday.length || tasksOver;
     if ((info.cadence === 'daily' || info.cadence === 'both') && hasContent) {
       const sections =
-        (eventsToday.length ? `<p style="margin:16px 0 2px;font-weight:700">Today</p>${ul(eventsToday.map((e) => `${e.event_time ? e.event_time + ' - ' : ''}${esc(e.title)}`))}` : '') +
+        (eventsToday.length || tasksToday.length
+          ? `<p style="margin:16px 0 2px;font-weight:700">Today</p>${ul([
+              ...eventsToday.map((e) => `${e.event_time ? e.event_time + ' - ' : ''}${esc(e.title)}`),
+              ...tasksToday.map((t) => `${esc(t.title)} (${t.type === 'Reminder' ? 'reminder' : 'to-do'} due)`),
+            ])}`
+          : '') +
         (eventsTom.length ? `<p style="margin:16px 0 2px;font-weight:700">Tomorrow</p>${ul(eventsTom.map((e) => `${e.event_time ? e.event_time + ' - ' : ''}${esc(e.title)}`))}` : '') +
         (billsDue.length ? `<p style="margin:16px 0 2px;font-weight:700">Bills due</p>${ul(billsDue.map((b) => `${esc(b.name)} - R${Number(b.amount).toLocaleString('en-ZA')} (${b.status === 'overdue' ? 'overdue' : 'due today'})`))}` : '') +
         (soonCount ? `<p style="margin:16px 0 2px;font-weight:700">Coming up</p>${ul([...eventsSoon.map((e) => `${esc(e.title)} - ${inDays(e.days_away)}`), ...billsSoon.map((b) => `${esc(b.name)} R${Number(b.amount).toLocaleString('en-ZA')} - ${inDays(b.days_away)}`)])}` : '');
@@ -181,42 +197,63 @@ cronRouter.get('/event-reminders', async (req, res) => {
   const nowMin = sastNow.getUTCHours() * 60 + sastNow.getUTCMinutes();
 
   // All timed events across households (system cron); recurrence resolved in JS.
-  const rows = (await query<{ household_id: string; title: string; event_time: string; event_date: string; recur: string }>(
-    `SELECT household_id, title, event_time, to_char(event_date,'YYYY-MM-DD') AS event_date, recur
+  const rows = (await query<{ household_id: string; title: string; event_time: string; event_date: string; recur: string; assignee_ids: string[] | null }>(
+    `SELECT household_id, title, event_time, to_char(event_date,'YYYY-MM-DD') AS event_date, recur, assignee_ids
        FROM events WHERE event_date IS NOT NULL AND event_time IS NOT NULL AND event_time <> ''`,
     [],
     { scoped: false } // every household's events; each push goes to its own household
   )).rows;
+  // Timed to-dos/reminders due today get the same heads-up (their whole point).
+  const taskRows = (await query<{ household_id: string; title: string; due_time: string; type: string; assignee_ids: string[] | null }>(
+    `SELECT household_id, title, due_time, type, assignee_ids
+       FROM tasks WHERE done=false AND due_date=$1 AND due_time IS NOT NULL AND due_time <> ''`,
+    [today],
+    { scoped: false }
+  )).rows;
+
+  const inWindow = (hhmm: string) => {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm);
+    if (!m) return false;
+    const until = Number(m[1]) * 60 + Number(m[2]) - nowMin;
+    return until > 45 && until <= 60;
+  };
+  // Bell entry doubles as the exactly-once guard (same pattern as the digest);
+  // SAST-day comparison so the window doesn't shift 2h against UTC.
+  const remindOnce = async (householdId: string, title: string, body: string, assigneeIds: string[] | null) => {
+    const ins = await query(
+      `INSERT INTO notifications (household_id, illo, color, title, body, time_label, unread)
+       SELECT $1,'calendar','#FFB020',$2,$3,'just now',true
+        WHERE NOT EXISTS (
+          SELECT 1 FROM notifications WHERE household_id=$1 AND title=$2 AND (created_at + interval '2 hours')::date = $4::date
+        ) RETURNING id`,
+      [householdId, title, body, today]
+    );
+    if (!ins.rows.length) return false; // already reminded (retry or duplicate row)
+    // Assigned items ping the assignees' devices; unassigned = whole household.
+    await pushToMembers(householdId, assigneeIds || [], { title, body, url: '/' });
+    return true;
+  };
 
   let sent = 0;
   for (const e of rows) {
     try {
-      if (!occursOn(e.event_date, e.recur, today)) continue;
-      const m = /^(\d{1,2}):(\d{2})$/.exec(e.event_time);
-      if (!m) continue;
-      const startMin = Number(m[1]) * 60 + Number(m[2]);
-      const until = startMin - nowMin;
-      if (until <= 45 || until > 60) continue;
-
-      const title = `${e.title.trim()} at ${e.event_time}`;
-      // Bell entry doubles as the exactly-once guard (same pattern as the digest).
-      const ins = await query(
-        `INSERT INTO notifications (household_id, illo, color, title, body, time_label, unread)
-         SELECT $1,'calendar','#FFB020',$2,$3,'just now',true
-          WHERE NOT EXISTS (
-            SELECT 1 FROM notifications WHERE household_id=$1 AND title=$2 AND created_at::date = CURRENT_DATE
-          ) RETURNING id`,
-        [e.household_id, title, 'Coming up in about an hour']
-      );
-      if (!ins.rows.length) continue; // already reminded (retry or duplicate row)
-      await pushToHousehold(e.household_id, { title, body: 'Coming up in about an hour', url: '/' });
-      sent++;
+      if (!occursOn(e.event_date, e.recur, today) || !inWindow(e.event_time)) continue;
+      if (await remindOnce(e.household_id, `${e.title.trim()} at ${e.event_time}`, 'Coming up in about an hour', e.assignee_ids)) sent++;
     } catch (err: any) {
       console.error('[croft] event-reminders: skipped event', e.title, err?.message || err);
     }
   }
+  for (const t of taskRows) {
+    try {
+      if (!inWindow(t.due_time)) continue;
+      const noun = t.type === 'Reminder' ? 'Reminder' : 'To-do';
+      if (await remindOnce(t.household_id, `${noun}: ${t.title.trim()} at ${t.due_time}`, 'Due in about an hour', t.assignee_ids)) sent++;
+    } catch (err: any) {
+      console.error('[croft] event-reminders: skipped task', t.title, err?.message || err);
+    }
+  }
 
-  res.json({ ok: true, checked: rows.length, sent });
+  res.json({ ok: true, checked: rows.length + taskRows.length, sent });
 });
 
 /** Weekly run (Sunday evening): a calm "week ahead" overview - the next 7 days

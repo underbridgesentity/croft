@@ -63,7 +63,13 @@ function Todos({ nav }: { nav: Nav }) {
   };
 
   const edit = (t: (typeof open)[number]) =>
-    nav.openForm('task', { editId: t.id, title: t.title, type: t.type, assignees: t.assignee_ids || [], recur: t.recur });
+    nav.openForm('task', { editId: t.id, title: t.title, type: t.type, assignees: t.assignee_ids || [], recur: t.recur, dueDate: t.due_date || '', dueTime: t.due_time || '' });
+  // Nudge pings the ASSIGNEES' devices (the people who must act), falling back
+  // to the whole household when nobody is assigned.
+  const nudge = (t: (typeof open)[number]) => {
+    const names = namesFor(t.assignee_ids) || 'the family';
+    run(api.nudge(names, t.assignee_ids || [], t.title), `Reminder sent to ${names}`);
+  };
 
   return (
     <div>
@@ -97,10 +103,10 @@ function Todos({ nav }: { nav: Nav }) {
                   </span>
                 </div>
               </div>
-              <button onClick={() => run(api.nudge(t.from_name), `Reminder sent to ${t.from_name}`)} title="Nudge" aria-label={`Nudge ${t.from_name}`} style={iconBtn}>
+              <button onClick={() => nudge(t)} title="Nudge" aria-label={`Nudge ${namesFor(t.assignee_ids) || 'the family'}`} style={iconBtn}>
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M18 9.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 15.5 18 9.5" stroke="#3B5BFF" strokeWidth="1.8" strokeLinejoin="round" /><path d="M10.2 20.5a2 2 0 0 0 3.6 0" stroke="#3B5BFF" strokeWidth="1.8" strokeLinecap="round" /></svg>
               </button>
-              <DeleteBtn onClick={() => run(api.delTask(t.id), 'Removed')} />
+              <ConfirmDelete label={t.title} onConfirm={() => run(api.delTask(t.id), 'Removed')} />
             </div>
           ))}
           <div style={{ height: 6 }} />
@@ -119,9 +125,10 @@ function Todos({ nav }: { nav: Nav }) {
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
                 <div style={{ flex: 1, fontWeight: 600, fontSize: 14.5, color: '#7D776E', textDecoration: 'line-through' }}>{t.title}</div>
-                <DeleteBtn onClick={() => run(api.delTask(t.id), 'Removed')} />
+                <ConfirmDelete label={t.title} onConfirm={() => run(api.delTask(t.id), 'Removed')} />
               </div>
             ))}
+            <div style={{ height: 6 }} />
           </div>
         </>
       )}
@@ -143,14 +150,25 @@ function Lists() {
     if (v && v !== orig) run(api.renameShop(editing.id, v), 'Item renamed');
   };
   const tint: Record<string, string> = { you: '#EAEEFF', naledi: '#FFE9F1', amara: '#FFF4E0', lwazi: '#E3F8F1' };
+  // To-buy items first; bought ones sink to the bottom instead of littering the
+  // list in place.
+  const items = [...state.shopping].sort((a, b) => Number(a.got) - Number(b.got));
   const left = state.shopping.filter((x) => !x.got).length;
+  const bought = state.shopping.length - left;
   const colorFor = (key: string) => state.members.find((m) => m.id === key || m.name.toLowerCase() === key)?.color;
   const initialFor = (key: string) => state.members.find((m) => m.id === key || m.name.toLowerCase() === key)?.initial;
 
   const add = () => {
     const v = draft.trim();
     if (!v) return;
-    run(api.addShop(v), 'Added to shopping list');
+    // Gentle dedupe: re-adding something already on the list (case-insensitive)
+    // just un-buys it instead of creating "Milk" twice.
+    const existing = state.shopping.find((x) => x.name.trim().toLowerCase() === v.toLowerCase());
+    if (existing) {
+      run(api.toggleShop(existing.id, false), existing.got ? `${existing.name} is back on the list` : `${existing.name} is already on the list`);
+    } else {
+      run(api.addShop(v), 'Added to shopping list');
+    }
     setDraft('');
   };
 
@@ -158,7 +176,12 @@ function Lists() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '0 2px 12px' }}>
         <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19 }}>Shopping list</div>
-        <span style={{ fontSize: 12, fontWeight: 700, color: '#3B5BFF', background: 'rgba(59,91,255,0.1)', padding: '4px 11px', borderRadius: 100 }}>{left} to buy</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {bought > 0 && (
+            <button onClick={() => run(api.clearGotShopping(), 'Bought items cleared')} style={{ border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 12, cursor: 'pointer', padding: '4px 2px' }}>Clear bought</button>
+          )}
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#3B5BFF', background: 'rgba(59,91,255,0.1)', padding: '4px 11px', borderRadius: 100 }}>{left} to buy</span>
+        </div>
       </div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="Add an item…" style={inlineInput} />
@@ -176,9 +199,9 @@ function Lists() {
         <Empty art="emptyList" title="Your list is empty" sub="Add what you need above - the family sees it instantly." />
       ) : (
         <div style={{ background: '#fff', borderRadius: 20, padding: '4px 14px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)' }}>
-          {state.shopping.map((x) => (
+          {items.map((x) => (
             <div key={x.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '12px 2px', borderBottom: '1px solid #EFEBE3' }}>
-              <button onClick={() => run(api.toggleShop(x.id))} style={{ ...checkbox, width: 25, height: 25, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button onClick={() => run(api.toggleShop(x.id, !x.got))} aria-label={x.got ? `Put ${x.name} back on the list` : `Mark ${x.name} as bought`} style={{ ...checkbox, width: 25, height: 25, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {x.got && <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#16C098" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>}
               </button>
               {editing?.id === x.id ? (
@@ -203,7 +226,7 @@ function Lists() {
                 </div>
               )}
               <div style={{ flexShrink: 0, width: 22, height: 22, borderRadius: '50%', background: tint[x.by] || '#EAEEFF', color: colorFor(x.by) || '#3B5BFF', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, fontFamily: grotesk }}>{initialFor(x.by) || '?'}</div>
-              <DeleteBtn onClick={() => run(api.delShop(x.id), 'Removed')} />
+              <ConfirmDelete label={x.name} onConfirm={() => run(api.delShop(x.id), 'Removed')} />
             </div>
           ))}
           <div style={{ height: 6 }} />
@@ -261,7 +284,7 @@ function Meals() {
                   <span style={{ flexShrink: 0, fontSize: 15 }}>🍽️</span>
                   <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 14 }}>{m.title}</span>
                   <button onClick={() => run(api.addShop(m.title), `${m.title} added to shopping`)} style={{ flexShrink: 0, border: 'none', background: '#EFEBE3', color: '#3B5BFF', fontWeight: 700, fontSize: 11.5, padding: '6px 11px', borderRadius: 100, cursor: 'pointer' }}>+ List</button>
-                  <DeleteBtn onClick={() => run(api.delMeal(m.id), 'Removed')} />
+                  <ConfirmDelete label={m.title} onConfirm={() => run(api.delMeal(m.id), 'Removed')} />
                 </div>
               ))}
               <div style={{ display: 'flex', gap: 7, marginTop: dayMeals.length ? 9 : 0 }}>
@@ -295,11 +318,18 @@ function Goals({ nav }: { nav: Nav }) {
   const personal = state.goals.filter((g) => g.kind !== 'Family');
   const edit = (g: (typeof family)[number]) =>
     nav.openForm('goal', { editId: g.id, title: g.title, kind: g.kind === 'Family' ? 'family' : 'personal', target: g.target ? String(g.target) : '', amount: '' });
+  // Money goals log real rands via the edit sheet; only free-form goals get the
+  // quick +8% nudge.
+  const logProgress = (g: (typeof family)[number]) =>
+    g.target > 0 ? edit(g) : run(api.bumpGoal(g.id), 'Progress logged');
 
   return (
     <div>
       <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 12px' }}>Family goals</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+      {family.length === 0 && (
+        <div style={{ fontSize: 13, color: '#6F6C67', margin: '0 2px 12px' }}>Something you're working towards together - a holiday, a car, an emergency fund.</div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 8 }}>
         {family.map((g) => (
           <div key={g.id} style={{ background: '#fff', borderRadius: 20, padding: 16, boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -321,14 +351,19 @@ function Goals({ nav }: { nav: Nav }) {
               <div style={{ height: '100%', width: `${g.pct}%`, borderRadius: 100, background: g.color }} />
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <button onClick={() => run(api.bumpGoal(g.id), 'Progress logged')} style={{ border: 'none', background: '#EFEBE3', color: '#3B5BFF', fontWeight: 700, fontSize: 12.5, padding: '9px 15px', borderRadius: 100, cursor: 'pointer' }}>+ Log progress</button>
-              <button onClick={() => run(api.delGoal(g.id), 'Goal removed')} style={{ border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', marginLeft: 'auto' }}>Remove</button>
+              <button onClick={() => logProgress(g)} style={{ border: 'none', background: '#EFEBE3', color: '#3B5BFF', fontWeight: 700, fontSize: 12.5, padding: '9px 15px', borderRadius: 100, cursor: 'pointer' }}>+ Log progress</button>
+              <ConfirmRemove onConfirm={() => run(api.delGoal(g.id), 'Goal removed')} />
             </div>
           </div>
         ))}
       </div>
 
+      <button onClick={() => nav.openForm('goal')} style={{ width: '100%', border: '1.5px dashed #D2CCC1', background: 'transparent', color: '#6B6459', fontWeight: 700, fontSize: 14, padding: 15, borderRadius: 16, cursor: 'pointer', margin: '6px 0 24px' }}>+ Add a goal</button>
+
       <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 12px' }}>Personal goals</div>
+      {personal.length === 0 && (
+        <div style={{ fontSize: 13, color: '#6F6C67', margin: '0 2px 12px' }}>Your own goals live here too - use the button above and pick "Personal".</div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {personal.map((g) => (
           <div key={g.id} style={{ background: '#fff', borderRadius: 20, padding: 15, boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -345,7 +380,7 @@ function Goals({ nav }: { nav: Nav }) {
               <div style={{ fontWeight: 700, fontSize: 15 }}>{g.title}</div>
               <div style={{ fontSize: 12, color: '#6F6C67' }}>{g.sub}</div>
             </div>
-            <button onClick={() => run(api.bumpGoal(g.id), 'Progress logged')} style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 11, border: 'none', background: '#EFEBE3', cursor: 'pointer', fontSize: 20, color: '#3B5BFF', lineHeight: 1 }}>+</button>
+            <button onClick={() => logProgress(g)} aria-label={`Log progress on ${g.title}`} style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 11, border: 'none', background: '#EFEBE3', cursor: 'pointer', fontSize: 20, color: '#3B5BFF', lineHeight: 1 }}>+</button>
           </div>
         ))}
       </div>
@@ -362,6 +397,42 @@ function AddBtn({ onClick }: { onClick: () => void }) {
   return (
     <button onClick={onClick} aria-label="Add" style={{ width: 48, flexShrink: 0, border: 'none', background: '#3B5BFF', borderRadius: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 3px 10px rgba(59,91,255,0.3)' }}>
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 5.5v13M5.5 12h13" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" /></svg>
+    </button>
+  );
+}
+/** Trash icon that asks once: first tap arms it ("Sure?"), second tap deletes.
+ * Arms per-row and disarms after a few seconds or on blur. */
+function ConfirmDelete({ label, onConfirm }: { label: string; onConfirm: () => void }) {
+  const [armed, setArmed] = useState(false);
+  if (armed) {
+    return (
+      <button
+        onClick={() => { setArmed(false); onConfirm(); }}
+        onBlur={() => setArmed(false)}
+        autoFocus
+        aria-label={`Confirm delete ${label}`}
+        style={{ flexShrink: 0, border: 'none', background: '#FF4D5E', color: '#fff', fontWeight: 700, fontSize: 11.5, padding: '7px 11px', borderRadius: 100, cursor: 'pointer' }}
+      >
+        Sure?
+      </button>
+    );
+  }
+  return (
+    <button onClick={() => setArmed(true)} title="Delete" aria-label={`Delete ${label}`} style={{ flexShrink: 0, width: 30, height: 30, borderRadius: 9, border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 7h14M10 7V5h4v2M9 7l.7 12h8.6L19 7" stroke="#C9C3B9" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    </button>
+  );
+}
+/** Text "Remove" that arms to a red "Tap to confirm" before acting. */
+function ConfirmRemove({ onConfirm }: { onConfirm: () => void }) {
+  const [armed, setArmed] = useState(false);
+  return (
+    <button
+      onClick={() => (armed ? (setArmed(false), onConfirm()) : setArmed(true))}
+      onBlur={() => setArmed(false)}
+      style={{ border: 'none', background: armed ? '#FF4D5E' : 'none', color: armed ? '#fff' : '#7D776E', fontWeight: 700, fontSize: 12.5, cursor: 'pointer', marginLeft: 'auto', padding: armed ? '7px 12px' : 0, borderRadius: 100 }}
+    >
+      {armed ? 'Tap to confirm' : 'Remove'}
     </button>
   );
 }

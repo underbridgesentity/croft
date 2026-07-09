@@ -22,6 +22,10 @@ interface Store {
   unlock: () => void;
   setLockEnabled: (locked: boolean) => void;
   refreshState: () => Promise<void>;
+  /** True when the initial load failed on the NETWORK (not auth) - the app
+   * doesn't know who you are yet and must offer a retry, never the signup page. */
+  loadError: boolean;
+  retryLoad: () => void;
   // generic apply (mutations return fresh state)
   run: (p: Promise<AppState>, msg?: string) => Promise<void>;
 }
@@ -34,6 +38,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [appUnlocked, setAppUnlocked] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const tRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flash = useCallback((msg: string) => {
@@ -61,27 +66,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Native app: refresh state and re-lock (if a passcode is set) on foreground.
   useEffect(() => onNativeResume(() => { refreshState().catch(() => {}); setAppUnlocked(false); }), [refreshState]);
 
-  // initial session check
-  useEffect(() => {
-    (async () => {
-      try {
-        const { user } = await api.me();
-        setUser(user);
-        setAppUnlocked(!(user && user.locked));
-        if (user?.household_id) {
-          try {
-            setState(await api.state());
-          } catch {
-            /* ignore */
-          }
+  // Initial session check. A NETWORK failure (no HTTP status) means we simply
+  // don't know who the user is - flag it so the app shows a retry screen
+  // instead of dumping a logged-in family onto the signup page.
+  const initialLoad = useCallback(async () => {
+    setLoadError(false);
+    try {
+      const { user } = await api.me();
+      setUser(user);
+      setAppUnlocked(!(user && user.locked));
+      if (user?.household_id) {
+        try {
+          setState(await api.state());
+        } catch (e: any) {
+          if (!e?.status) setLoadError(true);
         }
-      } catch {
-        /* not signed in */
-      } finally {
-        setReady(true);
       }
-    })();
+    } catch (e: any) {
+      if (!e?.status) setLoadError(true);
+    } finally {
+      setReady(true);
+    }
   }, []);
+  useEffect(() => { initialLoad(); }, [initialLoad]);
+  const retryLoad = useCallback(() => { setReady(false); initialLoad(); }, [initialLoad]);
 
   const afterAuth = useCallback(async (u: User) => {
     setUser(u);
@@ -158,7 +166,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [flash]
   );
 
-  const value: Store = { ready, user, state, toast, flash, signup, login, acceptInvite, resetPassword, deleteAccount, logout, completeOnboarding, appUnlocked, unlock, setLockEnabled, refreshState, run };
+  const value: Store = { ready, user, state, toast, flash, signup, login, acceptInvite, resetPassword, deleteAccount, logout, completeOnboarding, appUnlocked, unlock, setLockEnabled, refreshState, loadError, retryLoad, run };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

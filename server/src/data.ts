@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { query } from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 import { rateLimit } from './rateLimit.js';
-import { vapidPublicKey, saveSubscription, removeSubscription, pushToHousehold, pushToSub, saveNativeToken, removeNativeToken, pushToNativeToken } from './push.js';
+import { vapidPublicKey, saveSubscription, removeSubscription, pushToHousehold, pushToMembers, pushToSub, saveNativeToken, removeNativeToken, pushToNativeToken } from './push.js';
 import { sastToday, formatDateLabel, relativeTime, isoRe } from './dates.js';
 import { advanceIso } from './recur.js';
 import { sendEmail } from './mailer.js';
@@ -33,7 +33,7 @@ async function assembleState(householdId: string, meMemberId?: string) {
     query(`SELECT name, settings FROM households WHERE id = $1`, [householdId]),
     query(`SELECT id, name, role, initial, color, is_you, sort FROM members WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
     query(`SELECT id, title, time, ampm, day, date_label, loc, color, illo, to_char(event_date,'YYYY-MM-DD') AS event_date, event_time, assignee_ids, source_id, recur, remind_days FROM events WHERE household_id=$1 ORDER BY event_date NULLS LAST, sort, created_at`, [householdId]),
-    query(`SELECT id, title, from_name, from_color, due, due_key, done, type, assignee_ids, recur FROM tasks WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
+    query(`SELECT id, title, from_name, from_color, to_char(due_date,'YYYY-MM-DD') AS due_date, due_time, done, type, assignee_ids, recur FROM tasks WHERE household_id=$1 ORDER BY due_date NULLS LAST, sort, created_at`, [householdId]),
     query(`SELECT id, name, by_member, got FROM shopping WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
     query(`SELECT id, kind, tag, title, sub, pct, color, target FROM goals WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
     query(`SELECT id, name, cat, amount, due, status, payer, color, illo, to_char(due_date,'YYYY-MM-DD') AS due_date, assignee_ids, recur, remind_days FROM bills WHERE household_id=$1 ORDER BY due_date NULLS LAST, sort, created_at`, [householdId]),
@@ -116,7 +116,13 @@ async function assembleState(householdId: string, meMemberId?: string) {
       time: e.event_time || e.time,
       external: !!e.source_id, // imported from a linked calendar → read-only
     })),
-    tasks: tasks.rows,
+    // Due labels are DERIVED from the real date so they never go stale (the old
+    // schema stored 'Today' as text forever). No date = a calm "Anytime".
+    tasks: tasks.rows.map((t) => ({
+      ...t,
+      due: t.due_date ? (t.due_date === today ? 'Today' : t.due_date < today ? `Overdue · ${formatDateLabel(t.due_date)}` : formatDateLabel(t.due_date)) : 'Anytime',
+      due_key: t.due_date ? (t.due_date === today ? 'today' : t.due_date < today ? 'over' : 'soon') : 'anytime',
+    })),
     shopping: shopping.rows.map((s) => ({ id: s.id, name: s.name, by: s.by_member, got: s.got })),
     goals: goals.rows.map((g) => ({ ...g, pct: num(g.pct), target: num(g.target) })),
     bills: bills.rows.map((b) => ({
@@ -231,6 +237,11 @@ dataRouter.post('/events', async (req: AuthedRequest, res) => {
   if (!b.success) return res.status(400).json({ error: 'Add a title first' });
   const ms = await membersByIds(hh(req), toIds(b.data.who));
   const d = dateBits(b.data.date, b.data.time);
+  // A repeat rule needs an anchor date - without one it would silently never
+  // repeat or remind (occurrence expansion has nothing to expand from).
+  if (b.data.recur && b.data.recur !== 'none' && !d.iso) {
+    return res.status(400).json({ error: 'Pick a date for a repeating event' });
+  }
   await query(
     `INSERT INTO events (household_id, title, time, ampm, day, date_label, event_date, event_time, loc, color, illo, assignee_ids, recur, remind_days, sort)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'calendar',$11,$12,$13,${nextSort('events')})`,
@@ -247,6 +258,9 @@ dataRouter.patch('/events/:id', async (req: AuthedRequest, res) => {
   if (!b.success) return res.status(400).json({ error: 'Add a title first' });
   const ms = await membersByIds(hh(req), toIds(b.data.who));
   const d = dateBits(b.data.date, b.data.time);
+  if (b.data.recur && b.data.recur !== 'none' && !d.iso) {
+    return res.status(400).json({ error: 'Pick a date for a repeating event' });
+  }
   await query(
     `UPDATE events SET title=$1, time=$2, ampm=$3, day=$4, date_label=$5, event_date=$6, event_time=$7, loc=$8, color=$9, assignee_ids=$10, recur=$11, remind_days=$12, updated_at=now()
       WHERE id=$13 AND household_id=$14 AND source_id IS NULL`,
@@ -263,47 +277,83 @@ dataRouter.delete('/events/:id', async (req: AuthedRequest, res) => {
 });
 
 // ---------------- TASKS ----------------
+const taskSchema = z.object({
+  title: z.string().min(1),
+  type: z.string().optional(),
+  assignees: idsSchema,
+  recur: recurSchema,
+  dueDate: z.string().optional(),
+  dueTime: z.string().optional(),
+});
+const taskDates = (dueDate?: string, dueTime?: string) => ({
+  iso: dueDate && isoRe.test(dueDate) ? dueDate : null,
+  time: (dueTime || '').trim(),
+});
+
 dataRouter.post('/tasks', async (req: AuthedRequest, res) => {
-  const b = z.object({ title: z.string().min(1), type: z.string().optional(), assignees: idsSchema, recur: recurSchema }).safeParse(req.body);
+  const b = taskSchema.safeParse(req.body);
   if (!b.success) return res.status(400).json({ error: 'Type a to-do' });
   const me = await meMember(hh(req), req.memberId);
   const ms = await membersByIds(hh(req), toIds(b.data.assignees));
+  const d = taskDates(b.data.dueDate, b.data.dueTime);
+  const isReminder = b.data.type === 'Reminder';
   await query(
-    `INSERT INTO tasks (household_id, title, from_name, from_color, due, due_key, done, type, assignee_ids, recur, sort)
-     VALUES ($1,$2,$3,$4,'Today','today',false,$5,$6,$7,${nextSort('tasks')})`,
-    [hh(req), b.data.title, me.name, me.color, b.data.type || 'Task', JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none']
+    `INSERT INTO tasks (household_id, title, from_name, from_color, due, due_key, due_date, due_time, done, type, assignee_ids, recur, sort)
+     VALUES ($1,$2,$3,$4,'','',$5,$6,false,$7,$8,$9,${nextSort('tasks')})`,
+    [hh(req), b.data.title, me.name, me.color, d.iso, d.time, b.data.type || 'Task', JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none']
   );
-  await addFeed(hh(req), me.name, me.color, me.initial, `added a ${b.data.type === 'Reminder' ? 'reminder' : 'to-do'}: "${b.data.title}"`);
+  await addFeed(hh(req), me.name, me.color, me.initial, `added a ${isReminder ? 'reminder' : 'to-do'}: "${b.data.title}"`);
+  // A dated reminder/to-do assigned to specific people tells them right away
+  // (skip the creator - they know). Undated items stay quiet until due.
+  if (ms.length && d.iso) {
+    const when = d.iso === sastToday() ? 'today' : formatDateLabel(d.iso);
+    pushToMembers(hh(req), ms.map((m) => m.id), {
+      title: `${isReminder ? 'Reminder' : 'To-do'} from ${me.name}`,
+      body: `${b.data.title} — ${when}${d.time ? ' at ' + d.time : ''}`,
+      url: '/?tab=tasks',
+    }, req.userId).catch(() => {});
+  }
   await sendState(req, res);
 });
 // One PATCH, two shapes: `{done}` toggles completion (checkboxes); a body with
 // `title` edits the task's fields.
 dataRouter.patch('/tasks/:id', async (req: AuthedRequest, res) => {
   if (typeof req.body?.title === 'string') {
-    const b = z.object({ title: z.string().min(1), type: z.string().optional(), assignees: idsSchema, recur: recurSchema }).safeParse(req.body);
+    const b = taskSchema.safeParse(req.body);
     if (!b.success) return res.status(400).json({ error: 'Type a to-do' });
     const ms = await membersByIds(hh(req), toIds(b.data.assignees));
+    const d = taskDates(b.data.dueDate, b.data.dueTime);
     await query(
-      `UPDATE tasks SET title=$1, type=COALESCE($2, type), assignee_ids=$3, recur=$4 WHERE id=$5 AND household_id=$6`,
-      [b.data.title, b.data.type || null, JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none', req.params.id, hh(req)]
+      `UPDATE tasks SET title=$1, type=COALESCE($2, type), assignee_ids=$3, recur=$4, due_date=$5, due_time=$6 WHERE id=$7 AND household_id=$8`,
+      [b.data.title, b.data.type || null, JSON.stringify(ms.map((m) => m.id)), b.data.recur || 'none', d.iso, d.time, req.params.id, hh(req)]
     );
     return sendState(req, res);
   }
   const done = !!req.body?.done;
   // Read the task first so a recurring chore, when completed, re-opens for next
-  // time (a fresh not-done copy) and never falls off the list. Only spawn on the
-  // not-done → done transition so toggling can't pile up duplicates.
-  const before = (await query(`SELECT title, from_name, from_color, type, assignee_ids, recur, done FROM tasks WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)])).rows[0];
+  // time. With real dates the copy lands on the NEXT occurrence (so "weekly"
+  // means weekly, not "instantly back"); undated recurring tasks still re-open
+  // immediately. The duplicate guard makes check→uncheck→re-check harmless.
+  const before = (await query(
+    `SELECT title, from_name, from_color, type, assignee_ids, recur, done, due_time, to_char(due_date,'YYYY-MM-DD') AS due_date
+       FROM tasks WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)])).rows[0];
   await query(`UPDATE tasks SET done=$1 WHERE id=$2 AND household_id=$3`, [done, req.params.id, hh(req)]);
   if (done && before) {
     const me = await meMember(hh(req), req.memberId);
     await addFeed(hh(req), me.name, me.color, me.initial, `completed "${before.title}"`);
     if (before.recur && before.recur !== 'none' && !before.done) {
-      await query(
-        `INSERT INTO tasks (household_id, title, from_name, from_color, due, due_key, done, type, assignee_ids, recur, sort)
-         VALUES ($1,$2,$3,$4,'Today','today',false,$5,$6,$7,${nextSort('tasks')})`,
-        [hh(req), before.title, before.from_name, before.from_color, before.type, JSON.stringify(before.assignee_ids || []), before.recur]
+      const nextIso = before.due_date ? advanceIso(before.due_date, before.recur) : null;
+      const dup = await query(
+        `SELECT 1 FROM tasks WHERE household_id=$1 AND title=$2 AND done=false AND due_date IS NOT DISTINCT FROM $3::date LIMIT 1`,
+        [hh(req), before.title, nextIso]
       );
+      if (!dup.rows.length) {
+        await query(
+          `INSERT INTO tasks (household_id, title, from_name, from_color, due, due_key, due_date, due_time, done, type, assignee_ids, recur, sort)
+           VALUES ($1,$2,$3,$4,'','',$5,$6,false,$7,$8,$9,${nextSort('tasks')})`,
+          [hh(req), before.title, before.from_name, before.from_color, nextIso, before.due_time || '', before.type, JSON.stringify(before.assignee_ids || []), before.recur]
+        );
+      }
     }
   }
   await sendState(req, res);
@@ -327,7 +377,9 @@ dataRouter.post('/shopping', async (req: AuthedRequest, res) => {
   await addFeed(hh(req), me.name, me.color, me.initial, `added ${b.data.name} to the shopping list`);
   await sendState(req, res);
 });
-// `{}` toggles bought; `{name}` renames the item.
+// `{got}` sets bought explicitly (idempotent - a retry or stale second phone
+// can't un-buy an item); bare `{}` keeps the legacy NOT-toggle for old clients;
+// `{name}` renames the item.
 dataRouter.patch('/shopping/:id', async (req: AuthedRequest, res) => {
   if (typeof req.body?.name === 'string') {
     const name = String(req.body.name).trim();
@@ -335,7 +387,16 @@ dataRouter.patch('/shopping/:id', async (req: AuthedRequest, res) => {
     await query(`UPDATE shopping SET name=$1 WHERE id=$2 AND household_id=$3`, [name, req.params.id, hh(req)]);
     return sendState(req, res);
   }
+  if (typeof req.body?.got === 'boolean') {
+    await query(`UPDATE shopping SET got=$1 WHERE id=$2 AND household_id=$3`, [req.body.got, req.params.id, hh(req)]);
+    return sendState(req, res);
+  }
   await query(`UPDATE shopping SET got = NOT got WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)]);
+  await sendState(req, res);
+});
+// Clear every bought item in one go - the list stays usable week after week.
+dataRouter.post('/shopping/clear-got', async (req: AuthedRequest, res) => {
+  await query(`DELETE FROM shopping WHERE household_id=$1 AND got=true`, [hh(req)]);
   await sendState(req, res);
 });
 dataRouter.delete('/shopping/:id', async (req: AuthedRequest, res) => {
@@ -395,6 +456,11 @@ dataRouter.patch('/goals/:id', async (req: AuthedRequest, res) => {
     }
     return sendState(req, res);
   }
+  // Money goals track real rands - a blind percentage bump would fabricate
+  // "R8,000 saved" out of one tap. Those must log an amount via the edit form.
+  if (num(g.target) > 0) {
+    return res.status(400).json({ error: 'This goal tracks an amount - open it and add rands to log progress.' });
+  }
   const pct = Math.min(100, num(g.pct) + 8);
   await query(`UPDATE goals SET pct=$1, sub=$2 WHERE id=$3 AND household_id=$4`, [pct, goalSub(pct, num(g.target)), req.params.id, hh(req)]);
   await sendState(req, res);
@@ -412,6 +478,10 @@ dataRouter.post('/bills', async (req: AuthedRequest, res) => {
   if (!b.success) return res.status(400).json({ error: 'Add a bill name' });
   const ms = await membersByIds(hh(req), toIds(b.data.payer));
   const iso = b.data.due && isoRe.test(b.data.due) ? b.data.due : null;
+  // A recurring bill needs a due date - the next occurrence is computed from it.
+  if (b.data.recur && b.data.recur !== 'none' && !iso) {
+    return res.status(400).json({ error: 'Pick a due date for a repeating bill' });
+  }
   const dueLabel = iso ? formatDateLabel(iso) : (String(b.data.due || '').trim() || 'This month');
   const status = iso && iso < sastToday() ? 'overdue' : 'unpaid';
   await query(
@@ -449,7 +519,7 @@ dataRouter.patch('/bills/:id', async (req: AuthedRequest, res) => {
   // Read the bill first so a recurring bill, when paid, can spawn the next
   // period's bill (fresh + unpaid) - each month tracked on its own row.
   const before = (await query(
-    `SELECT name, cat, amount, due, to_char(due_date,'YYYY-MM-DD') AS due_date, payer, color, illo, assignee_ids, recur, status
+    `SELECT name, cat, amount, due, to_char(due_date,'YYYY-MM-DD') AS due_date, payer, color, illo, assignee_ids, recur, remind_days, status
        FROM bills WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)])).rows[0];
   await query(`UPDATE bills SET status=$1 WHERE id=$2 AND household_id=$3`, [parsed.data, req.params.id, hh(req)]);
   if (parsed.data === 'paid' && before) {
@@ -463,10 +533,12 @@ dataRouter.patch('/bills/:id', async (req: AuthedRequest, res) => {
         const dup = await query(`SELECT 1 FROM bills WHERE household_id=$1 AND name=$2 AND due_date=$3 LIMIT 1`, [hh(req), before.name, nextIso]);
         if (!dup.rows.length) {
           const nStatus = nextIso < sastToday() ? 'overdue' : 'unpaid';
+          // remind_days carries over so "remind me 3 days before" keeps working
+          // on every cycle, not just the first.
           await query(
-            `INSERT INTO bills (household_id, name, cat, amount, due, due_date, status, payer, color, illo, assignee_ids, recur, sort)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,${nextSort('bills')})`,
-            [hh(req), before.name, before.cat, before.amount, formatDateLabel(nextIso), nextIso, nStatus, before.payer, before.color, before.illo, JSON.stringify(before.assignee_ids || []), before.recur]
+            `INSERT INTO bills (household_id, name, cat, amount, due, due_date, status, payer, color, illo, assignee_ids, recur, remind_days, sort)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,${nextSort('bills')})`,
+            [hh(req), before.name, before.cat, before.amount, formatDateLabel(nextIso), nextIso, nStatus, before.payer, before.color, before.illo, JSON.stringify(before.assignee_ids || []), before.recur, before.remind_days ?? 0]
           );
         }
       }
@@ -608,7 +680,7 @@ dataRouter.post('/settle', async (req: AuthedRequest, res) => {
     [hh(req), f.txt, f.detail, f.amount, f.dir, f.who, f.memberId, f.fromMember, f.toMember]
   );
   const me = await meMember(hh(req), req.memberId);
-  await addFeed(hh(req), me.name, me.color, me.initial, `updated who owes who`);
+  await addFeed(hh(req), me.name, me.color, me.initial, `logged an IOU: ${f.dir === 'in' ? `${f.who} owes` : `owes ${f.who}`} ${f.amount}`);
   await sendState(req, res);
 });
 dataRouter.delete('/settle/:id', async (req: AuthedRequest, res) => {
@@ -701,13 +773,17 @@ dataRouter.post('/notifications/read-all', async (req: AuthedRequest, res) => {
 });
 dataRouter.post('/nudge', async (req: AuthedRequest, res) => {
   const name = String(req.body?.name || 'the family');
+  const memberIds = toIds(req.body?.memberIds).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
+  const about = String(req.body?.about || '').trim().slice(0, 120);
+  const body = about ? `Don't forget: ${about}` : 'A nudge was sent - don’t forget!';
   await query(
     `INSERT INTO notifications (household_id, illo, color, title, body, time_label, unread)
      VALUES ($1,'bell','#FF5C8A',$2,$3,'just now',true)`,
-    [hh(req), `Reminder for ${name}`, 'A nudge was sent - don’t forget!']
+    [hh(req), `Reminder for ${name}`, body]
   );
-  // Fire a real push to the rest of the household (best-effort; never blocks).
-  pushToHousehold(hh(req), { title: `Reminder for ${name}`, body: 'A nudge was sent - don’t forget!', url: '/' }, req.userId).catch(() => {});
+  // Targeted when the nudge names people (their devices only); otherwise the
+  // household minus the sender. Best-effort; never blocks the response.
+  pushToMembers(hh(req), memberIds, { title: `Reminder for ${name}`, body, url: '/?tab=tasks' }, req.userId).catch(() => {});
   await sendState(req, res);
 });
 
@@ -767,7 +843,9 @@ dataRouter.patch('/settle/:id', async (req: AuthedRequest, res) => {
     );
     return sendState(req, res);
   }
-  await query(`UPDATE settle SET settled=true WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)]);
+  // `{}` settles; `{settled:false}` reopens a mistakenly-settled IOU.
+  const settled = req.body?.settled === false ? false : true;
+  await query(`UPDATE settle SET settled=$1 WHERE id=$2 AND household_id=$3`, [settled, req.params.id, hh(req)]);
   await sendState(req, res);
 });
 

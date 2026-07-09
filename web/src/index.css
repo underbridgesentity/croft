@@ -94,6 +94,9 @@ button {
 .croft-scroll {
   scrollbar-width: none;
   -ms-overflow-style: none;
+  /* Scroll stays inside the container: no chaining into the page at the ends,
+     and swipes on short content don't fall through and drag the app chrome. */
+  overscroll-behavior: contain;
 }
 
 /* screen entry */

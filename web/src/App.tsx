@@ -28,7 +28,7 @@ function readResetToken(): string | null {
 }
 
 export default function App() {
-  const { ready, user, state, flash, appUnlocked } = useStore();
+  const { ready, user, state, flash, appUnlocked, loadError, retryLoad } = useStore();
   const [entered, setEntered] = useState(false);
   const [joinToken, setJoinToken] = useState<string | null>(() => readJoinToken());
   const [resetToken, setResetToken] = useState<string | null>(() => readResetToken());
@@ -116,6 +116,20 @@ export default function App() {
     return (
       <Frame wide>
         <LockScreen />
+      </Frame>
+    );
+  }
+
+  if (loadError && !(user && state)) {
+    return (
+      <Frame wide>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, textAlign: 'center' }}>
+          <div style={{ fontFamily: "'Geist', sans-serif", fontWeight: 700, fontSize: 22, marginBottom: 8 }}>Can't reach Croft</div>
+          <div style={{ color: '#6F6C67', fontSize: 14, maxWidth: 300, lineHeight: 1.5, marginBottom: 20 }}>
+            You seem to be offline, or the connection dropped. Your data is safe - try again in a moment.
+          </div>
+          <button onClick={retryLoad} style={{ border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 15, padding: '13px 28px', borderRadius: 14, cursor: 'pointer', boxShadow: '0 8px 20px rgba(59,91,255,0.32)' }}>Try again</button>
+        </div>
       </Frame>
     );
   }
