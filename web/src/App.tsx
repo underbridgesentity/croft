@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from './store';
+import { isNative } from './lib/native';
 import Onboarding from './screens/Onboarding';
 import Shell from './Shell';
 import WelcomeTour from './screens/WelcomeTour';
@@ -152,7 +153,11 @@ export function Frame({ children, wide }: { children: React.ReactNode; wide?: bo
       style={{
         position: 'relative',
         width: '100%',
-        height: '100dvh',
+        // dvh tracks mobile browsers' collapsing toolbars, but the native
+        // WKWebView measures it short of the home-indicator area, leaving a
+        // letterbox band under the tab bar. The app has no dynamic chrome, so
+        // plain vh is exact there.
+        height: isNative() ? '100vh' : '100dvh',
         maxWidth: wide ? '100%' : 440,
         margin: '0 auto',
         display: 'flex',
