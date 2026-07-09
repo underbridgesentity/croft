@@ -32,6 +32,12 @@ function cadenceOf(settings: any): Cadence {
   if (c === 'off' || c === 'daily' || c === 'weekly' || c === 'both') return c;
   return settings?.email === false ? 'off' : 'both';
 }
+/** A user's own cadence wins; NULL falls back to the household default. */
+function userCadence(u: { email_cadence?: string | null }, householdDefault: Cadence): Cadence {
+  const c = u.email_cadence;
+  if (c === 'off' || c === 'daily' || c === 'weekly' || c === 'both') return c;
+  return householdDefault;
+}
 
 /** Daily run: mark overdue bills, push a morning reminder for what's happening
  * today, and email each household a summary (today's events, tomorrow's events,
@@ -43,8 +49,8 @@ cronRouter.get('/digest', async (req, res) => {
   const tomorrow = sastPlus(1);
 
   const users = (
-    await query<{ id: string; email: string; name: string; household_id: string; hh_name: string; settings: any }>(
-      `SELECT u.id, u.email, u.name, u.household_id, h.name AS hh_name, h.settings
+    await query<{ id: string; email: string; name: string; email_cadence: string | null; household_id: string; hh_name: string; settings: any }>(
+      `SELECT u.id, u.email, u.name, u.email_cadence, u.household_id, h.name AS hh_name, h.settings
          FROM users u JOIN households h ON h.id = u.household_id
         WHERE u.email IS NOT NULL AND u.household_id IS NOT NULL`
     )
@@ -136,9 +142,10 @@ cronRouter.get('/digest', async (req, res) => {
       } catch { /* ignore */ }
     }
 
-    // Email summary (only households whose cadence includes the daily digest).
+    // Email summary - each member's own cadence decides (household = default).
     const hasContent = openTasks || billsDue.length || eventsToday.length || eventsTom.length || soonCount || tasksToday.length || tasksOver;
-    if ((info.cadence === 'daily' || info.cadence === 'both') && hasContent) {
+    const dailyUsers = info.users.filter((u) => ['daily', 'both'].includes(userCadence(u, info.cadence)));
+    if (dailyUsers.length && hasContent) {
       const sections =
         (eventsToday.length || tasksToday.length
           ? `<p style="margin:16px 0 2px;font-weight:700">Today</p>${ul([
@@ -150,7 +157,7 @@ cronRouter.get('/digest', async (req, res) => {
         (billsDue.length ? `<p style="margin:16px 0 2px;font-weight:700">Bills due</p>${ul(billsDue.map((b) => `${esc(b.name)} - R${Number(b.amount).toLocaleString('en-ZA')} (${b.status === 'overdue' ? 'overdue' : 'due today'})`))}` : '') +
         (soonCount ? `<p style="margin:16px 0 2px;font-weight:700">Coming up</p>${ul([...eventsSoon.map((e) => `${esc(e.title)} - ${inDays(e.days_away)}`), ...billsSoon.map((b) => `${esc(b.name)} R${Number(b.amount).toLocaleString('en-ZA')} - ${inDays(b.days_away)}`)])}` : '');
       const head = `You have <strong>${openTasks}</strong> open to-do${rand(openTasks)} in ${esc(info.name)}.`;
-      for (const u of info.users) {
+      for (const u of dailyUsers) {
         const ok = await sendEmail({
           to: u.email,
           subject: `Your ${info.name} summary`,
@@ -270,8 +277,8 @@ cronRouter.get('/weekly', async (req, res) => {
   const fmtDay = (iso: string) => new Date(iso + 'T00:00:00Z').toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 
   const users = (
-    await query<{ id: string; email: string; name: string; household_id: string; hh_name: string; settings: any }>(
-      `SELECT u.id, u.email, u.name, u.household_id, h.name AS hh_name, h.settings
+    await query<{ id: string; email: string; name: string; email_cadence: string | null; household_id: string; hh_name: string; settings: any }>(
+      `SELECT u.id, u.email, u.name, u.email_cadence, u.household_id, h.name AS hh_name, h.settings
          FROM users u JOIN households h ON h.id = u.household_id
         WHERE u.email IS NOT NULL AND u.household_id IS NOT NULL`
     )
@@ -286,7 +293,8 @@ cronRouter.get('/weekly', async (req, res) => {
   let emailsSent = 0;
   for (const [hhId, info] of byHh) {
     try {
-    if (info.cadence !== 'weekly' && info.cadence !== 'both') continue;
+    const weeklyUsers = info.users.filter((u) => ['weekly', 'both'].includes(userCadence(u, info.cadence)));
+    if (!weeklyUsers.length) continue;
 
     // Events across the next 7 days (recurrence-aware, so repeats show).
     const dated = (await query<{ title: string; event_time: string; event_date: string; recur: string }>(
@@ -351,7 +359,7 @@ cronRouter.get('/weekly', async (req, res) => {
       (openCount ? heading(`To-dos (${openCount} open)`) + ul(openTasks.map((t) => esc(t.title.trim()))) : '');
 
     const head = `Here's the week ahead in <strong>${esc(info.name)}</strong>.`;
-    for (const u of info.users) {
+    for (const u of weeklyUsers) {
       const ok = await sendEmail({
         to: u.email,
         subject: `The week ahead in ${info.name}`,

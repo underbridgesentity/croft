@@ -31,7 +31,7 @@ async function assembleState(householdId: string, meMemberId?: string) {
     hh, members, events, tasks, shopping, goals, bills, budget, savings, settle, notifications, feed, budgetMonths, calSources, budgetSpendsRows, mealsRows, infoRows,
   ] = await Promise.all([
     query(`SELECT name, settings FROM households WHERE id = $1`, [householdId]),
-    query(`SELECT id, name, role, initial, color, is_you, sort FROM members WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
+    query(`SELECT id, name, role, initial, color, is_you, (user_id IS NOT NULL) AS linked, sort FROM members WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
     query(`SELECT id, title, time, ampm, day, date_label, loc, color, illo, to_char(event_date,'YYYY-MM-DD') AS event_date, event_time, assignee_ids, source_id, recur, remind_days FROM events WHERE household_id=$1 ORDER BY event_date NULLS LAST, sort, created_at`, [householdId]),
     query(`SELECT id, title, from_name, from_color, to_char(due_date,'YYYY-MM-DD') AS due_date, due_time, done, type, assignee_ids, recur FROM tasks WHERE household_id=$1 ORDER BY due_date NULLS LAST, sort, created_at`, [householdId]),
     query(`SELECT id, name, by_member, got FROM shopping WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
@@ -106,6 +106,7 @@ async function assembleState(householdId: string, meMemberId?: string) {
     members: members.rows.map((m) => ({
       id: m.id, name: m.name, role: m.role, initial: m.initial, color: m.color,
       you: meMemberId ? m.id === meMemberId : m.is_you,
+      linked: !!m.linked,
     })),
     // Labels + "today"/"overdue" are derived from the real dates so they never go
     // stale (a "Today" event stays correct only for the actual day).
@@ -726,7 +727,19 @@ dataRouter.patch('/members/:id', async (req: AuthedRequest, res) => {
 });
 
 dataRouter.delete('/members/:id', async (req: AuthedRequest, res) => {
+  const m = (await query(`SELECT user_id, name FROM members WHERE id=$1 AND household_id=$2 AND is_you=false`, [req.params.id, hh(req)])).rows[0];
+  if (!m) return sendState(req, res);
+  if (m.user_id === req.userId) {
+    return res.status(400).json({ error: 'To leave the household yourself, use Account & security below.' });
+  }
+  // Unlink their account FIRST - "remove" must actually revoke access, not
+  // just hide the person from the list.
+  if (m.user_id) {
+    await query(`UPDATE users SET household_id=NULL, member_id=NULL WHERE id=$1 AND household_id=$2`, [m.user_id, hh(req)]);
+  }
   await query(`DELETE FROM members WHERE id=$1 AND household_id=$2 AND is_you=false`, [req.params.id, hh(req)]);
+  const me = await meMember(hh(req), req.memberId);
+  await addFeed(hh(req), me.name, me.color, me.initial, `removed ${m.name} from the household`);
   await sendState(req, res);
 });
 
@@ -764,6 +777,22 @@ dataRouter.post('/invites', async (req: AuthedRequest, res) => {
     });
   }
   res.json({ token, emailed });
+});
+
+// Outstanding (unaccepted, unexpired) invites - so an inviter can re-share or
+// revoke instead of the invite vanishing into the void after creation.
+dataRouter.get('/invites', async (req: AuthedRequest, res) => {
+  const rows = (await query<{ id: string; token: string; role: string; expires: string; member_name: string | null }>(
+    `SELECT i.id, i.token, i.role, to_char(i.expires_at,'YYYY-MM-DD') AS expires, m.name AS member_name
+       FROM invites i LEFT JOIN members m ON m.id = i.member_id
+      WHERE i.household_id=$1 AND i.accepted_at IS NULL AND i.expires_at > now()
+      ORDER BY i.created_at DESC`, [hh(req)]
+  )).rows;
+  res.json({ invites: rows });
+});
+dataRouter.delete('/invites/:id', async (req: AuthedRequest, res) => {
+  await query(`DELETE FROM invites WHERE id=$1 AND household_id=$2 AND accepted_at IS NULL`, [req.params.id, hh(req)]);
+  res.json({ ok: true });
 });
 
 // ---------------- NOTIFICATIONS / NUDGE ----------------
@@ -891,6 +920,27 @@ dataRouter.patch('/household-info/:id', async (req: AuthedRequest, res) => {
 dataRouter.delete('/household-info/:id', async (req: AuthedRequest, res) => {
   await query(`DELETE FROM household_info WHERE id=$1 AND household_id=$2`, [req.params.id, hh(req)]);
   await sendState(req, res);
+});
+
+// Rotate the household's calendar-feed token: the old subscribe URL stops
+// working immediately (for when a link leaked or a subscriber left).
+dataRouter.post('/calendar-feed/rotate', async (req: AuthedRequest, res) => {
+  const token = crypto.randomBytes(18).toString('base64url');
+  await query(`UPDATE households SET calendar_token=$1 WHERE id=$2`, [token, hh(req)]);
+  const base = process.env.SERVER_URL || APP_URL;
+  const url = `${base}/api/calendar/feed/${token}.ics`;
+  res.json({ url, webcal: url.replace(/^https?:/, 'webcal:') });
+});
+
+// Per-user email cadence override (falls back to the household setting) - one
+// member turning email off must not silence everyone else's inbox.
+dataRouter.patch('/my-settings', async (req: AuthedRequest, res) => {
+  const c = req.body?.emailCadence;
+  if (c !== null && !['off', 'daily', 'weekly', 'both'].includes(c)) {
+    return res.status(400).json({ error: 'Invalid cadence' });
+  }
+  await query(`UPDATE users SET email_cadence=$1 WHERE id=$2`, [c, req.userId]);
+  res.json({ ok: true, emailCadence: c });
 });
 
 // ---------------- SETTINGS / HOUSEHOLD ----------------

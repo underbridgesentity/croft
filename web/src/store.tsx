@@ -22,6 +22,12 @@ interface Store {
   unlock: () => void;
   setLockEnabled: (locked: boolean) => void;
   refreshState: () => Promise<void>;
+  /** Replay the welcome tour on demand (Family screen). */
+  tourOpen: boolean;
+  openTour: () => void;
+  closeTour: () => void;
+  /** A signed-in account accepts an invite into another household. */
+  acceptInviteExisting: (token: string) => Promise<void>;
   /** True when the initial load failed on the NETWORK (not auth) - the app
    * doesn't know who you are yet and must offer a retry, never the signup page. */
   loadError: boolean;
@@ -39,6 +45,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<string | null>(null);
   const [appUnlocked, setAppUnlocked] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
   const tRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flash = useCallback((msg: string) => {
@@ -65,6 +72,38 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Native app: refresh state and re-lock (if a passcode is set) on foreground.
   useEffect(() => onNativeResume(() => { refreshState().catch(() => {}); setAppUnlocked(false); }), [refreshState]);
+
+  // Multi-user sync: an open app must learn about the family's changes without
+  // a manual reload. Refresh (throttled) on tab focus/visibility, when the
+  // connection returns, and on a gentle interval while visible.
+  const lastSync = useRef(0);
+  const stateRef = useRef<AppState | null>(null);
+  stateRef.current = state;
+  useEffect(() => {
+    const sync = (minGapMs: number) => {
+      if (!stateRef.current) return; // not signed in / no household yet
+      const now = Date.now();
+      if (now - lastSync.current < minGapMs) return;
+      lastSync.current = now;
+      refreshState().catch(() => {});
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') sync(15_000); };
+    const onOnline = () => sync(2_000);
+    const iv = setInterval(() => { if (document.visibilityState === 'visible') sync(55_000); }, 60_000);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    window.addEventListener('online', onOnline);
+    // Service worker tells us a push landed for this household -> fetch it.
+    const onSwMessage = (e: MessageEvent) => { if (e?.data?.type === 'croft:refresh') sync(2_000); };
+    navigator.serviceWorker?.addEventListener?.('message', onSwMessage);
+    return () => {
+      clearInterval(iv);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+      window.removeEventListener('online', onOnline);
+      navigator.serviceWorker?.removeEventListener?.('message', onSwMessage);
+    };
+  }, [refreshState]);
 
   // Initial session check. A NETWORK failure (no HTTP status) means we simply
   // don't know who the user is - flag it so the app shows a retry screen
@@ -121,6 +160,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     },
     [afterAuth]
   );
+  const acceptInviteExisting = useCallback(
+    async (token: string) => {
+      const { user } = await api.acceptInviteExisting(token);
+      await afterAuth(user);
+    },
+    [afterAuth]
+  );
   const logout = useCallback(async () => {
     await api.logout();
     setUser(null);
@@ -166,7 +212,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [flash]
   );
 
-  const value: Store = { ready, user, state, toast, flash, signup, login, acceptInvite, resetPassword, deleteAccount, logout, completeOnboarding, appUnlocked, unlock, setLockEnabled, refreshState, loadError, retryLoad, run };
+  const openTour = useCallback(() => setTourOpen(true), []);
+  const closeTour = useCallback(() => setTourOpen(false), []);
+
+  const value: Store = { ready, user, state, toast, flash, signup, login, acceptInvite, acceptInviteExisting, resetPassword, deleteAccount, logout, completeOnboarding, appUnlocked, unlock, setLockEnabled, refreshState, loadError, retryLoad, tourOpen, openTour, closeTour, run };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

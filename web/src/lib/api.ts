@@ -85,6 +85,7 @@ export const api = {
 
   // ---- push ----
   calendarFeed: () => req<{ url: string; webcal: string }>('/calendar-feed'),
+  rotateCalendarFeed: () => req<{ url: string; webcal: string }>('/calendar-feed/rotate', { method: 'POST' }),
   addCalendarSource: (d: { url: string; name?: string }) =>
     req<AppState>('/calendar-sources', { method: 'POST', body: JSON.stringify(d) }),
   refreshCalendarSource: (id: string) =>
@@ -100,6 +101,11 @@ export const api = {
   // ---- invites ----
   createInvite: (opts?: { memberId?: string; email?: string }) =>
     req<{ token: string; emailed: boolean }>('/invites', { method: 'POST', body: JSON.stringify(opts || {}) }),
+  listInvites: () =>
+    req<{ invites: { id: string; token: string; role: string; expires: string; member_name: string | null }[] }>('/invites'),
+  revokeInvite: (id: string) => req<{ ok: true }>(`/invites/${id}`, { method: 'DELETE' }),
+  acceptInviteExisting: (token: string) =>
+    req<{ user: User }>(`/auth/invite/${token}/accept-existing`, { method: 'POST' }),
   getInvite: (token: string) =>
     req<{ household_name: string; inviter_name: string | null; role: string | null }>(`/auth/invite/${token}`),
   acceptInvite: (token: string, d: { name: string; email: string; password: string }) =>
@@ -187,6 +193,8 @@ export const api = {
   reopenSettle: (id: string) => req<AppState>(`/settle/${id}`, { method: 'PATCH', body: JSON.stringify({ settled: false }) }),
   setSetting: (key: string, value: unknown) =>
     req<AppState>('/settings', { method: 'PATCH', body: JSON.stringify({ key, value }) }),
+  setMyEmailCadence: (emailCadence: string) =>
+    req<{ ok: true }>('/my-settings', { method: 'PATCH', body: JSON.stringify({ emailCadence }) }),
   renameHousehold: (name: string) =>
     req<AppState>('/household', { method: 'PATCH', body: JSON.stringify({ name }) }),
 };

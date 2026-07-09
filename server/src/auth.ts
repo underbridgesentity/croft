@@ -57,7 +57,7 @@ function sessionToken(req: AuthedRequest): string | null {
 
 async function loadUser(userId: string) {
   const r = await query(
-    `SELECT u.id, u.email, u.name, u.household_id, u.member_id, u.onboarded, u.token_version,
+    `SELECT u.id, u.email, u.name, u.household_id, u.member_id, u.onboarded, u.token_version, u.email_cadence,
             (u.lock_pin IS NOT NULL) AS locked, h.name AS household_name
        FROM users u LEFT JOIN households h ON h.id = u.household_id
       WHERE u.id = $1`,
@@ -343,6 +343,53 @@ authRouter.post('/invite/:token/accept', rateLimit('signup', 10, 3600), async (r
   notifyInviterOfJoin(invite, name).catch(() => {});
   const token = await issueSession(res, userId);
   res.json({ user: await loadUser(userId), token });
+});
+
+// An EXISTING, signed-in account accepts an invite - previously the most
+// common second-user path (partner already tried the app solo) dead-ended.
+// Solo founders move across and their starter household is deleted; members
+// of a real multi-user household must leave it first.
+authRouter.post('/invite/:token/accept-existing', rateLimit('signup', 10, 3600), async (req: AuthedRequest, res) => {
+  const token = sessionToken(req);
+  if (!token) return res.status(401).json({ error: 'Not signed in' });
+  let u: Awaited<ReturnType<typeof loadUser>>;
+  try {
+    const payload = jwt.verify(token, JWT_SECRET) as { uid: string; v?: number };
+    u = await loadUser(payload.uid);
+    if (!u || sessionRevoked(payload, u)) return res.status(401).json({ error: 'Session expired' });
+  } catch {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+  const invite = await loadValidInvite(req.params.token);
+  if (!invite) return res.status(410).json({ error: 'This invite is invalid or has expired.' });
+  if (u.household_id === invite.household_id) {
+    return res.status(409).json({ error: "You're already a member of this household." });
+  }
+  if (u.household_id) {
+    const others = await query(`SELECT COUNT(*) FROM users WHERE household_id=$1 AND id<>$2`, [u.household_id, u.id]);
+    if (Number(others.rows[0].count) > 0) {
+      return res.status(409).json({
+        error: "You're already in a household with other members. Remove yourself there first, then open this invite again.",
+      });
+    }
+  }
+  try {
+    const userId = u.id;
+    const oldHousehold = u.household_id;
+    await tx(async (c) => {
+      // A solo starter household holds only this user's seed data - deleting it
+      // cascades everything so no orphaned household lingers.
+      if (oldHousehold) await c.query(`DELETE FROM households WHERE id=$1`, [oldHousehold]);
+      await joinHousehold(c, invite, userId, u!.name);
+    });
+  } catch (e) {
+    if (e instanceof InviteTakenError) {
+      return res.status(410).json({ error: 'This invite has already been used.' });
+    }
+    throw e;
+  }
+  notifyInviterOfJoin(invite, u.name).catch(() => {});
+  res.json({ user: await loadUser(u.id) });
 });
 
 // ---- Password reset (email) ----

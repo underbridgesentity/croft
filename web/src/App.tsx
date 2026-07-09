@@ -28,7 +28,7 @@ function readResetToken(): string | null {
 }
 
 export default function App() {
-  const { ready, user, state, flash, appUnlocked, loadError, retryLoad } = useStore();
+  const { ready, user, state, flash, appUnlocked, loadError, retryLoad, tourOpen } = useStore();
   const [entered, setEntered] = useState(false);
   const [joinToken, setJoinToken] = useState<string | null>(() => readJoinToken());
   const [resetToken, setResetToken] = useState<string | null>(() => readResetToken());
@@ -96,8 +96,10 @@ export default function App() {
     );
   }
 
-  // Someone opened an invite link and isn't already in a household → join flow.
-  if (joinToken && !(user && user.household_id)) {
+  // Someone opened an invite link - logged-out visitors sign up into the
+  // household; signed-in users (even with their own solo household) get a
+  // "join this household" flow instead of the link being silently ignored.
+  if (joinToken) {
     const clearUrl = () => window.history.replaceState({}, '', '/');
     return (
       <Frame>
@@ -156,7 +158,7 @@ export default function App() {
   return (
     <Frame wide>
       <Shell onSignedOut={() => setEntered(false)} />
-      {user && user.onboarded === false && <WelcomeTour />}
+      {user && (user.onboarded === false || tourOpen) && <WelcomeTour />}
     </Frame>
   );
 }

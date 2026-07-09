@@ -23,14 +23,12 @@ function GoogleMark() {
 }
 
 export default function JoinInvite({ token, onJoined, onCancel }: { token: string; onJoined: () => void; onCancel: () => void }) {
-  const { acceptInvite } = useStore();
+  const { acceptInvite, acceptInviteExisting, user } = useStore();
   const [loading, setLoading] = useState(true);
   const [info, setInfo] = useState<{ household_name: string; inviter_name: string | null } | null>(null);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmEmail, setConfirmEmail] = useState('');
-  const [confirmPw, setConfirmPw] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -53,17 +51,22 @@ export default function JoinInvite({ token, onJoined, onCancel }: { token: strin
       setErr('Enter your name, email and a password (8+ characters).');
       return;
     }
-    if (email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase()) {
-      setErr('The email addresses do not match.');
-      return;
-    }
-    if (password !== confirmPw) {
-      setErr('The passwords do not match.');
-      return;
-    }
     setBusy(true);
     try {
       await acceptInvite(token, { name: name.trim(), email: email.trim(), password });
+      onJoined();
+    } catch (e: any) {
+      setErr(e?.message || 'Could not join. Please try again.');
+      setBusy(false);
+    }
+  };
+
+  // Signed-in accounts join directly - no second account, no dead end.
+  const joinExisting = async () => {
+    setErr(null);
+    setBusy(true);
+    try {
+      await acceptInviteExisting(token);
       onJoined();
     } catch (e: any) {
       setErr(e?.message || 'Could not join. Please try again.');
@@ -89,6 +92,25 @@ export default function JoinInvite({ token, onJoined, onCancel }: { token: strin
             </p>
             <button style={{ ...oauthBtn, maxWidth: 240, margin: '0 auto' }} onClick={onCancel}>Go to sign in</button>
           </div>
+        ) : user ? (
+          <>
+            <h1 style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 27, letterSpacing: '-0.02em', margin: '0 0 6px', textAlign: 'center' }}>
+              Join {info.household_name}
+            </h1>
+            <p style={{ fontSize: 14.5, color: '#6F6C67', margin: '0 0 10px', textAlign: 'center' }}>
+              {info.inviter_name ? `${info.inviter_name} invited you` : 'You’ve been invited'} to share this home on Croft.
+            </p>
+            <p style={{ fontSize: 13, color: '#6F6C67', margin: '0 0 22px', textAlign: 'center', lineHeight: 1.5 }}>
+              You're signed in as <b>{user.name}</b>{user.household_id ? ' - joining moves you out of your current household' : ''}.
+            </p>
+            {err && <div style={{ color: '#E23A54', fontSize: 13.5, fontWeight: 600, margin: '0 2px 14px', textAlign: 'center' }}>{err}</div>}
+            <button style={{ ...primaryBtn, opacity: busy ? 0.7 : 1 }} disabled={busy} onClick={joinExisting}>
+              {busy ? 'Joining…' : `Join as ${user.name.split(' ')[0]}`}
+            </button>
+            <div style={{ textAlign: 'center', marginTop: 22, fontSize: 14, color: '#6F6C67' }}>
+              Changed your mind? <button onClick={onCancel} style={{ border: 'none', background: 'none', color: '#3B5BFF', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Back to my home</button>
+            </div>
+          </>
         ) : (
           <>
             <h1 style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 27, letterSpacing: '-0.02em', margin: '0 0 6px', textAlign: 'center' }}>
@@ -106,19 +128,11 @@ export default function JoinInvite({ token, onJoined, onCancel }: { token: strin
               <input style={inputStyle} type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" />
             </div>
             <div style={{ marginBottom: 14 }}>
-              <div style={labelStyle}>Confirm email</div>
-              <input style={inputStyle} type="email" autoComplete="off" value={confirmEmail} onChange={(e) => setConfirmEmail(e.target.value)} onPaste={(e) => e.preventDefault()} placeholder="Re-enter your email" />
-            </div>
-            <div style={{ marginBottom: 14 }}>
               <div style={labelStyle}>Password</div>
               <div style={{ position: 'relative' }}>
                 <input style={{ ...inputStyle, paddingRight: 46 }} type={showPw ? 'text' : 'password'} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" />
                 <EyeBtn shown={showPw} onClick={() => setShowPw((v) => !v)} />
               </div>
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <div style={labelStyle}>Confirm password</div>
-              <input style={inputStyle} type={showPw ? 'text' : 'password'} autoComplete="new-password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} onPaste={(e) => e.preventDefault()} placeholder="Re-enter your password" />
             </div>
             {err && <div style={{ color: '#E23A54', fontSize: 13.5, fontWeight: 600, margin: '0 2px 14px' }}>{err}</div>}
             <button style={{ ...primaryBtn, opacity: busy ? 0.7 : 1 }} disabled={busy} onClick={join}>

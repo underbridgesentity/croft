@@ -73,13 +73,14 @@ const steps = (name: string): Step[] => [
 ];
 
 export default function WelcomeTour() {
-  const { user, completeOnboarding } = useStore();
+  const { user, completeOnboarding, closeTour } = useStore();
+  const finish = () => { completeOnboarding(); closeTour(); };
   const [i, setI] = useState(0);
   const all = steps(user?.name || '');
   const step = all[i];
   const last = i === all.length - 1;
 
-  const next = () => (last ? completeOnboarding() : setI((n) => n + 1));
+  const next = () => (last ? finish() : setI((n) => n + 1));
 
   return (
     <div
@@ -99,7 +100,7 @@ export default function WelcomeTour() {
       <div style={{ display: 'flex', justifyContent: 'flex-end', height: 32 }}>
         {!last && (
           <button
-            onClick={completeOnboarding}
+            onClick={finish}
             style={{ border: 'none', background: 'none', color: '#7D776E', fontSize: 14, fontWeight: 600, cursor: 'pointer', padding: 6 }}
           >
             Skip

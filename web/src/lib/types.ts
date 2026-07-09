@@ -1,4 +1,4 @@
-export interface Member { id: string; name: string; role: string; initial: string; color: string; you: boolean; }
+export interface Member { id: string; name: string; role: string; initial: string; color: string; you: boolean; linked?: boolean; }
 export interface EventItem { id: string; title: string; time: string; ampm: string; day: string; date_label: string; loc: string; color: string; illo: string; event_date?: string | null; event_time?: string | null; assignee_ids?: string[] | null; external?: boolean; recur?: string; remind_days?: number; }
 export interface CalendarSource { id: string; name: string; color: string; count: number; last_synced: string | null; error: string | null; }
 export interface Task { id: string; title: string; from_name: string; from_color: string; due: string; due_key: string; due_date?: string | null; due_time?: string; done: boolean; type: string; assignee_ids?: string[] | null; recur?: string; }
@@ -50,4 +50,5 @@ export interface User {
   household_name: string | null;
   onboarded?: boolean;
   locked?: boolean;
+  email_cadence?: string | null;
 }

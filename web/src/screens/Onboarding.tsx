@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../lib/api';
 import { enablePush } from '../lib/push';
-import { isNative } from '../lib/native';
+import { isNative, nativeShare } from '../lib/native';
 import Art from '../components/Art';
 
 type Step = 'welcome' | 'intro' | 'signup' | 'login' | 'forgot' | 'family' | 'notify';
@@ -49,8 +49,6 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmEmail, setConfirmEmail] = useState('');
-  const [confirmPw, setConfirmPw] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [householdName, setHouseholdName] = useState('');
   const [forgotSent, setForgotSent] = useState(false);
@@ -76,14 +74,6 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
     setErr('');
     if (!name.trim() || !email.trim() || password.length < 8) {
       setErr('Fill in your name, email and a password (8+ characters).');
-      return;
-    }
-    if (email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase()) {
-      setErr('The email addresses do not match.');
-      return;
-    }
-    if (password !== confirmPw) {
-      setErr('The passwords do not match.');
       return;
     }
     setBusy(true);
@@ -114,6 +104,27 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
   const saveHome = async () => {
     if (householdName.trim()) await run(api.renameHousehold(householdName.trim()));
     setStep('notify');
+  };
+
+  // The multiplayer moment: offer the invite link right here, at peak
+  // motivation, instead of hoping they find it later on the Family tab.
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const shareInvite = async () => {
+    if (inviteBusy) return;
+    setInviteBusy(true);
+    try {
+      const { token } = await api.createInvite();
+      const url = `${window.location.origin}/join/${token}`;
+      const shared = await nativeShare({ title: 'Join our home on Croft', text: `Join ${householdName || 'our home'} on Croft`, url });
+      if (!shared) {
+        await navigator.clipboard?.writeText(url);
+        flash('Invite link copied - send it to your family');
+      }
+    } catch {
+      flash('Could not create the invite - you can invite from the Family tab');
+    } finally {
+      setInviteBusy(false);
+    }
   };
 
   const enableNotifs = async () => {
@@ -189,14 +200,12 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
           <p style={subStyle}>Start running your home in one place.</p>
           <Field label="Full name"><input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="Sipho Mokoena" /></Field>
           <Field label="Email"><input style={inputStyle} type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" /></Field>
-          <Field label="Confirm email"><input style={inputStyle} type="email" autoComplete="off" value={confirmEmail} onChange={(e) => setConfirmEmail(e.target.value)} onPaste={(e) => e.preventDefault()} placeholder="Re-enter your email" /></Field>
           <Field label="Password">
             <div style={{ position: 'relative' }}>
               <input style={{ ...inputStyle, paddingRight: 46 }} type={showPw ? 'text' : 'password'} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" />
               <EyeBtn shown={showPw} onClick={() => setShowPw((v) => !v)} />
             </div>
           </Field>
-          <Field label="Confirm password"><input style={inputStyle} type={showPw ? 'text' : 'password'} autoComplete="new-password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} onPaste={(e) => e.preventDefault()} placeholder="Re-enter your password" /></Field>
           {err && <ErrLine msg={err} />}
           <button style={{ ...primaryBtn, marginTop: 10, marginBottom: 12, opacity: busy ? 0.7 : 1 }} disabled={busy} onClick={doSignup}>
             {busy ? 'Creating…' : 'Create account'}
@@ -313,6 +322,10 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
               </div>
             ))}
           </div>
+          <button onClick={shareInvite} disabled={inviteBusy} style={{ width: '100%', border: '1.5px dashed #B9C6FF', background: 'rgba(59,91,255,0.06)', color: '#3B5BFF', fontWeight: 700, fontSize: 14, padding: 14, borderRadius: 14, cursor: 'pointer', marginBottom: 12, opacity: inviteBusy ? 0.6 : 1 }}>
+            {inviteBusy ? 'Creating link…' : '+ Invite your family (share a link)'}
+          </button>
+          <div style={{ fontSize: 11.5, color: '#7D776E', textAlign: 'center', margin: '0 2px 14px' }}>Croft works best together - everyone gets their own login to the same home. You can also invite later from the Family tab.</div>
           <button style={primaryBtn} onClick={saveHome}>Continue</button>
         </div>
       </Scroll>

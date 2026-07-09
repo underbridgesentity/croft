@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../lib/api';
 import { enablePush, disablePush } from '../lib/push';
@@ -12,7 +12,7 @@ const grotesk = "'Geist', sans-serif";
 const pwInput: React.CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1.5px solid #E8E3DB', background: '#fff', borderRadius: 12, padding: '12px 14px', fontSize: 16, outline: 'none', fontFamily: 'inherit', color: '#181922' };
 
 export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: () => void }) {
-  const { state, user, run, flash, deleteAccount, setLockEnabled } = useStore();
+  const { state, user, run, flash, deleteAccount, setLockEnabled, openTour } = useStore();
   const [inviting, setInviting] = useState(false);
   const [inviteName, setInviteName] = useState('');
   const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -37,7 +37,44 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
   const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
   const [importUrl, setImportUrl] = useState('');
   const [importBusy, setImportBusy] = useState(false);
+  const [pending, setPending] = useState<{ id: string; token: string; role: string; expires: string; member_name: string | null }[]>([]);
+  const [hhEdit, setHhEdit] = useState<string | null>(null);
+  useEffect(() => {
+    api.listInvites().then((r) => setPending(r.invites)).catch(() => {});
+  }, [state?.members.length]);
   if (!state) return null;
+
+  const refreshInvites = () => api.listInvites().then((r) => setPending(r.invites)).catch(() => {});
+  const revoke = async (id: string) => {
+    await api.revokeInvite(id).catch(() => {});
+    flash('Invite revoked');
+    refreshInvites();
+  };
+  const copyPending = async (token: string) => {
+    const url = `${window.location.origin}/join/${token}`;
+    const shared = await nativeShare({ title: 'Join our home on Croft', url });
+    if (!shared) {
+      try { await navigator.clipboard.writeText(url); flash('Invite link copied'); }
+      catch { flash('Could not copy'); }
+    }
+  };
+  // Invite a placeholder member to claim their profile (assignments carry over).
+  const inviteToClaim = async (memberId: string, name: string) => {
+    try {
+      const { token } = await api.createInvite({ memberId });
+      const url = `${window.location.origin}/join/${token}`;
+      const shared = await nativeShare({ title: `Claim your profile in ${state!.household.name}`, text: `Join Croft as ${name}`, url });
+      if (!shared) { await navigator.clipboard.writeText(url); flash(`Invite link for ${name} copied`); }
+      refreshInvites();
+    } catch (e: any) {
+      flash(e?.message || 'Could not create invite');
+    }
+  };
+  const saveHouseholdName = () => {
+    const v = (hhEdit || '').trim();
+    setHhEdit(null);
+    if (v && v !== state!.household.name) run(api.renameHousehold(v), 'Household renamed');
+  };
 
   const doImport = async () => {
     const url = importUrl.trim();
@@ -172,9 +209,17 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)) return flash('Enter a valid email address');
     setEmailBusy(true);
     try {
-      const { emailed } = await api.createInvite({ email: addr });
-      flash(emailed ? `Invite emailed to ${addr}` : 'Created - email didn’t send, share a link instead');
+      const { token, emailed } = await api.createInvite({ email: addr });
+      if (emailed) {
+        flash(`Invite emailed to ${addr}`);
+      } else {
+        // The invite exists even though the email failed - surface the link so
+        // the moment isn't lost.
+        setInviteLink(`${window.location.origin}/join/${token}`);
+        flash('Email didn’t send - share this link instead');
+      }
       setInviteAddr('');
+      refreshInvites();
     } catch (e: any) {
       flash(e?.message || 'Could not send invite');
     } finally {
@@ -207,16 +252,34 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
     { key: 'weekly' as const, label: 'Weekly', detail: 'A “week ahead” overview every Sunday evening' },
     { key: 'both' as const, label: 'Both', detail: 'Daily digest and the weekly overview' },
   ];
-  const cadence: EmailCadence = CADENCES.some((c) => c.key === s.emailCadence)
+  const householdCadence: EmailCadence = CADENCES.some((c) => c.key === s.emailCadence)
     ? (s.emailCadence as EmailCadence)
     : (s.email === false ? 'off' : 'both');
+  // Your own preference wins; the household setting is the default for members
+  // who haven't chosen (so one person's Off can't silence everyone).
+  const [myCadence, setMyCadence] = useState<EmailCadence | null>((user?.email_cadence as EmailCadence) || null);
+  const cadence: EmailCadence = myCadence || householdCadence;
   const cadenceDetail = CADENCES.find((c) => c.key === cadence)!.detail;
+  const pickCadence = async (k: EmailCadence, label: string) => {
+    setMyCadence(k);
+    try { await api.setMyEmailCadence(k); flash(`Your email summaries: ${label.toLowerCase()}`); }
+    catch (e: any) { flash(e?.message || 'Could not save'); }
+  };
 
   return (
     <div>
       <div style={{ margin: '8px 2px 18px' }}>
         <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 30, letterSpacing: '-0.02em' }}>Family</div>
-        <div style={{ marginTop: 4, color: '#6F6C67', fontSize: 14, fontWeight: 500 }}>{state.household.name} · {state.members.length} members</div>
+        {hhEdit !== null ? (
+          <div style={{ display: 'flex', gap: 8, marginTop: 6 }}>
+            <input autoFocus value={hhEdit} onChange={(e) => setHhEdit(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') saveHouseholdName(); if (e.key === 'Escape') setHhEdit(null); }} onBlur={saveHouseholdName} style={{ flex: 1, minWidth: 0, border: '1.5px solid #3B5BFF', background: '#fff', borderRadius: 10, padding: '7px 10px', fontSize: 16, fontWeight: 600, outline: 'none', color: '#181922' }} />
+          </div>
+        ) : (
+          <button onClick={() => setHhEdit(state.household.name)} aria-label="Rename household" style={{ border: 'none', background: 'none', padding: 0, marginTop: 4, color: '#6F6C67', fontSize: 14, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+            {state.household.name} · {state.members.length} members
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17z" stroke="#9C968D" strokeWidth="1.8" strokeLinejoin="round" /></svg>
+          </button>
+        )}
       </div>
 
       {/* members */}
@@ -252,6 +315,9 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
               <div style={{ fontWeight: 700, fontSize: 15.5 }}>{m.name}</div>
               <div style={{ fontSize: 12.5, color: '#6F6C67' }}>{m.role || 'Tap to edit'}</div>
             </div>
+            {!m.you && !m.linked && confirmRemove !== m.id && (
+              <button onClick={() => inviteToClaim(m.id, m.name)} style={{ flexShrink: 0, border: 'none', background: 'rgba(59,91,255,0.1)', color: '#3B5BFF', fontWeight: 700, fontSize: 11.5, padding: '6px 11px', borderRadius: 100, cursor: 'pointer' }}>Invite</button>
+            )}
             {m.you ? <YouBadge /> : confirmRemove === m.id ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
                 <button onClick={() => { run(api.delMember(m.id), `${m.name} removed`); setConfirmRemove(null); }} style={{ border: 'none', background: '#E23A54', color: '#fff', fontWeight: 700, fontSize: 12, padding: '7px 12px', borderRadius: 100, cursor: 'pointer' }}>Remove</button>
@@ -300,6 +366,23 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
         </div>
       )}
 
+      {pending.length > 0 && (
+        <div style={{ background: '#fff', borderRadius: 18, padding: '6px 16px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 26 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#7D776E', textTransform: 'uppercase', letterSpacing: '.05em', padding: '10px 0 2px' }}>Waiting to join</div>
+          {pending.map((inv) => (
+            <div key={inv.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid #EFEBE3' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 13.5 }}>{inv.member_name ? `Invite for ${inv.member_name}` : 'Open invite link'}</div>
+                <div style={{ fontSize: 11.5, color: '#7D776E', marginTop: 1 }}>Expires {inv.expires}</div>
+              </div>
+              <button onClick={() => copyPending(inv.token)} style={{ flexShrink: 0, border: 'none', background: '#EFEBE3', color: '#3B5BFF', fontWeight: 700, fontSize: 11.5, padding: '6px 11px', borderRadius: 100, cursor: 'pointer' }}>Share</button>
+              <button onClick={() => revoke(inv.id)} style={{ flexShrink: 0, border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 11.5, cursor: 'pointer', padding: '6px 4px' }}>Revoke</button>
+            </div>
+          ))}
+          <div style={{ height: 6 }} />
+        </div>
+      )}
+
       {/* household info board */}
       <HouseholdInfo />
 
@@ -314,7 +397,7 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
         <div style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '12px 0 10px' }}>
           <Icon name="mail" color="#3B5BFF" size={38} radius={11} glyph={20} />
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 600, fontSize: 14.5 }}>Email summaries</div>
+            <div style={{ fontWeight: 600, fontSize: 14.5 }}>Your email summaries</div>
             <div style={{ fontSize: 12, color: '#6F6C67', marginTop: 2 }}>{cadenceDetail}</div>
           </div>
         </div>
@@ -324,7 +407,7 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
             return (
               <button
                 key={c.key}
-                onClick={() => run(api.setSetting('emailCadence', c.key), `Email summaries: ${c.label.toLowerCase()}`)}
+                onClick={() => pickCadence(c.key, c.label)}
                 aria-pressed={on}
                 style={{ flex: 1, padding: '9px 0', borderRadius: 11, border: on ? '1.5px solid #3B5BFF' : '1.5px solid #E8E3DB', background: on ? '#EEF1FF' : '#fff', color: on ? '#3B5BFF' : '#6B6459', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}
               >
@@ -348,6 +431,7 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
             </div>
             <div style={{ fontSize: 11.5, color: '#7D776E', marginTop: 10, lineHeight: 1.45 }}>In Google Calendar, choose "Other calendars", then "From URL", and paste the copied link.</div>
             <div style={{ fontSize: 11.5, color: '#9C968D', marginTop: 8, lineHeight: 1.45 }}>Apple Calendar updates within minutes (set the refresh in Settings). Google refreshes subscribed calendars on its own schedule, so new events can take a few hours to appear there.</div>
+            <button onClick={async () => { try { const r = await api.rotateCalendarFeed(); setCal(r); flash('Link reset - old links no longer work'); } catch { flash('Could not reset the link'); } }} style={{ border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 12, padding: '10px 0 0', cursor: 'pointer' }}>Reset link (revokes old ones)</button>
           </>
         ) : (
           <button onClick={loadCal} disabled={calBusy} style={{ width: '100%', border: '1.5px dashed #D2CCC1', background: 'transparent', color: '#6B6459', fontWeight: 700, fontSize: 14, padding: 14, borderRadius: 14, cursor: 'pointer', opacity: calBusy ? 0.6 : 1 }}>
@@ -388,6 +472,7 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
       <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19, margin: '0 2px 12px' }}>Account & security</div>
       <div style={{ background: '#fff', borderRadius: 22, padding: '4px 16px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 12 }}>
         <SettingRow illo="lock" label="Change password" detail="" onClick={() => setPwOpen((v) => !v)} />
+        <SettingRow illo="bell" label="View the welcome tour" detail="" onClick={openTour} />
         <SettingRow illo="lock" label="App lock (passcode)" detail={locked ? 'On' : 'Off'} good={locked} onClick={() => { setLockOpen((v) => !v); setPinA(''); setPinB(''); }} />
         <div style={{ height: 4 }} />
       </div>

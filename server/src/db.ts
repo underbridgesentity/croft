@@ -159,11 +159,9 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS lock_pin TEXT;
 -- change/reset; legacy tokens without a version claim count as version 0.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 0;
 
--- Real scheduling for to-dos/reminders (the legacy due/due_key text labels are
--- now DERIVED from due_date at read time). due_time 'HH:MM' powers the
--- ~1-hour-before reminder push, mirroring events.
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date DATE;
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_time TEXT NOT NULL DEFAULT '';
+-- Per-user email cadence override (off/daily/weekly/both); NULL = follow the
+-- household default. One member's preference must not change everyone's inbox.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_cadence TEXT;
 
 -- Unguessable token for the household's subscribable calendar (ICS) feed.
 ALTER TABLE households ADD COLUMN IF NOT EXISTS calendar_token TEXT UNIQUE;
@@ -240,6 +238,13 @@ CREATE TABLE IF NOT EXISTS tasks (
   sort INT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Real scheduling for to-dos/reminders (the legacy due/due_key text labels are
+-- now DERIVED from due_date at read time). due_time 'HH:MM' powers the
+-- ~1-hour-before reminder push, mirroring events. (Placed after CREATE TABLE
+-- tasks so a fresh database initialises cleanly.)
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_date DATE;
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS due_time TEXT NOT NULL DEFAULT '';
 
 CREATE TABLE IF NOT EXISTS shopping (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
