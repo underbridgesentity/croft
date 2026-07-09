@@ -63,6 +63,9 @@ cronRouter.get('/digest', async (req, res) => {
   let pushesSent = 0;
 
   for (const [hhId, info] of byHh) {
+    // One household's bad data or a transient error must never abort the digest
+    // for every household after it in the loop.
+    try {
     // Keep bill statuses honest.
     await query(
       `UPDATE bills SET status='overdue' WHERE household_id=$1 AND status='unpaid' AND due_date IS NOT NULL AND due_date < $2`,
@@ -139,6 +142,9 @@ cronRouter.get('/digest', async (req, res) => {
         if (ok) emailsSent++;
       }
     }
+    } catch (e: any) {
+      console.error('[croft] digest: skipped household', hhId, e?.message || e);
+    }
   }
 
   // Refresh linked external calendars (best-effort; one bad URL never blocks
@@ -189,6 +195,7 @@ cronRouter.get('/weekly', async (req, res) => {
 
   let emailsSent = 0;
   for (const [hhId, info] of byHh) {
+    try {
     if (info.cadence !== 'weekly' && info.cadence !== 'both') continue;
 
     // Events across the next 7 days (recurrence-aware, so repeats show).
@@ -262,6 +269,9 @@ cronRouter.get('/weekly', async (req, res) => {
         text: `The week ahead in ${info.name}: ${weekEvents.length} event${rand(weekEvents.length)}, ${billsWeek.length + billsNoDate.length} bill${rand(billsWeek.length + billsNoDate.length)}, ${openCount} open to-do${rand(openCount)}. ${APP_URL}`,
       });
       if (ok) emailsSent++;
+    }
+    } catch (e: any) {
+      console.error('[croft] weekly: skipped household', hhId, e?.message || e);
     }
   }
 
