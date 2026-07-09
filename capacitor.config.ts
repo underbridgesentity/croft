@@ -20,7 +20,18 @@ const config: CapacitorConfig = {
     cleartext: false,
   },
   ios: {
-    contentInset: 'always',
+    // 'never' (the default) — with 'always' the WKWebView keeps a scrollable
+    // content inset, which reintroduced page-level rubber-banding even though
+    // the web app locks body scrolling; safe areas are handled in CSS via
+    // env(safe-area-inset-*) instead.
+    contentInset: 'never',
+  },
+  plugins: {
+    PushNotifications: {
+      // Show a banner (with sound + badge) when a push arrives while the app
+      // is OPEN — otherwise foreground pushes are silently swallowed.
+      presentationOptions: ['banner', 'sound', 'badge'],
+    },
   },
 };
 
