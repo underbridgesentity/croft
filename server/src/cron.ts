@@ -19,7 +19,7 @@ function authorized(req: Request): boolean {
 }
 
 const ul = (items: string[]) =>
-  items.length ? `<ul style="padding-left:18px;margin:6px 0 0">${items.map((i) => `<li>${i}</li>`).join('')}</ul>` : '';
+  items.length ? `<ul style="padding-left:18px;margin:4px 0 0">${items.map((i) => `<li style="margin:3px 0;color:#3A362F">${i}</li>`).join('')}</ul>` : '';
 const rand = (n: number) => (n === 1 ? '' : 's');
 const rands = (n: number) => 'R' + Math.round(Number(n || 0)).toLocaleString('en-ZA'); // whole rands for summaries
 
@@ -195,21 +195,22 @@ cronRouter.get('/digest', async (req, res) => {
     if (dailyUsers.length && hasContent) {
       const sections =
         (eventsToday.length || tasksToday.length || tonight
-          ? `<p style="margin:16px 0 2px;font-weight:700">Today</p>${ul([
+          ? `<p style="margin:18px 0 5px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#7D776E">Today</p>${ul([
               ...eventsToday.map((e) => `${e.event_time ? e.event_time + ' - ' : ''}${esc(e.title)}`),
               ...tasksToday.map((t) => `${esc(t.title)} (${t.type === 'Reminder' ? 'reminder' : 'to-do'} due)`),
               ...(tonight ? [`Tonight: ${esc(tonight.title)}`] : []),
             ])}`
           : '') +
-        (eventsTom.length ? `<p style="margin:16px 0 2px;font-weight:700">Tomorrow</p>${ul(eventsTom.map((e) => `${e.event_time ? e.event_time + ' - ' : ''}${esc(e.title)}`))}` : '') +
-        (billsDue.length ? `<p style="margin:16px 0 2px;font-weight:700">Bills due</p>${ul(billsDue.map((b) => `${esc(b.name)} - R${Number(b.amount).toLocaleString('en-ZA')} (${b.status === 'overdue' ? 'overdue' : 'due today'})`))}` : '') +
-        (soonCount ? `<p style="margin:16px 0 2px;font-weight:700">Coming up</p>${ul([...eventsSoon.map((e) => `${esc(e.title)} - ${inDays(e.days_away)}`), ...billsSoon.map((b) => `${esc(b.name)} R${Number(b.amount).toLocaleString('en-ZA')} - ${inDays(b.days_away)}`)])}` : '');
+        (eventsTom.length ? `<p style="margin:18px 0 5px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#7D776E">Tomorrow</p>${ul(eventsTom.map((e) => `${e.event_time ? e.event_time + ' - ' : ''}${esc(e.title)}`))}` : '') +
+        (billsDue.length ? `<p style="margin:18px 0 5px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#7D776E">Bills due</p>${ul(billsDue.map((b) => `${esc(b.name)} - R${Number(b.amount).toLocaleString('en-ZA')} (${b.status === 'overdue' ? 'overdue' : 'due today'})`))}` : '') +
+        (soonCount ? `<p style="margin:18px 0 5px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#7D776E">Coming up</p>${ul([...eventsSoon.map((e) => `${esc(e.title)} - ${inDays(e.days_away)}`), ...billsSoon.map((b) => `${esc(b.name)} R${Number(b.amount).toLocaleString('en-ZA')} - ${inDays(b.days_away)}`)])}` : '');
       const head = `You have <strong>${openTasks}</strong> open to-do${rand(openTasks)} in ${esc(info.name)}.`;
       for (const u of dailyUsers) {
         const ok = await sendEmail({
           to: u.email,
           subject: `Your ${info.name} summary`,
-          html: emailLayout(`Good morning${u.name ? `, ${u.name.split(' ')[0]}` : ''}`, head + sections, { label: 'Open Croft', url: APP_URL }),
+          html: emailLayout(`Good morning${u.name ? `, ${u.name.split(' ')[0]}` : ''}`, head + sections, { label: 'Open Croft', url: APP_URL },
+            { footerNote: 'Change how often you get these in Croft → Family → Notifications & reminders.' }),
           text: `${info.name}: ${openTasks} open to-dos, ${eventsToday.length} events today, ${billsDue.length} bills due. ${APP_URL}`,
         });
         if (ok) emailsSent++;
@@ -401,7 +402,7 @@ cronRouter.get('/weekly', async (req, res) => {
     if (!hasContent) continue;
 
     const overBudget = budget.filter((b) => Number(b.budget_limit) > 0 && Number(b.spent) > Number(b.budget_limit));
-    const heading = (t: string) => `<p style="margin:18px 0 2px;font-weight:700">${t}</p>`;
+    const heading = (t: string) => `<p style="margin:18px 0 5px;font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#7D776E">${t}</p>`;
     const sections =
       (weekEvents.length ? heading('This week') + ul(weekEvents.map((e) => `${fmtDay(e.date)}${e.time ? ' · ' + e.time : ''} — ${esc(e.title.trim())}`)) : '') +
       (billsWeek.length || billsNoDate.length
@@ -425,7 +426,8 @@ cronRouter.get('/weekly', async (req, res) => {
       const ok = await sendEmail({
         to: u.email,
         subject: `The week ahead in ${info.name}`,
-        html: emailLayout(`Your week ahead${u.name ? `, ${u.name.split(' ')[0]}` : ''}`, head + sections, { label: 'Open Croft', url: APP_URL }),
+        html: emailLayout(`Your week ahead${u.name ? `, ${u.name.split(' ')[0]}` : ''}`, head + sections, { label: 'Open Croft', url: APP_URL },
+          { footerNote: 'Change how often you get these in Croft → Family → Notifications & reminders.' }),
         text: `The week ahead in ${info.name}: ${weekEvents.length} event${rand(weekEvents.length)}, ${billsWeek.length + billsNoDate.length} bill${rand(billsWeek.length + billsNoDate.length)}, ${openCount} open to-do${rand(openCount)}. ${APP_URL}`,
       });
       if (ok) emailsSent++;
