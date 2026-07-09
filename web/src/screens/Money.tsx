@@ -26,7 +26,7 @@ function SureTrash({ label, onConfirm }: { label: string; onConfirm: () => void 
 const parseAmt = (s: string) => Number(String(s).replace(/[^\d,]/g, '').replace(',', '.')) || 0;
 
 export default function Money({ nav }: { nav: Nav }) {
-  const { state, run } = useStore();
+  const { state, run, isBusy } = useStore();
   // Month navigator: browse bills (and their totals) month by month, so the
   // household can review past months and plan ahead.
   const [monthOffset, setMonthOffset] = useState(0);
@@ -179,11 +179,11 @@ export default function Money({ nav }: { nav: Nav }) {
               <div style={{ fontWeight: 600, fontSize: 13.5, lineHeight: 1.3 }}>{s.txt}</div>
               <div style={{ fontSize: 12, color: '#6F6C67', marginTop: 2 }}>{s.detail} <b style={{ color: s.dir === 'in' ? '#16C098' : '#FF5C8A' }}>{s.dir === 'in' ? '+' : '-'}{s.amount}</b></div>
             </div>
-            <button onClick={() => run(s.dir === 'in' ? api.nudge(s.who) : api.settleUp(s.id), s.dir === 'in' ? `Reminder sent to ${s.who}` : 'Settled up')} style={{ flexShrink: 0, border: 'none', background: '#EFEBE3', color: '#3B5BFF', fontWeight: 700, fontSize: 12.5, padding: '9px 15px', borderRadius: 100, cursor: 'pointer' }}>
+            <button onClick={() => !isBusy('settle:' + s.id) && run(s.dir === 'in' ? api.nudge(s.who, s.member_id ? [s.member_id] : [], `${s.txt} ${s.amount}`) : api.settleUp(s.id), s.dir === 'in' ? `Reminder sent to ${s.who}` : 'Settled up', 'settle:' + s.id)} style={{ flexShrink: 0, border: 'none', background: '#EFEBE3', color: '#3B5BFF', fontWeight: 700, fontSize: 12.5, padding: '9px 15px', borderRadius: 100, cursor: 'pointer' }}>
               {s.dir === 'in' ? 'Remind' : 'Settle up'}
             </button>
             {s.dir === 'in' && (
-              <button onClick={() => run(api.settleUp(s.id), 'Settled up')} style={{ flexShrink: 0, border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 12, cursor: 'pointer', padding: '9px 2px' }}>Settle</button>
+              <button onClick={() => !isBusy('settle:' + s.id) && run(api.settleUp(s.id), 'Settled up', 'settle:' + s.id)} style={{ flexShrink: 0, border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 12, cursor: 'pointer', padding: '9px 2px' }}>Settle</button>
             )}
           </div>
           );

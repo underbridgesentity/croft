@@ -32,8 +32,10 @@ interface Store {
    * doesn't know who you are yet and must offer a retry, never the signup page. */
   loadError: boolean;
   retryLoad: () => void;
-  // generic apply (mutations return fresh state)
-  run: (p: Promise<AppState>, msg?: string) => Promise<void>;
+  // generic apply (mutations return fresh state). `key` marks the action busy
+  // (isBusy) so its button can show a pending state and swallow double-taps.
+  run: (p: Promise<AppState>, msg?: string, key?: string) => Promise<void>;
+  isBusy: (key: string) => boolean;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -46,6 +48,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [appUnlocked, setAppUnlocked] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
+  const [busyKeys, setBusyKeys] = useState<Record<string, true>>({});
   const tRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const flash = useCallback((msg: string) => {
@@ -199,7 +202,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const run = useCallback(
-    async (p: Promise<AppState>, msg?: string) => {
+    async (p: Promise<AppState>, msg?: string, key?: string) => {
+      if (key) setBusyKeys((b) => ({ ...b, [key]: true }));
       try {
         const s = await p;
         setState(s);
@@ -207,15 +211,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (msg) flash(msg);
       } catch (e: any) {
         flash(e?.message || 'Something went wrong');
+      } finally {
+        if (key) setBusyKeys((b) => { const { [key]: _, ...rest } = b; return rest as Record<string, true>; });
       }
     },
     [flash]
   );
+  const isBusy = useCallback((key: string) => !!busyKeys[key], [busyKeys]);
 
   const openTour = useCallback(() => setTourOpen(true), []);
   const closeTour = useCallback(() => setTourOpen(false), []);
 
-  const value: Store = { ready, user, state, toast, flash, signup, login, acceptInvite, acceptInviteExisting, resetPassword, deleteAccount, logout, completeOnboarding, appUnlocked, unlock, setLockEnabled, refreshState, loadError, retryLoad, tourOpen, openTour, closeTour, run };
+  const value: Store = { ready, user, state, toast, flash, signup, login, acceptInvite, acceptInviteExisting, resetPassword, deleteAccount, logout, completeOnboarding, appUnlocked, unlock, setLockEnabled, refreshState, loadError, retryLoad, tourOpen, openTour, closeTour, run, isBusy };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

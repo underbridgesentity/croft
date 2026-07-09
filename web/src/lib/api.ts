@@ -21,15 +21,36 @@ export function setToken(t: string | null | undefined) {
 
 async function req<T>(path: string, opts: RequestInit = {}): Promise<T> {
   const token = getToken();
-  const res = await fetch(BASE + path, {
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(opts.headers || {}),
-    },
-    ...opts,
-  });
+  // A hung request must never pin a form on "Adding..." forever; and a network
+  // failure should read like weather, not like a bug ("Failed to fetch").
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20_000);
+  let res: Response;
+  try {
+    res = await fetch(BASE + path, {
+      credentials: 'include',
+      signal: ctrl.signal,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(opts.headers || {}),
+      },
+      ...opts,
+    });
+  } catch (e: any) {
+    clearTimeout(timer);
+    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+    const err = new Error(
+      e?.name === 'AbortError'
+        ? 'That took too long - check your connection and try again'
+        : offline
+          ? "You're offline - Croft will catch up when you're back"
+          : 'Connection hiccup - please try again'
+    ) as Error & { network?: boolean };
+    err.network = true;
+    throw err;
+  }
+  clearTimeout(timer);
   let body: any = null;
   try {
     body = await res.json();

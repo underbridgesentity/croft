@@ -13,7 +13,7 @@ function greeting() {
 }
 
 export default function Home({ nav }: { nav: Nav }) {
-  const { state, run, flash } = useStore();
+  const { state, run, isBusy } = useStore();
   if (!state) return null;
   const you = state.members.find((m) => m.you);
   const today = new Date().toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -80,7 +80,7 @@ export default function Home({ nav }: { nav: Nav }) {
               <div style={{ fontSize: 12, color: '#6F6C67', marginTop: 2 }}>{it.meta}</div>
             </div>
             {it.tappable ? (
-              <button onClick={() => run(api.toggleTask((it as any).id, true), 'Nice - one less thing')} style={circleBtn} />
+              <button onClick={() => !isBusy('task:' + (it as any).id) && run(api.toggleTask((it as any).id, true), 'Nice - one less thing', 'task:' + (it as any).id)} aria-label={`Mark ${it.title} as done`} style={{ ...circleBtn, opacity: isBusy('task:' + (it as any).id) ? 0.4 : 1 }} />
             ) : (
               <div style={{ flexShrink: 0, fontFamily: grotesk, fontWeight: 600, fontSize: 13, textAlign: 'right' }}>{it.time}</div>
             )}

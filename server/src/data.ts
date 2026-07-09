@@ -26,7 +26,7 @@ const num = (v: any) => (v == null ? 0 : Number(v));
 
 /** Assemble the whole app state for a household (raw rows; client formats).
  * `meMemberId` marks which member is "you" for the requesting user. */
-async function assembleState(householdId: string, meMemberId?: string) {
+async function assembleState(householdId: string, meMemberId?: string, meUserId?: string) {
   const [
     hh, members, events, tasks, shopping, goals, bills, budget, savings, settle, notifications, feed, budgetMonths, calSources, budgetSpendsRows, mealsRows, infoRows,
   ] = await Promise.all([
@@ -49,12 +49,13 @@ async function assembleState(householdId: string, meMemberId?: string) {
     ),
     query(`SELECT id, name, saved, target, color FROM savings WHERE household_id=$1 ORDER BY sort`, [householdId]),
     query(`SELECT id, txt, detail, amount, dir, who, settled, member_id, from_member, to_member FROM settle WHERE household_id=$1 ORDER BY sort`, [householdId]),
-    query(`SELECT id, illo, color, title, body, time_label, unread, created_at FROM notifications WHERE household_id=$1 ORDER BY created_at DESC`, [householdId]),
+    query(`SELECT id, illo, color, title, body, time_label, unread, created_at FROM notifications WHERE household_id=$1 ORDER BY created_at DESC LIMIT 50`, [householdId]),
     query(`SELECT id, who, color, initial, txt, time_label, created_at FROM feed WHERE household_id=$1 ORDER BY created_at DESC LIMIT 30`, [householdId]),
     // Per-month spend totals per category (SAST months) for the month navigator.
     query(
       `SELECT budget_id, to_char(created_at + interval '2 hours','YYYY-MM') AS month, SUM(amount) AS total
-         FROM budget_spends WHERE household_id=$1 GROUP BY budget_id, month`,
+         FROM budget_spends WHERE household_id=$1 AND created_at > now() - interval '200 days'
+        GROUP BY budget_id, month`,
       [householdId]
     ),
     query(
@@ -70,15 +71,22 @@ async function assembleState(householdId: string, meMemberId?: string) {
       `SELECT id, budget_id, amount, note,
               to_char(created_at + interval '2 hours','YYYY-MM-DD') AS date,
               to_char(created_at + interval '2 hours','YYYY-MM') AS month
-         FROM budget_spends WHERE household_id=$1 ORDER BY created_at DESC`,
+         FROM budget_spends WHERE household_id=$1 AND created_at > now() - interval '200 days'
+        ORDER BY created_at DESC`,
       [householdId]
     ),
-    query(`SELECT id, to_char(date,'YYYY-MM-DD') AS date, title FROM meals WHERE household_id=$1 ORDER BY date, created_at`, [householdId]),
+    query(`SELECT id, to_char(date,'YYYY-MM-DD') AS date, title FROM meals WHERE household_id=$1 AND date > CURRENT_DATE - 28 ORDER BY date, created_at`, [householdId]),
     query(`SELECT id, category, label, value FROM household_info WHERE household_id=$1 ORDER BY sort, created_at`, [householdId]),
   ]);
 
   const household = hh.rows[0] || { name: 'My Home', settings: {} };
   const today = sastToday();
+  // Personal read-state: a notification is unread FOR YOU if it arrived after
+  // your last "mark all read" (family members' badges are independent).
+  const readAt = meUserId
+    ? (await query(`SELECT notif_read_at FROM users WHERE id=$1`, [meUserId])).rows[0]?.notif_read_at
+    : null;
+  const readAtMs = readAt ? new Date(readAt).getTime() : 0;
   // Who-owes-who is stored absolutely (from_member = debtor, to_member = creditor)
   // so the SAME row reads correctly for every member. Re-word it from the current
   // viewer's angle; `mine` marks the IOUs the viewer is actually part of (only
@@ -140,7 +148,11 @@ async function assembleState(householdId: string, meMemberId?: string) {
     savings: savings.rows.map((v) => ({ ...v, saved: num(v.saved), target: num(v.target) })),
     settle: settleView,
     // time_label is derived live from created_at so items never freeze at "just now".
-    notifications: notifications.rows.map((n) => ({ ...n, time_label: relativeTime(n.created_at) })),
+    notifications: notifications.rows.map((n) => ({
+      ...n,
+      unread: new Date(n.created_at).getTime() > readAtMs,
+      time_label: relativeTime(n.created_at),
+    })),
     feed: feed.rows.map((f) => ({ ...f, time_label: relativeTime(f.created_at) })),
     calendarSources: calSources.rows.map((s) => ({
       id: s.id, name: s.name, color: s.color, count: num(s.event_count),
@@ -152,7 +164,7 @@ async function assembleState(householdId: string, meMemberId?: string) {
 
 /** Return fresh state - every mutation ends with this. */
 async function sendState(req: AuthedRequest, res: Response) {
-  res.json(await assembleState(req.householdId!, req.memberId));
+  res.json(await assembleState(req.householdId!, req.memberId, req.userId));
 }
 
 const hh = (req: AuthedRequest) => req.householdId!;
@@ -160,7 +172,7 @@ const nextSort = (table: string) =>
   `(SELECT COALESCE(MAX(sort),0)+1 FROM ${table} WHERE household_id=$1)`;
 
 dataRouter.get('/state', async (req: AuthedRequest, res) => {
-  res.json(await assembleState(hh(req), req.memberId));
+  res.json(await assembleState(hh(req), req.memberId, req.userId));
 });
 
 // Mark the first-run welcome walkthrough as seen for this user.
@@ -797,7 +809,7 @@ dataRouter.delete('/invites/:id', async (req: AuthedRequest, res) => {
 
 // ---------------- NOTIFICATIONS / NUDGE ----------------
 dataRouter.post('/notifications/read-all', async (req: AuthedRequest, res) => {
-  await query(`UPDATE notifications SET unread=false WHERE household_id=$1`, [hh(req)]);
+  await query(`UPDATE users SET notif_read_at=now() WHERE id=$1 AND household_id=$2`, [req.userId, hh(req)]);
   await sendState(req, res);
 });
 dataRouter.post('/nudge', async (req: AuthedRequest, res) => {

@@ -42,7 +42,7 @@ function Seg({ label, active, onClick }: { label: string; active: boolean; onCli
 
 // ---------------- TO-DOS ----------------
 function Todos({ nav }: { nav: Nav }) {
-  const { state, run } = useStore();
+  const { state, run, isBusy } = useStore();
   const [draft, setDraft] = useState('');
   // Filter to one person's to-dos; each task also carries a colour bar for its
   // assignee so "who's it for" reads at a glance.
@@ -67,8 +67,9 @@ function Todos({ nav }: { nav: Nav }) {
   // Nudge pings the ASSIGNEES' devices (the people who must act), falling back
   // to the whole household when nobody is assigned.
   const nudge = (t: (typeof open)[number]) => {
+    if (isBusy('nudge:' + t.id)) return;
     const names = namesFor(t.assignee_ids) || 'the family';
-    run(api.nudge(names, t.assignee_ids || [], t.title), `Reminder sent to ${names}`);
+    run(api.nudge(names, t.assignee_ids || [], t.title), `Reminder sent to ${names}`, 'nudge:' + t.id);
   };
 
   return (
@@ -85,7 +86,7 @@ function Todos({ nav }: { nav: Nav }) {
           {open.map((t) => (
             <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '13px 2px', borderBottom: '1px solid #EFEBE3' }}>
               <span aria-hidden="true" style={{ width: 4, height: 30, borderRadius: 100, background: colorFor(t.assignee_ids), flexShrink: 0 }} />
-              <button onClick={() => run(api.toggleTask(t.id, true), 'Nice - one less thing')} role="checkbox" aria-checked={false} aria-label={`Mark "${t.title}" as done`} style={checkbox} />
+              <button onClick={() => !isBusy('task:' + t.id) && run(api.toggleTask(t.id, true), 'Nice - one less thing', 'task:' + t.id)} role="checkbox" aria-checked={false} aria-label={`Mark "${t.title}" as done`} style={{ ...checkbox, opacity: isBusy('task:' + t.id) ? 0.4 : 1 }} />
               <div
                 role="button"
                 tabIndex={0}
@@ -121,7 +122,7 @@ function Todos({ nav }: { nav: Nav }) {
           <div style={{ background: '#EBE7DF', borderRadius: 20, padding: '4px 14px' }}>
             {done.map((t) => (
               <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '12px 2px' }}>
-                <button onClick={() => run(api.toggleTask(t.id, false))} role="checkbox" aria-checked={true} aria-label={`Mark "${t.title}" as not done`} style={{ ...checkbox, border: 'none', background: '#16C098', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <button onClick={() => !isBusy('task:' + t.id) && run(api.toggleTask(t.id, false), undefined, 'task:' + t.id)} role="checkbox" aria-checked={true} aria-label={`Mark "${t.title}" as not done`} style={{ ...checkbox, border: 'none', background: '#16C098', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#fff" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
                 <div style={{ flex: 1, fontWeight: 600, fontSize: 14.5, color: '#7D776E', textDecoration: 'line-through' }}>{t.title}</div>
@@ -138,7 +139,7 @@ function Todos({ nav }: { nav: Nav }) {
 
 // ---------------- LISTS ----------------
 function Lists() {
-  const { state, run } = useStore();
+  const { state, run, isBusy } = useStore();
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
   if (!state) return null;
@@ -201,7 +202,7 @@ function Lists() {
         <div style={{ background: '#fff', borderRadius: 20, padding: '4px 14px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)' }}>
           {items.map((x) => (
             <div key={x.id} style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '12px 2px', borderBottom: '1px solid #EFEBE3' }}>
-              <button onClick={() => run(api.toggleShop(x.id, !x.got))} aria-label={x.got ? `Put ${x.name} back on the list` : `Mark ${x.name} as bought`} style={{ ...checkbox, width: 25, height: 25, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button onClick={() => !isBusy('shop:' + x.id) && run(api.toggleShop(x.id, !x.got), undefined, 'shop:' + x.id)} aria-label={x.got ? `Put ${x.name} back on the list` : `Mark ${x.name} as bought`} style={{ ...checkbox, width: 25, height: 25, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isBusy('shop:' + x.id) ? 0.4 : 1 }}>
                 {x.got && <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#16C098" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>}
               </button>
               {editing?.id === x.id ? (
@@ -312,7 +313,7 @@ const weekBtn: React.CSSProperties = {
 
 // ---------------- GOALS ----------------
 function Goals({ nav }: { nav: Nav }) {
-  const { state, run } = useStore();
+  const { state, run, isBusy } = useStore();
   if (!state) return null;
   const family = state.goals.filter((g) => g.kind === 'Family');
   const personal = state.goals.filter((g) => g.kind !== 'Family');
@@ -321,7 +322,7 @@ function Goals({ nav }: { nav: Nav }) {
   // Money goals log real rands via the edit sheet; only free-form goals get the
   // quick +8% nudge.
   const logProgress = (g: (typeof family)[number]) =>
-    g.target > 0 ? edit(g) : run(api.bumpGoal(g.id), 'Progress logged');
+    g.target > 0 ? edit(g) : !isBusy('goal:' + g.id) && run(api.bumpGoal(g.id), 'Progress logged', 'goal:' + g.id);
 
   return (
     <div>

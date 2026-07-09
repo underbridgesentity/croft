@@ -163,6 +163,10 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 0;
 -- household default. One member's preference must not change everyone's inbox.
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_cadence TEXT;
 
+-- Per-user notifications-read watermark: "Mark all read" clears YOUR badge,
+-- not the whole family's (rows are shared; read-state is personal).
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notif_read_at TIMESTAMPTZ;
+
 -- Unguessable token for the household's subscribable calendar (ICS) feed.
 ALTER TABLE households ADD COLUMN IF NOT EXISTS calendar_token TEXT UNIQUE;
 -- NOTE: ALTERs for the events and bills tables live AFTER those CREATE TABLE

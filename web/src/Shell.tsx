@@ -48,7 +48,15 @@ const NAV: { key: Tab; label: string; icon: React.ReactNode }[] = [
 export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   const { state, toast, logout, flash } = useStore();
   const isDesktop = useIsDesktop();
-  const [tab, setTab] = useState<Tab>('home');
+  const [tab, setTab] = useState<Tab>(() => {
+    // Push notifications deep-link with ?tab=; land there on open.
+    const t = new URLSearchParams(window.location.search).get('tab');
+    if (t && ['home', 'calendar', 'tasks', 'money', 'family'].includes(t)) {
+      window.history.replaceState({}, '', window.location.pathname);
+      return t as Tab;
+    }
+    return 'home';
+  });
   const [plan, setPlan] = useState<Plan>('todos');
   const [sheet, setSheet] = useState<null | 'add' | 'notifs' | 'feed' | 'form'>(null);
   const [form, setForm] = useState<FormType>('event');
