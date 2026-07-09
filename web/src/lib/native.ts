@@ -7,6 +7,31 @@ import { App } from '@capacitor/app';
 // (Capacitor) app, so the same web bundle powers both.
 export const isNative = () => Capacitor.isNativePlatform();
 
+/** iOS keyboard workaround (native only). When an input is focused, the
+ * WKWebView scrolls the whole document to reveal it, dragging the header and
+ * tab bar with it - and it doesn't reliably restore the position when the
+ * keyboard hides, leaving the chrome shifted. Snap the window scroll back to 0
+ * when typing ends (blur) or the keyboard visibly closes (visual viewport back
+ * to full height) - never while the keyboard is open, so the focused input
+ * stays revealed while typing. */
+export function initNativeViewportFix() {
+  if (!isNative()) return;
+  const snap = () => {
+    if (window.scrollY !== 0) window.scrollTo(0, 0);
+    const de = document.documentElement;
+    if (de.scrollTop !== 0) de.scrollTop = 0;
+    if (document.body.scrollTop !== 0) document.body.scrollTop = 0;
+  };
+  // Blur fires when the user dismisses the keyboard or taps elsewhere; the
+  // small delay lets the keyboard finish its own scroll adjustments first.
+  document.addEventListener('focusout', () => setTimeout(snap, 80));
+  const vv = window.visualViewport;
+  vv?.addEventListener('resize', () => {
+    // Height back to (nearly) full = keyboard closed.
+    if (vv.height >= window.innerHeight - 60) setTimeout(snap, 80);
+  });
+}
+
 /** Light tactile feedback on a successful action (native only). */
 export async function tapHaptic() {
   if (!isNative()) return;

@@ -3,6 +3,10 @@ import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App';
 import { StoreProvider } from './store';
+import { initNativeViewportFix } from './lib/native';
+
+// Keep the app chrome pinned when the iOS keyboard opens/closes (no-op on web).
+initNativeViewportFix();
 
 // The service worker self-activates (skipWaiting + clientsClaim), but nothing
 // reloaded the already-rendered page when a NEW worker took control - so a

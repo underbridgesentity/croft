@@ -10,6 +10,10 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  /* The app scrolls inside its own containers - the document itself never
+     should. Stops iOS rubber-banding/scroll-chaining nudging the header and
+     tab bar out of place. */
+  overscroll-behavior: none;
 }
 body {
   font-family: 'Geist', system-ui, -apple-system, sans-serif;
