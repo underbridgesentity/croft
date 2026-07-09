@@ -16,6 +16,9 @@ export const isNative = () => Capacitor.isNativePlatform();
  * stays revealed while typing. */
 export function initNativeViewportFix() {
   if (!isNative()) return;
+  // Lock the document (see index.css): a swipe can otherwise grab and
+  // rubber-band the entire page - chrome included - inside the WKWebView.
+  document.documentElement.classList.add('native-lock');
   const snap = () => {
     if (window.scrollY !== 0) window.scrollTo(0, 0);
     const de = document.documentElement;

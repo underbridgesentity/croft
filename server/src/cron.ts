@@ -105,6 +105,9 @@ cronRouter.get('/digest', async (req, res) => {
       if (eventsToday.length) bits.push(`${eventsToday.length} event${rand(eventsToday.length)}`);
       if (billsDue.length) bits.push(`${billsDue.length} bill${rand(billsDue.length)} due`);
       if (soonCount) bits.push(`${soonCount} coming up`);
+      // To-dos ride along in the same push (they don't trigger one on their own,
+      // or every household with a standing list would get pinged daily).
+      if (openTasks) bits.push(`${openTasks} to-do${rand(openTasks)} open`);
       const title = (eventsToday.length || billsDue.length) ? `Today in ${info.name}` : `Coming up in ${info.name}`;
       const body = bits.join(' · ');
       // In-app bell entry - guarded so a re-run of the cron doesn't duplicate it.
@@ -163,6 +166,57 @@ cronRouter.get('/digest', async (req, res) => {
   }
 
   res.json({ ok: true, households: byHh.size, emailsSent, pushesSent, calsSynced });
+});
+
+/** Every 15 minutes: a heads-up push ~an hour before each timed event today.
+ * The morning digest tells you what the day holds; this one makes sure the
+ * moment itself isn't missed. Window logic: with a 15-minute cadence, sending
+ * when the event starts in (45, 60] minutes fires exactly once per event, and
+ * the in-app notification guard keeps a cron retry from double-pushing. */
+cronRouter.get('/event-reminders', async (req, res) => {
+  if (!authorized(req)) return res.status(401).json({ error: 'unauthorized' });
+
+  const today = sastToday();
+  const sastNow = new Date(Date.now() + 2 * 3600 * 1000); // SAST = UTC+2, no DST
+  const nowMin = sastNow.getUTCHours() * 60 + sastNow.getUTCMinutes();
+
+  // All timed events across households (system cron); recurrence resolved in JS.
+  const rows = (await query<{ household_id: string; title: string; event_time: string; event_date: string; recur: string }>(
+    `SELECT household_id, title, event_time, to_char(event_date,'YYYY-MM-DD') AS event_date, recur
+       FROM events WHERE event_date IS NOT NULL AND event_time IS NOT NULL AND event_time <> ''`,
+    [],
+    { scoped: false } // every household's events; each push goes to its own household
+  )).rows;
+
+  let sent = 0;
+  for (const e of rows) {
+    try {
+      if (!occursOn(e.event_date, e.recur, today)) continue;
+      const m = /^(\d{1,2}):(\d{2})$/.exec(e.event_time);
+      if (!m) continue;
+      const startMin = Number(m[1]) * 60 + Number(m[2]);
+      const until = startMin - nowMin;
+      if (until <= 45 || until > 60) continue;
+
+      const title = `${e.title.trim()} at ${e.event_time}`;
+      // Bell entry doubles as the exactly-once guard (same pattern as the digest).
+      const ins = await query(
+        `INSERT INTO notifications (household_id, illo, color, title, body, time_label, unread)
+         SELECT $1,'calendar','#FFB020',$2,$3,'just now',true
+          WHERE NOT EXISTS (
+            SELECT 1 FROM notifications WHERE household_id=$1 AND title=$2 AND created_at::date = CURRENT_DATE
+          ) RETURNING id`,
+        [e.household_id, title, 'Coming up in about an hour']
+      );
+      if (!ins.rows.length) continue; // already reminded (retry or duplicate row)
+      await pushToHousehold(e.household_id, { title, body: 'Coming up in about an hour', url: '/' });
+      sent++;
+    } catch (err: any) {
+      console.error('[croft] event-reminders: skipped event', e.title, err?.message || err);
+    }
+  }
+
+  res.json({ ok: true, checked: rows.length, sent });
 });
 
 /** Weekly run (Sunday evening): a calm "week ahead" overview - the next 7 days

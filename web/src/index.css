@@ -15,6 +15,20 @@ body {
      tab bar out of place. */
   overscroll-behavior: none;
 }
+
+/* Native app (class set by initNativeViewportFix): lock the document solid.
+   The WKWebView otherwise lets a swipe grab and rubber-band the whole page -
+   header, tab bar and all - especially after closing a bottom sheet. Pinning
+   html/body as a fixed, non-scrollable box removes the document's scrollable
+   overflow entirely; every list keeps scrolling via its own inner container. */
+html.native-lock,
+html.native-lock body {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
 body {
   font-family: 'Geist', system-ui, -apple-system, sans-serif;
   color: #171821;
