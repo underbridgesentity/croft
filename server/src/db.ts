@@ -46,7 +46,7 @@ export interface QueryOpts {
 // by forgetting the tenant filter. Longest names first so "budget_spends" isn't
 // mis-matched as "budget".
 const SCOPED_TABLES = [
-  'push_subscriptions', 'calendar_sources', 'budget_spends', 'household_info', 'notifications', 'shopping',
+  'push_subscriptions', 'native_push_tokens', 'calendar_sources', 'budget_spends', 'household_info', 'notifications', 'shopping',
   'members', 'invites', 'savings', 'events', 'tasks', 'goals', 'bills', 'budget', 'settle', 'feed', 'meals',
 ];
 const SCOPE_RE = new RegExp(`\\b(?:from|join|into|update)\\s+"?(${SCOPED_TABLES.join('|')})"?\\b`, 'i');
@@ -173,6 +173,16 @@ CREATE TABLE IF NOT EXISTS push_subscriptions (
   endpoint TEXT UNIQUE NOT NULL,
   p256dh TEXT NOT NULL,
   auth TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Native APNs device tokens (the iOS app can't use Web Push in its webview).
+CREATE TABLE IF NOT EXISTS native_push_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  token TEXT UNIQUE NOT NULL,
+  platform TEXT NOT NULL DEFAULT 'ios',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -448,6 +458,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_hh ON notifications(household_id);
 CREATE INDEX IF NOT EXISTS idx_feed_hh ON feed(household_id);
 CREATE INDEX IF NOT EXISTS idx_invites_hh ON invites(household_id);
 CREATE INDEX IF NOT EXISTS idx_push_hh ON push_subscriptions(household_id);
+CREATE INDEX IF NOT EXISTS idx_native_push_hh ON native_push_tokens(household_id);
 CREATE INDEX IF NOT EXISTS idx_budget_hh ON budget(household_id);
 CREATE INDEX IF NOT EXISTS idx_savings_hh ON savings(household_id);
 CREATE INDEX IF NOT EXISTS idx_settle_hh ON settle(household_id);

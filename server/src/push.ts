@@ -1,5 +1,6 @@
 import webpush from 'web-push';
 import { query } from './db.js';
+import { sendApns, apnsEnabled } from './apns.js';
 
 const VAPID_PUBLIC = process.env.VAPID_PUBLIC_KEY;
 const VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY;
@@ -30,6 +31,25 @@ export async function removeSubscription(endpoint: string) {
   await query(`DELETE FROM push_subscriptions WHERE endpoint=$1`, [endpoint], { scoped: false }); // endpoint is a device secret
 }
 
+// ---- Native (iOS/APNs) device tokens ----
+export async function saveNativeToken(householdId: string, userId: string | undefined, token: string, platform = 'ios') {
+  await query(
+    `INSERT INTO native_push_tokens (household_id, user_id, token, platform)
+     VALUES ($1,$2,$3,$4)
+     ON CONFLICT (token) DO UPDATE SET household_id=$1, user_id=$2, platform=$4`,
+    [householdId, userId || null, token, platform]
+  );
+}
+
+export async function removeNativeToken(token: string) {
+  await query(`DELETE FROM native_push_tokens WHERE token=$1`, [token], { scoped: false }); // token is a device secret
+}
+
+/** One-off native push (e.g. the confirmation right after a device registers). */
+export async function pushToNativeToken(token: string, payload: PushPayload) {
+  await sendApns([token], payload).catch(() => []);
+}
+
 /** Send to a single subscription (e.g. a confirmation right after subscribing). */
 export async function pushToSub(sub: BrowserSub, payload: PushPayload) {
   if (!pushEnabled) return;
@@ -45,26 +65,38 @@ export interface PushPayload { title: string; body?: string; url?: string }
 /** Deliver a push to every subscription in a household (optionally excluding one
  * user - e.g. the person who triggered it). Dead subscriptions are pruned. */
 export async function pushToHousehold(householdId: string, payload: PushPayload, exceptUserId?: string) {
-  if (!pushEnabled) return;
-  const rows = (
-    await query<{ endpoint: string; p256dh: string; auth: string }>(
-      `SELECT endpoint, p256dh, auth FROM push_subscriptions
-        WHERE household_id=$1 ${exceptUserId ? 'AND (user_id IS NULL OR user_id <> $2)' : ''}`,
-      exceptUserId ? [householdId, exceptUserId] : [householdId]
-    )
-  ).rows;
-  await Promise.all(
-    rows.map(async (s) => {
-      try {
-        await webpush.sendNotification(
-          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          JSON.stringify(payload)
-        );
-      } catch (e: any) {
-        if (e?.statusCode === 404 || e?.statusCode === 410) {
-          await query(`DELETE FROM push_subscriptions WHERE endpoint=$1`, [s.endpoint], { scoped: false }).catch(() => {}); // prune dead sub by endpoint
+  const notMe = exceptUserId ? 'AND (user_id IS NULL OR user_id <> $2)' : '';
+  const params = exceptUserId ? [householdId, exceptUserId] : [householdId];
+
+  // Channel 1: Web Push (browsers + installed PWAs).
+  if (pushEnabled) {
+    const rows = (
+      await query<{ endpoint: string; p256dh: string; auth: string }>(
+        `SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE household_id=$1 ${notMe}`,
+        params
+      )
+    ).rows;
+    await Promise.all(
+      rows.map(async (s) => {
+        try {
+          await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, JSON.stringify(payload));
+        } catch (e: any) {
+          if (e?.statusCode === 404 || e?.statusCode === 410) {
+            await query(`DELETE FROM push_subscriptions WHERE endpoint=$1`, [s.endpoint], { scoped: false }).catch(() => {}); // prune dead sub
+          }
         }
-      }
-    })
-  );
+      })
+    );
+  }
+
+  // Channel 2: Native APNs (the iOS app, which can't receive Web Push).
+  if (apnsEnabled) {
+    const tokens = (
+      await query<{ token: string }>(`SELECT token FROM native_push_tokens WHERE household_id=$1 ${notMe}`, params)
+    ).rows.map((r) => r.token);
+    const dead = await sendApns(tokens, payload).catch(() => [] as string[]);
+    for (const t of dead) {
+      await query(`DELETE FROM native_push_tokens WHERE token=$1`, [t], { scoped: false }).catch(() => {}); // prune dead token
+    }
+  }
 }

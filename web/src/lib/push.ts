@@ -1,4 +1,6 @@
 import { api } from './api';
+import { isNative } from './native';
+import { enableNativePush, disableNativePush } from './nativePush';
 
 function urlB64ToUint8Array(base64: string): Uint8Array {
   const padding = '='.repeat((4 - (base64.length % 4)) % 4);
@@ -13,8 +15,10 @@ export function pushSupported(): boolean {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 }
 
-/** Request permission, subscribe to push, and register the subscription. */
+/** Request permission, subscribe to push, and register the subscription.
+ * In the native app this goes through APNs; on the web it uses Web Push. */
 export async function enablePush(): Promise<boolean> {
+  if (isNative()) return enableNativePush();
   if (!pushSupported()) return false;
   const perm = await Notification.requestPermission();
   if (perm !== 'granted') return false;
@@ -33,6 +37,7 @@ export async function enablePush(): Promise<boolean> {
 }
 
 export async function disablePush(): Promise<void> {
+  if (isNative()) { await disableNativePush(); return; }
   if (!pushSupported()) return;
   const reg = await navigator.serviceWorker.ready;
   const sub = await reg.pushManager.getSubscription();

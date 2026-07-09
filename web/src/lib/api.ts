@@ -92,6 +92,8 @@ export const api = {
   pushKey: () => req<{ publicKey: string }>('/push/key'),
   pushSubscribe: (sub: unknown) => req<{ ok: true }>('/push/subscribe', { method: 'POST', body: JSON.stringify(sub) }),
   pushUnsubscribe: (endpoint: string) => req<{ ok: true }>('/push/unsubscribe', { method: 'POST', body: JSON.stringify({ endpoint }) }),
+  registerNativePush: (token: string) => req<{ ok: true }>('/push/register-native', { method: 'POST', body: JSON.stringify({ token, platform: 'ios' }) }),
+  unregisterNativePush: (token: string) => req<{ ok: true }>('/push/unregister-native', { method: 'POST', body: JSON.stringify({ token }) }),
 
   // ---- invites ----
   createInvite: (opts?: { memberId?: string; email?: string }) =>

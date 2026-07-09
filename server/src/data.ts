@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { query } from './db.js';
 import { requireAuth, type AuthedRequest } from './auth.js';
 import { rateLimit } from './rateLimit.js';
-import { vapidPublicKey, saveSubscription, removeSubscription, pushToHousehold, pushToSub } from './push.js';
+import { vapidPublicKey, saveSubscription, removeSubscription, pushToHousehold, pushToSub, saveNativeToken, removeNativeToken, pushToNativeToken } from './push.js';
 import { sastToday, formatDateLabel, relativeTime, isoRe } from './dates.js';
 import { advanceIso } from './recur.js';
 import { sendEmail } from './mailer.js';
@@ -727,6 +727,19 @@ dataRouter.post('/push/subscribe', async (req: AuthedRequest, res) => {
 });
 dataRouter.post('/push/unsubscribe', async (req: AuthedRequest, res) => {
   if (req.body?.endpoint) await removeSubscription(String(req.body.endpoint));
+  res.json({ ok: true });
+});
+// Native (iOS/APNs) device token registration - used by the app instead of the
+// Web Push subscribe above (a WKWebView can't do Web Push).
+dataRouter.post('/push/register-native', async (req: AuthedRequest, res) => {
+  const token = String(req.body?.token || '').trim();
+  if (!token) return res.status(400).json({ error: 'Missing token' });
+  await saveNativeToken(hh(req), req.userId, token, String(req.body?.platform || 'ios'));
+  pushToNativeToken(token, { title: 'Croft notifications are on', body: 'Reminders and nudges will appear here.', url: '/' }).catch(() => {});
+  res.json({ ok: true });
+});
+dataRouter.post('/push/unregister-native', async (req: AuthedRequest, res) => {
+  if (req.body?.token) await removeNativeToken(String(req.body.token));
   res.json({ ok: true });
 });
 
