@@ -1,81 +1,58 @@
 #!/bin/sh
 
-# Xcode Cloud post-clone hook.
+# Xcode Cloud post-clone hook - now fully OFFLINE.
 #
-# Xcode Cloud checks out a clean copy of the repo with NO node_modules, but this
-# is a Capacitor app: the iOS plugins (@capacitor/app, haptics, share, push,
-# core) are LOCAL Swift packages that live under node_modules/@capacitor/*.
-# Without them the archive fails at "Could not resolve package dependencies".
-# So: install Node, install JS deps, build the web assets, and run `cap sync`
-# to regenerate the iOS project's package references before Xcode builds.
+# The runners lost outbound network in custom build phases (builds 23-27:
+# nodejs.org, registry.npmjs.org, github.com, formulae.brew.sh all refused),
+# so nothing here may touch the network. Everything the archive needs is
+# committed instead:
+#   - node_modules/@capacitor/{app,haptics,push-notifications,share}
+#     (the local Swift packages CapApp-SPM references)
+#   - ios/vendor/capacitor-swift-pm  (the Capacitor/Cordova xcframeworks that
+#     the remote capacitor-swift-pm package would have downloaded from GitHub)
+#   - ios/App/App/public + ios/App/App/capacitor.config.json  (cap sync output)
 #
-# Node install is belt-and-braces because the runners' egress has been flaky:
-# build 23 couldn't reach formulae.brew.sh (brew), build 26 couldn't reach
-# nodejs.org. GitHub hosts stay reachable (source fetch / SPM), so we fall
-# back to the actions/node-versions mirror on github.com.
+# After changing web code or capacitor.config.ts, run locally:
+#   npm run build --workspace web && npx cap sync ios
+# and commit whatever changed under ios/App/App and node_modules/@capacitor.
+#
+# This script only rewrites the SPM manifests to use the vendored package
+# (the checkout keeps the normal remote URLs so local dev is unaffected).
 
 set -e
-echo "=== ci_post_clone: preparing Capacitor iOS build ==="
-
-# --- connectivity report: which hosts can this runner actually reach? ---
-probe() {
-  if curl -sS -o /dev/null -m 8 "https://$1" 2>/dev/null; then echo "  reachable:   $1"; else echo "  UNREACHABLE: $1"; fi
-}
-echo "--- network probe ---"
-probe nodejs.org
-probe registry.npmjs.org
-probe github.com
-probe raw.githubusercontent.com
-probe objects.githubusercontent.com
-probe formulae.brew.sh
-echo "---------------------"
-
-find_node() { command -v node >/dev/null 2>&1; }
-
-if ! find_node; then
-  # Some images ship node outside the default PATH - check the usual spots.
-  for d in /usr/local/bin /opt/homebrew/bin "$HOME/.local/bin"; do
-    if [ -x "$d/node" ]; then export PATH="$d:$PATH"; break; fi
-  done
-fi
-
-if ! find_node; then
-  NODE_VERSION="22.14.0"
-  case "$(uname -m)" in
-    arm64) NODE_ARCH="darwin-arm64" ;;
-    *)     NODE_ARCH="darwin-x64" ;;
-  esac
-  TARBALL="/tmp/node.tar.gz"
-
-  echo "Installing Node ${NODE_VERSION} (${NODE_ARCH})..."
-  if curl -fsSL --retry 2 --retry-delay 2 -m 60 \
-      "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${NODE_ARCH}.tar.gz" -o "$TARBALL"; then
-    echo "  fetched from nodejs.org"
-  else
-    # nodejs.org unreachable - resolve a Node 22 build from the GitHub-hosted
-    # mirror (github.com/actions/node-versions), which the runners CAN reach.
-    echo "  nodejs.org unreachable, trying the GitHub mirror..."
-    MANIFEST="https://raw.githubusercontent.com/actions/node-versions/main/versions-manifest.json"
-    URL=$(curl -fsSL --retry 2 -m 60 "$MANIFEST" \
-      | grep -o "https://[^\"]*node-22\.[0-9.]*-${NODE_ARCH}\.tar\.gz" | head -1)
-    echo "  mirror url: ${URL:-<none found>}"
-    [ -n "$URL" ] || { echo "ERROR: no Node source reachable"; exit 1; }
-    curl -fsSL --retry 2 --retry-delay 2 -m 120 "$URL" -o "$TARBALL"
-  fi
-
-  mkdir -p /tmp/nodedist
-  tar -xzf "$TARBALL" -C /tmp/nodedist
-  NODE_BIN=$(dirname "$(find /tmp/nodedist -type f -name node -path '*/bin/*' | head -1)")
-  [ -n "$NODE_BIN" ] || { echo "ERROR: node binary not found in tarball"; exit 1; }
-  export PATH="$NODE_BIN:$PATH"
-fi
-echo "node $(node -v), npm $(npm -v)"
-
-# Xcode Cloud exposes the repo root here.
+echo "=== ci_post_clone: offline Capacitor build prep ==="
 cd "$CI_PRIMARY_REPOSITORY_PATH"
 
-npm ci
-npm run build --workspace web   # produces web/dist for `cap sync` to copy
-npx cap sync ios
+for f in \
+  ios/App/App/capacitor.config.json \
+  ios/App/App/public/index.html \
+  ios/vendor/capacitor-swift-pm/Package.swift \
+  ios/vendor/capacitor-swift-pm/Capacitor.xcframework.zip \
+  ios/vendor/capacitor-swift-pm/Cordova.xcframework.zip \
+  node_modules/@capacitor/app/Package.swift \
+  node_modules/@capacitor/haptics/Package.swift \
+  node_modules/@capacitor/push-notifications/Package.swift \
+  node_modules/@capacitor/share/Package.swift
+do
+  [ -e "$f" ] || { echo "ERROR: missing committed artifact $f"; exit 1; }
+done
 
-echo "=== ci_post_clone: done ==="
+# Point every manifest at the vendored capacitor-swift-pm instead of GitHub.
+sed -i '' 's|\.package(url: "https://github\.com/ionic-team/capacitor-swift-pm\.git"[^)]*)|.package(name: "capacitor-swift-pm", path: "../../vendor/capacitor-swift-pm")|' \
+  ios/App/CapApp-SPM/Package.swift
+for p in app haptics push-notifications share; do
+  sed -i '' 's|\.package(url: "https://github\.com/ionic-team/capacitor-swift-pm\.git"[^)]*)|.package(name: "capacitor-swift-pm", path: "../../../ios/vendor/capacitor-swift-pm")|' \
+    "node_modules/@capacitor/$p/Package.swift"
+done
+
+# The committed Package.resolved pins the REMOTE package - drop it so SPM
+# re-resolves against the local paths (no network involved).
+rm -f ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
+
+if grep -l 'capacitor-swift-pm\.git' ios/App/CapApp-SPM/Package.swift node_modules/@capacitor/*/Package.swift 2>/dev/null; then
+  echo "ERROR: a manifest still references the remote package"; exit 1
+fi
+echo "Manifests rewritten to vendored capacitor-swift-pm:"
+grep -h 'vendor/capacitor-swift-pm' ios/App/CapApp-SPM/Package.swift node_modules/@capacitor/app/Package.swift
+
+echo "=== ci_post_clone: done (no network used) ==="

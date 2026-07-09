@@ -1,0 +1,27 @@
+{
+	"appId": "za.co.underbridges.croft",
+	"appName": "Croft",
+	"webDir": "web/dist",
+	"server": {
+		"url": "https://www.croftapp.co.za",
+		"cleartext": false
+	},
+	"ios": {
+		"contentInset": "never"
+	},
+	"plugins": {
+		"PushNotifications": {
+			"presentationOptions": [
+				"banner",
+				"sound",
+				"badge"
+			]
+		}
+	},
+	"packageClassList": [
+		"AppPlugin",
+		"HapticsPlugin",
+		"PushNotificationsPlugin",
+		"SharePlugin"
+	]
+}
