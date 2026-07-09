@@ -29,8 +29,11 @@ export interface AuthedRequest extends Request {
 // Set the web session cookie AND return the token. The web app uses the
 // httpOnly cookie (unchanged); the native app (bundled, cross-origin to the API)
 // stores the returned token and sends it as `Authorization: Bearer`.
-function issueSession(res: Response, userId: string): string {
-  const token = jwt.sign({ uid: userId }, JWT_SECRET, { expiresIn: '30d' });
+// Each token carries the user's current token_version (`v`); bumping the
+// version in the DB revokes every session minted before the bump.
+async function issueSession(res: Response, userId: string): Promise<string> {
+  const row = (await query(`SELECT token_version FROM users WHERE id=$1`, [userId])).rows[0];
+  const token = jwt.sign({ uid: userId, v: row?.token_version ?? 0 }, JWT_SECRET, { expiresIn: '30d' });
   res.cookie(COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
@@ -54,7 +57,7 @@ function sessionToken(req: AuthedRequest): string | null {
 
 async function loadUser(userId: string) {
   const r = await query(
-    `SELECT u.id, u.email, u.name, u.household_id, u.member_id, u.onboarded,
+    `SELECT u.id, u.email, u.name, u.household_id, u.member_id, u.onboarded, u.token_version,
             (u.lock_pin IS NOT NULL) AS locked, h.name AS household_name
        FROM users u LEFT JOIN households h ON h.id = u.household_id
       WHERE u.id = $1`,
@@ -63,13 +66,21 @@ async function loadUser(userId: string) {
   return r.rows[0] || null;
 }
 
+/** True when the token was minted before the user's sessions were revoked
+ * (password change/reset bumps token_version). Legacy tokens carry no `v`,
+ * which counts as version 0. */
+function sessionRevoked(payload: { v?: number }, user: { token_version?: number }): boolean {
+  return (payload.v ?? 0) !== (user.token_version ?? 0);
+}
+
 export async function requireAuth(req: AuthedRequest, res: Response, next: NextFunction) {
   const token = sessionToken(req);
   if (!token) return res.status(401).json({ error: 'Not signed in' });
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { uid: string };
+    const payload = jwt.verify(token, JWT_SECRET) as { uid: string; v?: number };
     const user = await loadUser(payload.uid);
     if (!user) return res.status(401).json({ error: 'Session expired' });
+    if (sessionRevoked(payload, user)) return res.status(401).json({ error: 'Session expired' });
     // A session with no household must not reach data routes (every query is
     // scoped by household_id; a null id silently matches nothing or FK-throws).
     if (!user.household_id) {
@@ -238,7 +249,7 @@ authRouter.post('/signup', rateLimit('signup', 10, 3600), async (req, res) => {
     return uid;
   });
   sendEmail({ to: email.toLowerCase(), ...welcomeEmail(name) }).catch(() => {});
-  const token = issueSession(res, userId);
+  const token = await issueSession(res, userId);
   res.json({ user: await loadUser(userId), token });
 });
 
@@ -261,7 +272,7 @@ authRouter.post('/login', rateLimit('login', 20, 900), async (req, res) => {
   }
   const ok = await bcrypt.compare(password, row.password_hash);
   if (!ok) return res.status(401).json({ error: 'Incorrect email or password' });
-  const token = issueSession(res, row.id);
+  const token = await issueSession(res, row.id);
   res.json({ user: await loadUser(row.id), token });
 });
 
@@ -274,8 +285,9 @@ authRouter.get('/me', async (req: AuthedRequest, res) => {
   const token = sessionToken(req);
   if (!token) return res.json({ user: null });
   try {
-    const payload = jwt.verify(token, JWT_SECRET) as { uid: string };
+    const payload = jwt.verify(token, JWT_SECRET) as { uid: string; v?: number };
     const user = await loadUser(payload.uid);
+    if (user && sessionRevoked(payload, user)) return res.json({ user: null });
     res.json({ user: user || null });
   } catch {
     res.json({ user: null });
@@ -329,7 +341,7 @@ authRouter.post('/invite/:token/accept', rateLimit('signup', 10, 3600), async (r
   }
   sendEmail({ to: email.toLowerCase(), ...welcomeEmail(name) }).catch(() => {});
   notifyInviterOfJoin(invite, name).catch(() => {});
-  const token = issueSession(res, userId);
+  const token = await issueSession(res, userId);
   res.json({ user: await loadUser(userId), token });
 });
 
@@ -365,12 +377,14 @@ authRouter.post('/reset', rateLimit('forgot', 10, 900), async (req, res) => {
   }
   const hash = await bcrypt.hash(parsed.data.password, 10);
   await tx(async (c) => {
-    await c.query(`UPDATE users SET password_hash=$1 WHERE id=$2`, [hash, r.user_id]);
+    // token_version bump revokes every existing session (this device gets a
+    // fresh, current-version token from issueSession below).
+    await c.query(`UPDATE users SET password_hash=$1, token_version=token_version+1 WHERE id=$2`, [hash, r.user_id]);
     await c.query(`UPDATE password_resets SET used=true WHERE token=$1`, [parsed.data.token]);
   });
   const u = await loadUser(r.user_id);
   if (u?.email) sendEmail({ to: u.email, ...passwordChangedEmail({ name: u.name }) }).catch(() => {});
-  const token = issueSession(res, r.user_id);
+  const token = await issueSession(res, r.user_id);
   res.json({ user: u, token });
 });
 
@@ -387,10 +401,14 @@ authRouter.post('/change-password', requireAuth, async (req: AuthedRequest, res)
     if (!ok) return res.status(401).json({ error: 'Your current password is incorrect.' });
   }
   const hash = await bcrypt.hash(parsed.data.newPassword, 10);
-  await query(`UPDATE users SET password_hash=$1 WHERE id=$2`, [hash, req.userId]);
+  // Bump token_version to revoke all other sessions (a password change is the
+  // "kick out whoever has my account" action), then re-issue THIS session so
+  // the device making the change stays signed in.
+  await query(`UPDATE users SET password_hash=$1, token_version=token_version+1 WHERE id=$2`, [hash, req.userId]);
+  const token = await issueSession(res, req.userId!);
   const who = await loadUser(req.userId!);
   if (who?.email) sendEmail({ to: who.email, ...passwordChangedEmail({ name: who.name }) }).catch(() => {});
-  res.json({ ok: true });
+  res.json({ ok: true, token });
 });
 
 // Deleting an account must work even for a user whose household is already
@@ -596,7 +614,7 @@ authRouter.get('/google/callback', async (req, res) => {
       sendEmail({ to: email, ...welcomeEmail(name) }).catch(() => {});
     }
     if (joinedViaInvite && invite) notifyInviterOfJoin(invite, name).catch(() => {});
-    issueSession(res, userId); // web OAuth redirect → cookie only
+    await issueSession(res, userId); // web OAuth redirect → cookie only
     res.redirect(`${APP_URL}/?auth=google_ok`);
   } catch (e) {
     console.error('google callback error', e);

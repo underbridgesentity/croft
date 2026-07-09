@@ -75,7 +75,9 @@ export const api = {
   resetPassword: (token: string, password: string) =>
     reqAuth<{ user: User; token?: string }>('/auth/reset', { method: 'POST', body: JSON.stringify({ token, password }) }),
   changePassword: (d: { currentPassword?: string; newPassword: string }) =>
-    req<{ ok: true }>('/auth/change-password', { method: 'POST', body: JSON.stringify(d) }),
+    // reqAuth: the server revokes all sessions on a password change and returns
+    // a fresh token - persist it so the native app doesn't log itself out.
+    reqAuth<{ ok: true; token?: string }>('/auth/change-password', { method: 'POST', body: JSON.stringify(d) }),
   deleteAccount: async () => { const r = await req<{ ok: true }>('/auth/delete-account', { method: 'POST' }); setToken(null); return r; },
   lockSet: (pin: string) => req<{ ok: true }>('/auth/lock/set', { method: 'POST', body: JSON.stringify({ pin }) }),
   lockVerify: (pin: string) => req<{ ok: boolean }>('/auth/lock/verify', { method: 'POST', body: JSON.stringify({ pin }) }),

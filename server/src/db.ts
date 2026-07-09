@@ -20,7 +20,9 @@ const needsSsl = /neon\.tech|sslmode=require/i.test(connectionString) ||
 
 export const pool = new Pool({
   connectionString,
-  ssl: needsSsl ? { rejectUnauthorized: false } : undefined,
+  // Verify the DB server's certificate (Neon uses publicly-trusted CAs), so a
+  // MITM between the API and the database can't impersonate it.
+  ssl: needsSsl ? { rejectUnauthorized: true } : undefined,
   // Serverless-friendly sizing: keep few connections per warm instance and
   // release them quickly so idle functions don't hold Neon's connection slots.
   // (The connection string is already Neon's pooled/PgBouncer endpoint.)
@@ -151,6 +153,11 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarded BOOLEAN NOT NULL DEFAULT fa
 
 -- Optional per-user app-lock passcode (bcrypt hash; NULL = no lock).
 ALTER TABLE users ADD COLUMN IF NOT EXISTS lock_pin TEXT;
+
+-- Session revocation: bumping this invalidates every outstanding session token
+-- (each JWT carries the version it was minted with). Bumped on password
+-- change/reset; legacy tokens without a version claim count as version 0.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INT NOT NULL DEFAULT 0;
 
 -- Unguessable token for the household's subscribable calendar (ICS) feed.
 ALTER TABLE households ADD COLUMN IF NOT EXISTS calendar_token TEXT UNIQUE;

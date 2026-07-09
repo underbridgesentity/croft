@@ -38,9 +38,10 @@ app.disable('x-powered-by'); // don't advertise the framework/version
 
 app.use(express.json());
 app.use(cookieParser());
-// Same-origin in production (one domain serves app + /api), so reflecting the
-// origin with credentials is safe; in dev we allow the Vite origin explicitly.
-app.use(cors({ origin: isProd ? true : APP_URL, credentials: true }));
+// One domain serves app + /api (same-origin), so the only cross-origin caller
+// to allow is our own canonical origin (the Vite dev origin locally). Pinning
+// it - rather than reflecting any origin - removes credentialed-CORS exposure.
+app.use(cors({ origin: APP_URL, credentials: true }));
 
 app.get('/api/health', (_req, res) => res.json({ ok: true, google: googleConfigured }));
 app.use('/api/auth', authRouter);

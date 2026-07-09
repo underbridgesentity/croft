@@ -1,6 +1,6 @@
 import { Router, type Request } from 'express';
 import { query } from './db.js';
-import { sendEmail, emailLayout } from './mailer.js';
+import { sendEmail, emailLayout, esc } from './mailer.js';
 import { pushToHousehold } from './push.js';
 import { sastToday, sastPlus } from './dates.js';
 import { occursOn } from './recur.js';
@@ -10,13 +10,12 @@ export const cronRouter = Router();
 const CRON_SECRET = process.env.CRON_SECRET;
 const APP_URL = process.env.APP_URL || 'https://www.croftapp.co.za';
 
-// Vercel Cron sends `Authorization: Bearer <CRON_SECRET>` when CRON_SECRET is set.
-// Also accept ?key= for manual runs.
+// Vercel Cron sends `Authorization: Bearer <CRON_SECRET>` when CRON_SECRET is
+// set. Header only - a ?key= query param would leak the secret into request
+// logs. (Manual runs: curl -H "Authorization: Bearer $CRON_SECRET" ...)
 function authorized(req: Request): boolean {
   if (!CRON_SECRET) return false;
-  if (req.headers.authorization === `Bearer ${CRON_SECRET}`) return true;
-  if (req.query.key === CRON_SECRET) return true;
-  return false;
+  return req.headers.authorization === `Bearer ${CRON_SECRET}`;
 }
 
 const ul = (items: string[]) =>
@@ -127,11 +126,11 @@ cronRouter.get('/digest', async (req, res) => {
     const hasContent = openTasks || billsDue.length || eventsToday.length || eventsTom.length || soonCount;
     if ((info.cadence === 'daily' || info.cadence === 'both') && hasContent) {
       const sections =
-        (eventsToday.length ? `<p style="margin:16px 0 2px;font-weight:700">Today</p>${ul(eventsToday.map((e) => `${e.event_time ? e.event_time + ' - ' : ''}${e.title}`))}` : '') +
-        (eventsTom.length ? `<p style="margin:16px 0 2px;font-weight:700">Tomorrow</p>${ul(eventsTom.map((e) => `${e.event_time ? e.event_time + ' - ' : ''}${e.title}`))}` : '') +
-        (billsDue.length ? `<p style="margin:16px 0 2px;font-weight:700">Bills due</p>${ul(billsDue.map((b) => `${b.name} - R${Number(b.amount).toLocaleString('en-ZA')} (${b.status === 'overdue' ? 'overdue' : 'due today'})`))}` : '') +
-        (soonCount ? `<p style="margin:16px 0 2px;font-weight:700">Coming up</p>${ul([...eventsSoon.map((e) => `${e.title} - ${inDays(e.days_away)}`), ...billsSoon.map((b) => `${b.name} R${Number(b.amount).toLocaleString('en-ZA')} - ${inDays(b.days_away)}`)])}` : '');
-      const head = `You have <strong>${openTasks}</strong> open to-do${rand(openTasks)} in ${info.name}.`;
+        (eventsToday.length ? `<p style="margin:16px 0 2px;font-weight:700">Today</p>${ul(eventsToday.map((e) => `${e.event_time ? e.event_time + ' - ' : ''}${esc(e.title)}`))}` : '') +
+        (eventsTom.length ? `<p style="margin:16px 0 2px;font-weight:700">Tomorrow</p>${ul(eventsTom.map((e) => `${e.event_time ? e.event_time + ' - ' : ''}${esc(e.title)}`))}` : '') +
+        (billsDue.length ? `<p style="margin:16px 0 2px;font-weight:700">Bills due</p>${ul(billsDue.map((b) => `${esc(b.name)} - R${Number(b.amount).toLocaleString('en-ZA')} (${b.status === 'overdue' ? 'overdue' : 'due today'})`))}` : '') +
+        (soonCount ? `<p style="margin:16px 0 2px;font-weight:700">Coming up</p>${ul([...eventsSoon.map((e) => `${esc(e.title)} - ${inDays(e.days_away)}`), ...billsSoon.map((b) => `${esc(b.name)} R${Number(b.amount).toLocaleString('en-ZA')} - ${inDays(b.days_away)}`)])}` : '');
+      const head = `You have <strong>${openTasks}</strong> open to-do${rand(openTasks)} in ${esc(info.name)}.`;
       for (const u of info.users) {
         const ok = await sendEmail({
           to: u.email,
@@ -244,23 +243,23 @@ cronRouter.get('/weekly', async (req, res) => {
     const overBudget = budget.filter((b) => Number(b.budget_limit) > 0 && Number(b.spent) > Number(b.budget_limit));
     const heading = (t: string) => `<p style="margin:18px 0 2px;font-weight:700">${t}</p>`;
     const sections =
-      (weekEvents.length ? heading('This week') + ul(weekEvents.map((e) => `${fmtDay(e.date)}${e.time ? ' · ' + e.time : ''} — ${e.title.trim()}`)) : '') +
+      (weekEvents.length ? heading('This week') + ul(weekEvents.map((e) => `${fmtDay(e.date)}${e.time ? ' · ' + e.time : ''} — ${esc(e.title.trim())}`)) : '') +
       (billsWeek.length || billsNoDate.length
         ? heading('Bills') + ul([
-            ...billsWeek.map((b) => `${b.name.trim()} — ${rands(b.amount)} · ${b.due < today ? 'overdue' : 'due ' + fmtDay(b.due)}`),
-            ...billsNoDate.map((b) => `${b.name.trim()} — ${rands(b.amount)} · unpaid (no due date set)`),
+            ...billsWeek.map((b) => `${esc(b.name.trim())} — ${rands(b.amount)} · ${b.due < today ? 'overdue' : 'due ' + fmtDay(b.due)}`),
+            ...billsNoDate.map((b) => `${esc(b.name.trim())} — ${rands(b.amount)} · unpaid (no due date set)`),
           ])
         : '') +
       (spentTotal > 0 || limitTotal > 0
         ? heading('Budget this month') +
           `<div style="font-size:15px">Spent <strong>${rands(spentTotal)}</strong>${limitTotal > 0 ? ` of ${rands(limitTotal)} budgeted` : ''}.</div>` +
-          (overBudget.length ? ul(overBudget.map((b) => `${b.name.trim()} is over budget — ${rands(b.spent)} / ${rands(b.budget_limit)}`)) : '')
+          (overBudget.length ? ul(overBudget.map((b) => `${esc(b.name.trim())} is over budget — ${rands(b.spent)} / ${rands(b.budget_limit)}`)) : '')
         : '') +
-      (settle.length ? heading('Who owes who') + ul(settle.map((s) => `${nameOf.get(s.from_member)} owes ${nameOf.get(s.to_member)} ${s.amount}`)) : '') +
-      (savings.length ? heading('Savings goals') + ul(savings.map((v) => `${v.name.trim()} — ${rands(v.saved)} / ${rands(v.target)}`)) : '') +
-      (openCount ? heading(`To-dos (${openCount} open)`) + ul(openTasks.map((t) => t.title.trim())) : '');
+      (settle.length ? heading('Who owes who') + ul(settle.map((s) => `${esc(nameOf.get(s.from_member))} owes ${esc(nameOf.get(s.to_member))} ${esc(s.amount)}`)) : '') +
+      (savings.length ? heading('Savings goals') + ul(savings.map((v) => `${esc(v.name.trim())} — ${rands(v.saved)} / ${rands(v.target)}`)) : '') +
+      (openCount ? heading(`To-dos (${openCount} open)`) + ul(openTasks.map((t) => esc(t.title.trim()))) : '');
 
-    const head = `Here's the week ahead in <strong>${info.name}</strong>.`;
+    const head = `Here's the week ahead in <strong>${esc(info.name)}</strong>.`;
     for (const u of info.users) {
       const ok = await sendEmail({
         to: u.email,
