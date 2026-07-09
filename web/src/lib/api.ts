@@ -138,9 +138,9 @@ export const api = {
   state: () => req<AppState>('/state'),
 
   // ---- mutations (each returns fresh state) ----
-  addEvent: (d: { title: string; date?: string; time?: string; who?: string[]; recur?: string; remindDays?: number }) =>
+  addEvent: (d: { title: string; date?: string; endDate?: string; time?: string; who?: string[]; recur?: string; remindDays?: number }) =>
     req<AppState>('/events', { method: 'POST', body: JSON.stringify(d) }),
-  updEvent: (id: string, d: { title: string; date?: string; time?: string; who?: string[]; recur?: string; remindDays?: number }) =>
+  updEvent: (id: string, d: { title: string; date?: string; endDate?: string; time?: string; who?: string[]; recur?: string; remindDays?: number }) =>
     req<AppState>(`/events/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   delEvent: (id: string) => req<AppState>(`/events/${id}`, { method: 'DELETE' }),
 
@@ -152,23 +152,23 @@ export const api = {
     req<AppState>(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ done }) }),
   delTask: (id: string) => req<AppState>(`/tasks/${id}`, { method: 'DELETE' }),
 
-  addShop: (name: string) => req<AppState>('/shopping', { method: 'POST', body: JSON.stringify({ name }) }),
+  addShop: (name: string, list?: string) => req<AppState>('/shopping', { method: 'POST', body: JSON.stringify({ name, list }) }),
   renameShop: (id: string, name: string) =>
     req<AppState>(`/shopping/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
   toggleShop: (id: string, got: boolean) => req<AppState>(`/shopping/${id}`, { method: 'PATCH', body: JSON.stringify({ got }) }),
-  clearGotShopping: () => req<AppState>('/shopping/clear-got', { method: 'POST' }),
+  clearGotShopping: (list?: string) => req<AppState>('/shopping/clear-got', { method: 'POST', body: JSON.stringify({ list }) }),
   delShop: (id: string) => req<AppState>(`/shopping/${id}`, { method: 'DELETE' }),
 
-  addGoal: (d: { title: string; kind?: string; target?: string }) =>
+  addGoal: (d: { title: string; kind?: string; target?: string; deadline?: string }) =>
     req<AppState>('/goals', { method: 'POST', body: JSON.stringify(d) }),
-  updGoal: (id: string, d: { title: string; kind?: string; target?: string; addAmount?: string }) =>
+  updGoal: (id: string, d: { title: string; kind?: string; target?: string; addAmount?: string; deadline?: string }) =>
     req<AppState>(`/goals/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   bumpGoal: (id: string) => req<AppState>(`/goals/${id}`, { method: 'PATCH', body: '{}' }),
   delGoal: (id: string) => req<AppState>(`/goals/${id}`, { method: 'DELETE' }),
 
   addBudget: (d: { name: string; limit?: string }) =>
     req<AppState>('/budget', { method: 'POST', body: JSON.stringify(d) }),
-  updBudget: (id: string, d: { name: string; limit?: string; addSpend?: string; note?: string }) =>
+  updBudget: (id: string, d: { name: string; limit?: string; addSpend?: string; note?: string; spendDate?: string }) =>
     req<AppState>(`/budget/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   delBudget: (id: string) => req<AppState>(`/budget/${id}`, { method: 'DELETE' }),
   delBudgetSpend: (id: string) => req<AppState>(`/budget/spend/${id}`, { method: 'DELETE' }),
@@ -185,9 +185,9 @@ export const api = {
     req<AppState>(`/settle/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   delSettle: (id: string) => req<AppState>(`/settle/${id}`, { method: 'DELETE' }),
 
-  addBill: (d: { name: string; amount?: string; due?: string; payer?: string[]; recur?: string; remindDays?: number }) =>
+  addBill: (d: { name: string; amount?: string; due?: string; payer?: string[]; recur?: string; remindDays?: number; autopay?: boolean }) =>
     req<AppState>('/bills', { method: 'POST', body: JSON.stringify(d) }),
-  updBill: (id: string, d: { name: string; amount?: string; due?: string; payer?: string[]; recur?: string; remindDays?: number }) =>
+  updBill: (id: string, d: { name: string; amount?: string; due?: string; payer?: string[]; recur?: string; remindDays?: number; autopay?: boolean }) =>
     req<AppState>(`/bills/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   payBill: (id: string) => req<AppState>(`/bills/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'paid' }) }),
   unpayBill: (id: string) => req<AppState>(`/bills/${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'unpaid' }) }),
@@ -199,9 +199,11 @@ export const api = {
     req<AppState>(`/members/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   delMember: (id: string) => req<AppState>(`/members/${id}`, { method: 'DELETE' }),
 
-  addMeal: (d: { date: string; title: string }) => req<AppState>('/meals', { method: 'POST', body: JSON.stringify(d) }),
-  updMeal: (id: string, title: string) => req<AppState>(`/meals/${id}`, { method: 'PATCH', body: JSON.stringify({ title }) }),
+  addMeal: (d: { date: string; title: string; ingredients?: string; cook?: string | null }) => req<AppState>('/meals', { method: 'POST', body: JSON.stringify(d) }),
+  updMeal: (id: string, d: { title: string; ingredients?: string; cook?: string | null; date?: string }) => req<AppState>(`/meals/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   delMeal: (id: string) => req<AppState>(`/meals/${id}`, { method: 'DELETE' }),
+  mealToList: (id: string) => req<AppState>(`/meals/${id}/to-list`, { method: 'POST' }),
+  copyMealsWeek: (monday: string) => req<AppState>('/meals/copy-week', { method: 'POST', body: JSON.stringify({ monday }) }),
 
   addInfo: (d: { category?: string; label: string; value?: string }) => req<AppState>('/household-info', { method: 'POST', body: JSON.stringify(d) }),
   updInfo: (id: string, d: { category?: string; label: string; value?: string }) => req<AppState>(`/household-info/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),

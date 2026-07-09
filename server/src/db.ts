@@ -49,7 +49,7 @@ export interface QueryOpts {
 // mis-matched as "budget".
 const SCOPED_TABLES = [
   'push_subscriptions', 'native_push_tokens', 'calendar_sources', 'budget_spends', 'household_info', 'notifications', 'shopping',
-  'members', 'invites', 'savings', 'events', 'tasks', 'goals', 'bills', 'budget', 'settle', 'feed', 'meals',
+  'savings_adds', 'members', 'invites', 'savings', 'events', 'tasks', 'goals', 'bills', 'budget', 'settle', 'feed', 'meals',
 ];
 const SCOPE_RE = new RegExp(`\\b(?:from|join|into|update)\\s+"?(${SCOPED_TABLES.join('|')})"?\\b`, 'i');
 
@@ -479,6 +479,43 @@ CREATE TABLE IF NOT EXISTS invites (
 CREATE INDEX IF NOT EXISTS idx_notifications_hh ON notifications(household_id);
 CREATE INDEX IF NOT EXISTS idx_feed_hh ON feed(household_id);
 CREATE INDEX IF NOT EXISTS idx_invites_hh ON invites(household_id);
+-- ---- depth pass ----
+-- Goals: real ownership (id, not display name), optional privacy via owner,
+-- and a target date so a goal can pace and remind like everything else.
+ALTER TABLE goals ADD COLUMN IF NOT EXISTS member_id UUID;
+ALTER TABLE goals ADD COLUMN IF NOT EXISTS deadline DATE;
+-- Backfill legacy personal goals (owner was stored as the member's display
+-- name in the kind column) - idempotent, best-effort by name match.
+UPDATE goals g SET member_id = m.id FROM members m
+ WHERE g.member_id IS NULL AND g.kind <> 'Family' AND m.household_id = g.household_id AND m.name = g.kind;
+
+-- Meals: ingredients feed the shopping list; an optional cook answers
+-- "who's making dinner Thursday?".
+ALTER TABLE meals ADD COLUMN IF NOT EXISTS ingredients TEXT NOT NULL DEFAULT '';
+ALTER TABLE meals ADD COLUMN IF NOT EXISTS cook_member UUID;
+
+-- Bills: debit orders mark themselves paid on their due date (and roll to the
+-- next occurrence) instead of sitting 'overdue' forever.
+ALTER TABLE bills ADD COLUMN IF NOT EXISTS autopay BOOLEAN NOT NULL DEFAULT false;
+
+-- Events: an optional end date makes trips/holidays one entry, not seven.
+ALTER TABLE events ADD COLUMN IF NOT EXISTS end_date DATE;
+
+-- Shopping: named lists (Groceries / Hardware / Gifts ...).
+ALTER TABLE shopping ADD COLUMN IF NOT EXISTS list_name TEXT NOT NULL DEFAULT 'Groceries';
+
+-- Savings contributions ledger: who added what, when - makes totals auditable
+-- and lost updates visible.
+CREATE TABLE IF NOT EXISTS savings_adds (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  household_id UUID NOT NULL REFERENCES households(id) ON DELETE CASCADE,
+  savings_id UUID NOT NULL REFERENCES savings(id) ON DELETE CASCADE,
+  member_name TEXT NOT NULL DEFAULT '',
+  amount NUMERIC NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_savings_adds_hh ON savings_adds(household_id);
+
 CREATE INDEX IF NOT EXISTS idx_push_hh ON push_subscriptions(household_id);
 CREATE INDEX IF NOT EXISTS idx_native_push_hh ON native_push_tokens(household_id);
 CREATE INDEX IF NOT EXISTS idx_budget_hh ON budget(household_id);

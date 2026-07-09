@@ -26,7 +26,7 @@ export default function Plans({ nav }: { nav: Nav }) {
 
       {nav.plan === 'todos' && <Todos nav={nav} />}
       {nav.plan === 'lists' && <Lists />}
-      {nav.plan === 'meals' && <Meals />}
+      {nav.plan === 'meals' && <Meals nav={nav} />}
       {nav.plan === 'goals' && <Goals nav={nav} />}
     </div>
   );
@@ -142,6 +142,8 @@ function Lists() {
   const { state, run, isBusy } = useStore();
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
+  const [activeList, setActiveList] = useState('Groceries');
+  const [newList, setNewList] = useState<string | null>(null);
   if (!state) return null;
   const saveRename = () => {
     if (!editing) return;
@@ -151,11 +153,17 @@ function Lists() {
     if (v && v !== orig) run(api.renameShop(editing.id, v), 'Item renamed');
   };
   const tint: Record<string, string> = { you: '#EAEEFF', naledi: '#FFE9F1', amara: '#FFF4E0', lwazi: '#E3F8F1' };
+  // Named lists: "Groceries" is home base; other lists appear as chips as soon
+  // as they hold an item. A just-created empty list lives only in local state
+  // until its first item lands.
+  const listNames = Array.from(new Set(['Groceries', ...state.shopping.map((x) => x.list || 'Groceries')]));
+  if (!listNames.includes(activeList)) listNames.push(activeList);
+  const inList = state.shopping.filter((x) => (x.list || 'Groceries') === activeList);
   // To-buy items first; bought ones sink to the bottom instead of littering the
   // list in place.
-  const items = [...state.shopping].sort((a, b) => Number(a.got) - Number(b.got));
-  const left = state.shopping.filter((x) => !x.got).length;
-  const bought = state.shopping.length - left;
+  const items = [...inList].sort((a, b) => Number(a.got) - Number(b.got));
+  const left = inList.filter((x) => !x.got).length;
+  const bought = inList.length - left;
   const colorFor = (key: string) => state.members.find((m) => m.id === key || m.name.toLowerCase() === key)?.color;
   const initialFor = (key: string) => state.members.find((m) => m.id === key || m.name.toLowerCase() === key)?.initial;
 
@@ -164,11 +172,11 @@ function Lists() {
     if (!v) return;
     // Gentle dedupe: re-adding something already on the list (case-insensitive)
     // just un-buys it instead of creating "Milk" twice.
-    const existing = state.shopping.find((x) => x.name.trim().toLowerCase() === v.toLowerCase());
+    const existing = inList.find((x) => x.name.trim().toLowerCase() === v.toLowerCase());
     if (existing) {
       run(api.toggleShop(existing.id, false), existing.got ? `${existing.name} is back on the list` : `${existing.name} is already on the list`);
     } else {
-      run(api.addShop(v), 'Added to shopping list');
+      run(api.addShop(v, activeList), activeList === 'Groceries' ? 'Added to shopping list' : `Added to ${activeList}`);
     }
     setDraft('');
   };
@@ -179,16 +187,43 @@ function Lists() {
         <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 19 }}>Shopping list</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {bought > 0 && (
-            <button onClick={() => run(api.clearGotShopping(), 'Bought items cleared')} style={{ border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 12, cursor: 'pointer', padding: '4px 2px' }}>Clear bought</button>
+            <button onClick={() => run(api.clearGotShopping(activeList), 'Bought items cleared')} style={{ border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 12, cursor: 'pointer', padding: '4px 2px' }}>Clear bought</button>
           )}
           <span style={{ fontSize: 12, fontWeight: 700, color: '#3B5BFF', background: 'rgba(59,91,255,0.1)', padding: '4px 11px', borderRadius: 100 }}>{left} to buy</span>
         </div>
       </div>
+      <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 12 }}>
+        {listNames.map((ln) => {
+          const n = state.shopping.filter((x) => (x.list || 'Groceries') === ln && !x.got).length;
+          const sel = ln === activeList;
+          return (
+            <button key={ln} onClick={() => setActiveList(ln)} aria-pressed={sel} style={{ border: 'none', cursor: 'pointer', padding: '8px 14px', borderRadius: 100, fontWeight: 700, fontSize: 12.5, background: sel ? '#181922' : '#EBE7DF', color: sel ? '#fff' : '#181922' }}>
+              {ln}{n > 0 ? ` · ${n}` : ''}
+            </button>
+          );
+        })}
+        {newList === null ? (
+          <button onClick={() => setNewList('')} aria-label="New list" style={{ border: '1.5px dashed #D2CCC1', cursor: 'pointer', padding: '7px 13px', borderRadius: 100, fontWeight: 700, fontSize: 12.5, background: 'transparent', color: '#6B6459' }}>+ New list</button>
+        ) : (
+          <input
+            autoFocus
+            value={newList}
+            onChange={(e) => setNewList(e.target.value)}
+            onBlur={() => { const v = newList.trim().slice(0, 30); if (v) setActiveList(v); setNewList(null); }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') { const v = newList.trim().slice(0, 30); if (v) setActiveList(v); setNewList(null); }
+              if (e.key === 'Escape') setNewList(null);
+            }}
+            placeholder="List name…"
+            style={{ width: 130, border: '1.5px solid #3B5BFF', background: '#fff', borderRadius: 100, padding: '7px 13px', fontSize: 16, outline: 'none', color: '#181922' }}
+          />
+        )}
+      </div>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder="Add an item…" style={inlineInput} />
+        <input value={draft} onChange={(e) => setDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} placeholder={activeList === 'Groceries' ? 'Add an item…' : `Add to ${activeList}…`} style={inlineInput} />
         <AddBtn onClick={add} />
       </div>
-      {left === 0 && state.shopping.length > 0 && (
+      {left === 0 && inList.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'rgba(22,192,152,0.1)', borderRadius: 16, padding: '12px 14px', marginBottom: 12 }}>
           <div style={{ width: 30, height: 30, borderRadius: 9, background: '#16C098', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 12.5l4.5 4.5L19 7" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -196,8 +231,8 @@ function Lists() {
           <div style={{ fontSize: 13.5, fontWeight: 700, color: '#0E7A5F' }}>Nice - everything's bought!</div>
         </div>
       )}
-      {state.shopping.length === 0 ? (
-        <Empty art="emptyList" title="Your list is empty" sub="Add what you need above - the family sees it instantly." />
+      {inList.length === 0 ? (
+        <Empty art="emptyList" title={activeList === 'Groceries' ? 'Your list is empty' : `${activeList} is empty`} sub="Add what you need above - the family sees it instantly." />
       ) : (
         <div style={{ background: '#fff', borderRadius: 20, padding: '4px 14px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)' }}>
           {items.map((x) => (
@@ -238,8 +273,8 @@ function Lists() {
 }
 
 // ---------------- MEALS ----------------
-function Meals() {
-  const { state, run } = useStore();
+function Meals({ nav }: { nav: Nav }) {
+  const { state, run, isBusy } = useStore();
   const [weekOffset, setWeekOffset] = useState(0);
   const [draft, setDraft] = useState<Record<string, string>>({});
   if (!state) return null;
@@ -255,6 +290,17 @@ function Meals() {
   });
   const meals = state.meals || [];
   const add = (iso: string) => { const v = (draft[iso] || '').trim(); if (!v) return; run(api.addMeal({ date: iso, title: v }), 'Meal planned'); setDraft({ ...draft, [iso]: '' }); };
+  const editMeal = (m: (typeof meals)[number]) =>
+    nav.openForm('meal', { editId: m.id, title: m.title, date: m.date, ingredients: m.ingredients || '', cook: m.cook_member || '' });
+  // "Copy last week" appears when this week is a blank slate but last week had a
+  // plan - Taco Tuesday without retyping it.
+  const weekIsos = days.map((d) => d.iso);
+  const weekHas = meals.some((m) => weekIsos.includes(m.date));
+  const prevIsos = [...Array(7)].map((_, i) => {
+    const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 7 + i);
+    return d.toLocaleDateString('en-CA');
+  });
+  const prevHas = meals.some((m) => prevIsos.includes(m.date));
 
   return (
     <div>
@@ -271,6 +317,9 @@ function Meals() {
         </button>
       </div>
 
+      {!weekHas && prevHas && (
+        <button onClick={() => !isBusy('copyweek') && run(api.copyMealsWeek(days[0].iso), "Last week's plan copied", 'copyweek')} style={{ width: '100%', border: '1.5px dashed #D2CCC1', background: 'transparent', color: '#3B5BFF', fontWeight: 700, fontSize: 13, padding: 12, borderRadius: 14, cursor: 'pointer', marginBottom: 10, opacity: isBusy('copyweek') ? 0.5 : 1 }}>↺ Copy last week's plan</button>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {days.map((day) => {
           const dayMeals = meals.filter((m) => m.date === day.iso);
@@ -280,14 +329,29 @@ function Meals() {
                 <span style={{ fontWeight: 700, fontSize: 14.5, color: day.today ? '#3B5BFF' : '#181922' }}>{day.name}</span>
                 <span style={{ fontSize: 11.5, color: '#9C968D', fontWeight: 600 }}>{day.dm}</span>
               </div>
-              {dayMeals.map((m) => (
-                <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid #F2EEE7' }}>
-                  <span style={{ flexShrink: 0, fontSize: 15 }}>🍽️</span>
-                  <span style={{ flex: 1, minWidth: 0, fontWeight: 600, fontSize: 14 }}>{m.title}</span>
-                  <button onClick={() => run(api.addShop(m.title), `${m.title} added to shopping`)} style={{ flexShrink: 0, border: 'none', background: '#EFEBE3', color: '#3B5BFF', fontWeight: 700, fontSize: 11.5, padding: '6px 11px', borderRadius: 100, cursor: 'pointer' }}>+ List</button>
-                  <ConfirmDelete label={m.title} onConfirm={() => run(api.delMeal(m.id), 'Removed')} />
-                </div>
-              ))}
+              {dayMeals.map((m) => {
+                const cook = state.members.find((mm) => mm.id === m.cook_member);
+                const ingCount = (m.ingredients || '').split(/[\n,]+/).map((x) => x.trim()).filter(Boolean).length;
+                const meta = [cook ? `${cook.name} cooks` : '', ingCount ? `${ingCount} ingredient${ingCount === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ');
+                return (
+                  <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderTop: '1px solid #F2EEE7' }}>
+                    <span style={{ flexShrink: 0, fontSize: 15 }}>🍽️</span>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Edit meal ${m.title}`}
+                      onClick={() => editMeal(m)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); editMeal(m); } }}
+                      style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+                    >
+                      <div style={{ fontWeight: 600, fontSize: 14 }}>{m.title}</div>
+                      {meta && <div style={{ fontSize: 11, color: '#7D776E', marginTop: 1 }}>{meta}</div>}
+                    </div>
+                    <button onClick={() => !isBusy('meal:' + m.id) && run(api.mealToList(m.id), ingCount ? 'Ingredients sent to the shopping list' : `${m.title} added to the list`, 'meal:' + m.id)} style={{ flexShrink: 0, border: 'none', background: '#EFEBE3', color: '#3B5BFF', fontWeight: 700, fontSize: 11.5, padding: '6px 11px', borderRadius: 100, cursor: 'pointer', opacity: isBusy('meal:' + m.id) ? 0.5 : 1 }}>+ List</button>
+                    <ConfirmDelete label={m.title} onConfirm={() => run(api.delMeal(m.id), 'Removed')} />
+                  </div>
+                );
+              })}
               <div style={{ display: 'flex', gap: 7, marginTop: dayMeals.length ? 9 : 0 }}>
                 <input value={draft[day.iso] || ''} onChange={(e) => setDraft({ ...draft, [day.iso]: e.target.value })} onKeyDown={(e) => e.key === 'Enter' && add(day.iso)} placeholder="What's for dinner?" style={{ flex: 1, minWidth: 0, border: '1.5px solid #E8E3DB', background: '#fff', borderRadius: 11, padding: '9px 12px', fontSize: 16, outline: 'none', color: '#181922' }} />
                 <button onClick={() => add(day.iso)} aria-label="Add meal" style={{ flexShrink: 0, width: 40, border: 'none', background: '#3B5BFF', borderRadius: 11, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -298,7 +362,7 @@ function Meals() {
           );
         })}
       </div>
-      <div style={{ fontSize: 11.5, color: '#7D776E', margin: '14px 2px 0', textAlign: 'center' }}>Tap “+ List” to send a meal to your shopping list.</div>
+      <div style={{ fontSize: 11.5, color: '#7D776E', margin: '14px 2px 0', textAlign: 'center' }}>Tap a meal to add ingredients or a cook · “+ List” sends its ingredients to the shopping list.</div>
     </div>
   );
 }
@@ -318,7 +382,14 @@ function Goals({ nav }: { nav: Nav }) {
   const family = state.goals.filter((g) => g.kind === 'Family');
   const personal = state.goals.filter((g) => g.kind !== 'Family');
   const edit = (g: (typeof family)[number]) =>
-    nav.openForm('goal', { editId: g.id, title: g.title, kind: g.kind === 'Family' ? 'family' : 'personal', target: g.target ? String(g.target) : '', amount: '' });
+    nav.openForm('goal', { editId: g.id, title: g.title, kind: g.kind === 'Family' ? 'family' : 'personal', target: g.target ? String(g.target) : '', amount: '', deadline: g.deadline || '' });
+  const byWhen = (g: (typeof family)[number]) => {
+    if (!g.deadline) return null;
+    const d = new Date(g.deadline + 'T00:00');
+    const days = Math.round((d.getTime() - new Date(new Date().toLocaleDateString('en-CA') + 'T00:00').getTime()) / 86400000);
+    const label = d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', ...(d.getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}) });
+    return { label, overdue: days < 0 && g.pct < 100 };
+  };
   // Money goals log real rands via the edit sheet; only free-form goals get the
   // quick +8% nudge.
   const logProgress = (g: (typeof family)[number]) =>
@@ -346,7 +417,10 @@ function Goals({ nav }: { nav: Nav }) {
               style={{ cursor: 'pointer' }}
             >
               <div style={{ fontWeight: 700, fontSize: 16 }}>{g.title}</div>
-              <div style={{ fontSize: 12.5, color: '#6F6C67', margin: '2px 0 13px' }}>{g.sub}</div>
+              <div style={{ fontSize: 12.5, color: '#6F6C67', margin: '2px 0 13px' }}>
+                {g.sub}
+                {byWhen(g) && <span style={{ color: byWhen(g)!.overdue ? '#FF4D5E' : '#6F6C67', fontWeight: 600 }}> · by {byWhen(g)!.label}</span>}
+              </div>
             </div>
             <div style={{ height: 8, borderRadius: 100, background: '#EBE7DF', overflow: 'hidden', marginBottom: 13 }}>
               <div style={{ height: '100%', width: `${g.pct}%`, borderRadius: 100, background: g.color }} />
@@ -377,11 +451,15 @@ function Goals({ nav }: { nav: Nav }) {
               onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); edit(g); } }}
               style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
             >
-              <div style={{ fontSize: 11, fontWeight: 700, color: g.color }}>{g.kind}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: g.color }}>{g.kind}{g.member_id ? ' · only you see this' : ''}</div>
               <div style={{ fontWeight: 700, fontSize: 15 }}>{g.title}</div>
-              <div style={{ fontSize: 12, color: '#6F6C67' }}>{g.sub}</div>
+              <div style={{ fontSize: 12, color: '#6F6C67' }}>
+                {g.sub}
+                {byWhen(g) && <span style={{ color: byWhen(g)!.overdue ? '#FF4D5E' : '#6F6C67', fontWeight: 600 }}> · by {byWhen(g)!.label}</span>}
+              </div>
             </div>
             <button onClick={() => logProgress(g)} aria-label={`Log progress on ${g.title}`} style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 11, border: 'none', background: '#EFEBE3', cursor: 'pointer', fontSize: 20, color: '#3B5BFF', lineHeight: 1 }}>+</button>
+            <ConfirmRemove onConfirm={() => run(api.delGoal(g.id), 'Goal removed')} />
           </div>
         ))}
       </div>

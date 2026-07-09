@@ -123,8 +123,11 @@ export default function Money({ nav }: { nav: Nav }) {
             const over = c.limit > 0 && spent > c.limit;
             const barColor = over ? '#FF4D5E' : c.color;
             const w = Math.min(100, c.limit ? Math.round((spent / c.limit) * 100) : 0);
-            const canEdit = monthOffset === 0;
-            const editBudget = () => canEdit && nav.openForm('budget', { editId: c.id, name: c.name, limit: c.limit ? String(c.limit) : '', amount: '', note: '' });
+            const canEdit = monthOffset <= 0;
+            const editBudget = () => canEdit && nav.openForm('budget', {
+              editId: c.id, name: c.name, limit: c.limit ? String(c.limit) : '', amount: '', note: '',
+              month: monthKey, spendDate: monthOffset < 0 ? lastDayOf(monthKey) : '',
+            });
             return (
               <div
                 key={c.id}
@@ -274,7 +277,11 @@ function MoneyInsights({ state, monthKey, monthShort, billsTotal, nav, onMonth }
   if (!trend.some((t) => t.total > 0) && cats.length === 0) return null; // nothing to show yet
 
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  const openBudget = (c: (typeof cats)[number]) => nav.openForm('budget', { editId: c.id, name: c.name, limit: c.limit ? String(c.limit) : '', amount: '', note: '' });
+  const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const openBudget = (c: (typeof cats)[number]) => nav.openForm('budget', {
+    editId: c.id, name: c.name, limit: c.limit ? String(c.limit) : '', amount: '', note: '',
+    month: monthKey, spendDate: monthKey < currentKey ? lastDayOf(monthKey) : '',
+  });
 
   return (
     <>
@@ -330,8 +337,15 @@ function MoneyInsights({ state, monthKey, monthShort, billsTotal, nav, onMonth }
   );
 }
 
+/** Last day of a YYYY-MM month as YYYY-MM-DD - the default backdate when
+ * logging a spend from a past month's view. */
+function lastDayOf(monthKey: string): string {
+  const y = Number(monthKey.slice(0, 4)), m = Number(monthKey.slice(5, 7));
+  return `${monthKey}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+}
+
 function BillRow({ b, nav, run, muted }: { b: import('../lib/types').Bill; nav: Nav; run: (p: Promise<import('../lib/types').AppState>, msg?: string) => Promise<void>; muted?: boolean }) {
-  const edit = () => nav.openForm('bill', { editId: b.id, name: b.name, amount: String(b.amount || ''), due: b.due_date || '', payer: b.assignee_ids || [], recur: b.recur, remindDays: b.remind_days });
+  const edit = () => nav.openForm('bill', { editId: b.id, name: b.name, amount: String(b.amount || ''), due: b.due_date || '', payer: b.assignee_ids || [], recur: b.recur, remindDays: b.remind_days, autopay: !!b.autopay });
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '13px 14px', background: muted ? '#EFEBE3' : '#fff', borderRadius: 18, boxShadow: muted ? 'none' : '0 2px 8px rgba(16,20,38,0.04)', opacity: muted ? 0.8 : 1 }}>
       <Icon name={b.illo} color={b.color} size={42} radius={13} glyph={22} />
@@ -343,7 +357,10 @@ function BillRow({ b, nav, run, muted }: { b: import('../lib/types').Bill; nav: 
         onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); edit(); } }}
         style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
       >
-        <div style={{ fontWeight: 700, fontSize: 14.5 }}>{b.name}</div>
+        <div style={{ fontWeight: 700, fontSize: 14.5 }}>
+          {b.name}
+          {b.autopay && <span style={{ marginLeft: 7, fontSize: 9.5, fontWeight: 800, letterSpacing: '.04em', textTransform: 'uppercase', color: '#7A5CFF', background: 'rgba(122,92,255,0.12)', padding: '2px 7px', borderRadius: 100, verticalAlign: '2px' }}>Auto</span>}
+        </div>
         <div style={{ fontSize: 11.5, color: '#6F6C67', marginTop: 1 }}>{b.payer} · {b.cat} · due {b.due}</div>
       </div>
       <div style={{ textAlign: 'right', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5 }}>

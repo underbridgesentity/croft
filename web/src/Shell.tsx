@@ -10,13 +10,14 @@ import { AddSheet, NotifSheet, FeedSheet, FormSheet } from './screens/Sheets';
 
 export type Tab = 'home' | 'calendar' | 'tasks' | 'money' | 'family';
 export type Plan = 'todos' | 'lists' | 'goals' | 'meals';
-export type FormType = 'event' | 'bill' | 'goal' | 'task' | 'budget' | 'saving' | 'settle';
+export type FormType = 'event' | 'bill' | 'goal' | 'task' | 'budget' | 'saving' | 'settle' | 'meal';
 
 export interface FormData {
   title?: string; name?: string; amount?: string; date?: string;
   time?: string; due?: string; target?: string; kind?: string; type?: string;
   limit?: string; spent?: string; saved?: string; note?: string; dir?: string; recur?: string; remindDays?: number;
-  dueDate?: string; dueTime?: string;
+  dueDate?: string; dueTime?: string; endDate?: string; deadline?: string; autopay?: boolean;
+  ingredients?: string; cook?: string; spendDate?: string; month?: string;
   // Multi-select member assignment (member ids).
   who?: string[]; payer?: string[]; assignees?: string[];
   // Present when the form edits an existing item instead of creating one.
@@ -118,6 +119,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
         budget: { name: '', limit: '' },
         saving: { name: '', target: '', saved: '', amount: '' },
         settle: { who: [], dir: 'in', amount: '', note: '' },
+        meal: { title: '', date: new Date().toLocaleDateString('en-CA'), ingredients: '', cook: '' },
       };
       setForm(f);
       setFd(data || defaults[f]);

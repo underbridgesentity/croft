@@ -59,9 +59,20 @@ export default function Calendar({ nav }: { nav: Nav }) {
     return d.toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric', month: 'short' });
   };
 
+  // Multi-day events cover every day from their start through end_date. The
+  // anchor day is already in monthOccs; inRange handles the days after it.
+  const ranged = state.events.filter((e) => e.end_date && e.event_date && inWho(e.assignee_ids));
+  const inRange = (e: EventItem, iso: string) => !!(e.end_date && e.event_date && e.event_date < iso && iso <= e.end_date);
+
   // dots: mark every day in the DISPLAYED month that has an occurrence.
   const dotMap: Record<number, string> = {};
   for (const { e, iso } of monthOccs) dotMap[Number(iso.slice(8, 10))] = e.color;
+  for (const e of ranged) {
+    for (let d = 1; d <= daysInMonth; d++) {
+      const iso = `${monthKey}-${String(d).padStart(2, '0')}`;
+      if (inRange(e, iso) && !dotMap[d]) dotMap[d] = e.color;
+    }
+  }
   for (const e of state.events) {
     if (isCurrentMonth && !e.event_date && e.day === 'today' && inWho(e.assignee_ids)) dotMap[todayDate] = e.color;
   }
@@ -73,24 +84,29 @@ export default function Calendar({ nav }: { nav: Nav }) {
 
   const openEdit = (e: EventItem) => {
     if (e.external) { flash('Imported from a linked calendar - edit it in that calendar'); return; }
-    nav.openForm('event', { editId: e.id, title: e.title, date: e.event_date || '', time: e.event_time || '', who: e.assignee_ids || [], recur: e.recur, remindDays: e.remind_days });
+    nav.openForm('event', { editId: e.id, title: e.title, date: e.event_date || '', endDate: e.end_date || '', time: e.event_time || '', who: e.assignee_ids || [], recur: e.recur, remindDays: e.remind_days });
   };
   // Tap a day to add an event on it (nice for planning ahead in any month).
   const addOnDay = (d: number) =>
     nav.openForm('event', { title: '', date: `${monthKey}-${String(d).padStart(2, '0')}`, time: '', who: you ? [you.id] : [] });
   const openBill = (b: Bill) =>
-    nav.openForm('bill', { editId: b.id, name: b.name, amount: String(b.amount || ''), due: b.due_date || '', payer: b.assignee_ids || [], recur: b.recur, remindDays: b.remind_days });
+    nav.openForm('bill', { editId: b.id, name: b.name, amount: String(b.amount || ''), due: b.due_date || '', payer: b.assignee_ids || [], recur: b.recur, remindDays: b.remind_days, autopay: !!b.autopay });
 
   // Day detail: everything happening on the tapped day - events (incl. recurring
   // occurrences) + bills due.
   const dayIso = openDay ? `${monthKey}-${String(openDay).padStart(2, '0')}` : null;
   const dayEvents = dayIso
-    ? monthOccs
-        .filter((o) => o.iso === dayIso)
-        .map((o) => ({ ...o.e, date_label: occLabel(o.iso) })) // event_date stays the ANCHOR - edits must not rewrite the series
-        .sort((a, b) => (a.event_time || '99:99').localeCompare(b.event_time || '99:99'))
+    ? [
+        ...monthOccs
+          .filter((o) => o.iso === dayIso)
+          .map((o) => ({ ...o.e, date_label: occLabel(o.iso) })), // event_date stays the ANCHOR - edits must not rewrite the series
+        ...ranged
+          .filter((e) => inRange(e, dayIso))
+          .map((e) => ({ ...e, date_label: `Until ${new Date(e.end_date + 'T00:00').toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}` })),
+      ].sort((a, b) => (a.event_time || '99:99').localeCompare(b.event_time || '99:99'))
     : [];
   const dayBills = dayIso ? state.bills.filter((b) => b.due_date === dayIso && inWho(b.assignee_ids)) : [];
+  const dayMeals = dayIso ? (state.meals || []).filter((m) => m.date === dayIso) : [];
   const dayLabel = openDay ? new Date(year, month, openDay).toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
 
   // Current month keeps the agenda view (everything upcoming + a past section).
@@ -99,7 +115,9 @@ export default function Calendar({ nav }: { nav: Nav }) {
   // (recurring events show their upcoming instance, not their old anchor).
   const upcoming = state.events
     .filter((e) => inWho(e.assignee_ids))
-    .map((e) => (e.event_date ? { e, iso: nextOccurrence(e.event_date, e.recur, todayIso) } : { e, iso: null as string | null }))
+    .map((e) => (e.event_date
+      ? { e, iso: e.end_date && e.event_date <= todayIso && todayIso <= e.end_date ? todayIso : nextOccurrence(e.event_date, e.recur, todayIso) }
+      : { e, iso: null as string | null }))
     .filter((o) => o.iso !== null || !o.e.event_date)
     .sort((a, b) => {
       const ai = a.iso || '9999', bi = b.iso || '9999';
@@ -108,7 +126,7 @@ export default function Calendar({ nav }: { nav: Nav }) {
     });
   // Past = non-recurring events whose date has gone (recurring always have a next).
   const past = state.events
-    .filter((e) => inWho(e.assignee_ids) && e.event_date && e.event_date < todayIso && (!e.recur || e.recur === 'none'))
+    .filter((e) => inWho(e.assignee_ids) && e.event_date && (e.end_date || e.event_date) < todayIso && (!e.recur || e.recur === 'none'))
     .reverse();
   // Other-month list: every occurrence that lands in the displayed month.
   const monthEvents = [...monthOccs].sort(
@@ -175,7 +193,7 @@ export default function Calendar({ nav }: { nav: Nav }) {
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="#181922" strokeWidth="2.2" strokeLinecap="round" /></svg>
             </button>
           </div>
-          {dayEvents.length === 0 && dayBills.length === 0 && (
+          {dayEvents.length === 0 && dayBills.length === 0 && dayMeals.length === 0 && (
             <div style={{ fontSize: 13, color: '#6F6C67', margin: '0 2px 12px' }}>Nothing on this day yet.</div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -191,7 +209,16 @@ export default function Calendar({ nav }: { nav: Nav }) {
               </div>
             ))}
           </div>
-          <button onClick={() => addOnDay(openDay!)} style={{ ...dashedAdd, marginTop: dayEvents.length || dayBills.length ? 12 : 0 }}>+ Add an event on this day</button>
+          {dayMeals.map((m) => (
+            <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 13px', background: '#F7F5F1', borderRadius: 16, marginTop: 8 }}>
+              <div style={{ flexShrink: 0, width: 40, height: 40, borderRadius: 12, background: 'rgba(249,115,22,0.13)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🍽️</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{m.title}</div>
+                <div style={{ fontSize: 11.5, color: '#6F6C67', marginTop: 1 }}>Dinner · from the meal plan</div>
+              </div>
+            </div>
+          ))}
+          <button onClick={() => addOnDay(openDay!)} style={{ ...dashedAdd, marginTop: dayEvents.length || dayBills.length || dayMeals.length ? 12 : 0 }}>+ Add an event on this day</button>
         </div>
       )}
 

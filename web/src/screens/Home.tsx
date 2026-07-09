@@ -20,6 +20,10 @@ export default function Home({ nav }: { nav: Nav }) {
 
   const openTasks = state.tasks.filter((t) => !t.done);
   const todayEvents = state.events.filter((e) => e.day === 'today');
+  // Tonight's dinner from the meal plan rides along under Today.
+  const todayIso = new Date().toLocaleDateString('en-CA');
+  const tonight = (state.meals || []).find((m) => m.date === todayIso);
+  const tonightCook = tonight?.cook_member ? state.members.find((m) => m.id === tonight.cook_member) : null;
   const todayTasks = state.tasks.filter((t) => t.due_key === 'today' && !t.done);
   const thisMonth = new Date().toLocaleDateString('en-CA').slice(0, 7);
   const unpaid = state.bills.filter(
@@ -59,10 +63,26 @@ export default function Home({ nav }: { nav: Nav }) {
       {/* Today */}
       <Row title="Today" action="Calendar" onAction={() => nav.goTab('calendar')} />
       <div style={{ background: '#fff', borderRadius: 22, padding: '6px 14px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 26 }}>
-        {todayList.length === 0 && (
+        {todayList.length === 0 && !tonight && (
           <div style={{ padding: '14px 2px 12px', color: '#6F6C67', fontSize: 13.5 }}>
             Nothing scheduled today - enjoy the calm.
             <button onClick={nav.openAdd} style={{ display: 'block', marginTop: 8, border: 'none', background: 'none', color: '#3B5BFF', fontWeight: 700, fontSize: 13, cursor: 'pointer', padding: 0 }}>+ Add something</button>
+          </div>
+        )}
+        {tonight && (
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Open the meal plan"
+            onClick={() => { nav.goTab('tasks'); nav.goPlan('meals'); }}
+            onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); nav.goTab('tasks'); nav.goPlan('meals'); } }}
+            style={{ display: 'flex', alignItems: 'center', gap: 13, padding: '12px 2px', borderBottom: '1px solid #EFEBE3', cursor: 'pointer' }}
+          >
+            <div style={{ flexShrink: 0, width: 42, height: 42, borderRadius: 13, background: 'rgba(249,115,22,0.13)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 19 }}>🍽️</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 14.5, lineHeight: 1.25 }}>Tonight: {tonight.title}</div>
+              <div style={{ fontSize: 12, color: '#6F6C67', marginTop: 2 }}>{tonightCook ? `${tonightCook.name} is cooking` : 'From the meal plan'}</div>
+            </div>
           </div>
         )}
         {todayList.map((it) => (

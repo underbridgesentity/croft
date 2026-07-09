@@ -2,8 +2,8 @@ import { Router, type Request } from 'express';
 import { query } from './db.js';
 import { sendEmail, emailLayout, esc } from './mailer.js';
 import { pushToHousehold, pushToMembers } from './push.js';
-import { sastToday, sastPlus } from './dates.js';
-import { occursOn } from './recur.js';
+import { sastToday, sastPlus, formatDateLabel } from './dates.js';
+import { occursOn, advanceIso } from './recur.js';
 import { syncSource } from './importCalendar.js';
 
 export const cronRouter = Router();
@@ -71,6 +71,33 @@ cronRouter.get('/digest', async (req, res) => {
     // One household's bad data or a transient error must never abort the digest
     // for every household after it in the loop.
     try {
+    // Autopay bills settle themselves on their due date (they're paid by the
+    // bank, not by a person) - mark paid and spawn the next occurrence, exactly
+    // like a manual "Mark paid" would.
+    const autopaid = (await query<{ id: string; name: string; cat: string; amount: number; due_date: string; payer: string; color: string; illo: string; assignee_ids: string[]; recur: string; remind_days: number }>(
+      `UPDATE bills SET status='paid'
+        WHERE household_id=$1 AND autopay=true AND status IN ('unpaid','overdue') AND due_date IS NOT NULL AND due_date <= $2
+        RETURNING id, name, cat, amount, to_char(due_date,'YYYY-MM-DD') AS due_date, payer, color, illo, assignee_ids, recur, remind_days`,
+      [hhId, today]
+    )).rows;
+    for (const ab of autopaid) {
+      if (ab.recur && ab.recur !== 'none') {
+        const nextIso = advanceIso(ab.due_date, ab.recur);
+        if (nextIso) {
+          await query(
+            `INSERT INTO bills (household_id, name, cat, amount, due, due_date, status, payer, color, illo, assignee_ids, recur, remind_days, autopay, sort)
+             SELECT $1,$2,$3,$4,$5,$6,'unpaid',$7,$8,$9,$10,$11,$12,true, COALESCE(MAX(sort),0)+1 FROM bills WHERE household_id=$1
+             AND NOT EXISTS (SELECT 1 FROM bills WHERE household_id=$1 AND name=$2 AND status<>'paid' AND due_date=$6::date)`,
+            [hhId, ab.name, ab.cat, ab.amount, formatDateLabel(nextIso), nextIso, ab.payer, ab.color, ab.illo, JSON.stringify(ab.assignee_ids || []), ab.recur, ab.remind_days ?? 0]
+          );
+        }
+      }
+      await query(
+        `INSERT INTO feed (household_id, who, color, initial, text) VALUES ($1,'Croft','#3B5BFF','C',$2)`,
+        [hhId, `auto-paid ${ab.name} (R${Number(ab.amount).toLocaleString('en-ZA')})`]
+      );
+    }
+
     // Keep bill statuses honest.
     await query(
       `UPDATE bills SET status='overdue' WHERE household_id=$1 AND status='unpaid' AND due_date IS NOT NULL AND due_date < $2`,
@@ -80,13 +107,15 @@ cronRouter.get('/digest', async (req, res) => {
     // All dated events (native + imported instances). Occurrences are computed in
     // JS via occursOn so a recurring event reminds on every occurrence, not only
     // its anchor date. (Imported events are recur='none' → exact-date match.)
-    const dated = (await query<{ title: string; event_time: string; event_date: string; recur: string; remind_days: number }>(
-      `SELECT title, event_time, to_char(event_date,'YYYY-MM-DD') AS event_date, recur, remind_days
+    const dated = (await query<{ title: string; event_time: string; event_date: string; end_date: string | null; recur: string; remind_days: number }>(
+      `SELECT title, event_time, to_char(event_date,'YYYY-MM-DD') AS event_date, to_char(end_date,'YYYY-MM-DD') AS end_date, recur, remind_days
          FROM events WHERE household_id=$1 AND event_date IS NOT NULL`, [hhId]
     )).rows;
     const byTime = (a: { event_time: string }, b: { event_time: string }) => (a.event_time || '').localeCompare(b.event_time || '');
-    const eventsToday = dated.filter((e) => occursOn(e.event_date, e.recur, today)).sort(byTime);
-    const eventsTom = dated.filter((e) => occursOn(e.event_date, e.recur, tomorrow)).sort(byTime);
+    const onDay = (e: { event_date: string; end_date: string | null; recur: string }, day: string) =>
+      occursOn(e.event_date, e.recur, day) || !!(e.end_date && e.event_date <= day && day <= e.end_date);
+    const eventsToday = dated.filter((e) => onDay(e, today)).sort(byTime);
+    const eventsTom = dated.filter((e) => onDay(e, tomorrow) && !onDay(e, today)).sort(byTime);
     const billsDue = (await query<{ name: string; amount: number; status: string }>(
       `SELECT name, amount, status FROM bills WHERE household_id=$1 AND status IN ('unpaid','overdue') AND due_date IS NOT NULL AND due_date <= $2 ORDER BY due_date`, [hhId, today]
     )).rows;
@@ -110,6 +139,11 @@ cronRouter.get('/digest', async (req, res) => {
         WHERE household_id=$1 AND status IN ('unpaid','overdue') AND remind_days > 0 AND due_date = ($2::date + remind_days) ORDER BY due_date`, [hhId, today]
     )).rows;
     const inDays = (n: number) => (n === 1 ? 'tomorrow' : `in ${n} days`);
+    // Tonight's planned dinner rides along in the digest (never a trigger on
+    // its own - meal plans shouldn't ping quiet households).
+    const tonight = (await query<{ title: string }>(
+      `SELECT title FROM meals WHERE household_id=$1 AND date=$2 ORDER BY created_at LIMIT 1`, [hhId, today]
+    )).rows[0];
 
     // Morning push + in-app notification for anything happening today or with a
     // lead-time reminder landing today.
@@ -121,6 +155,7 @@ cronRouter.get('/digest', async (req, res) => {
       if (tasksOver) bits.push(`${tasksOver} overdue`);
       if (billsDue.length) bits.push(`${billsDue.length} bill${rand(billsDue.length)} due`);
       if (soonCount) bits.push(`${soonCount} coming up`);
+      if (tonight) bits.push(`Tonight: ${tonight.title}`);
       // Undated to-dos ride along as a count only (they don't trigger a push on
       // their own, or every household with a standing list would ping daily).
       if (!tasksToday.length && !tasksOver && openTasks) bits.push(`${openTasks} to-do${rand(openTasks)} open`);
@@ -147,10 +182,11 @@ cronRouter.get('/digest', async (req, res) => {
     const dailyUsers = info.users.filter((u) => ['daily', 'both'].includes(userCadence(u, info.cadence)));
     if (dailyUsers.length && hasContent) {
       const sections =
-        (eventsToday.length || tasksToday.length
+        (eventsToday.length || tasksToday.length || tonight
           ? `<p style="margin:16px 0 2px;font-weight:700">Today</p>${ul([
               ...eventsToday.map((e) => `${e.event_time ? e.event_time + ' - ' : ''}${esc(e.title)}`),
               ...tasksToday.map((t) => `${esc(t.title)} (${t.type === 'Reminder' ? 'reminder' : 'to-do'} due)`),
+              ...(tonight ? [`Tonight: ${esc(tonight.title)}`] : []),
             ])}`
           : '') +
         (eventsTom.length ? `<p style="margin:16px 0 2px;font-weight:700">Tomorrow</p>${ul(eventsTom.map((e) => `${e.event_time ? e.event_time + ' - ' : ''}${esc(e.title)}`))}` : '') +
@@ -326,6 +362,12 @@ cronRouter.get('/weekly', async (req, res) => {
     const savings = (await query<{ name: string; saved: number; target: number }>(
       `SELECT name, saved, target FROM savings WHERE household_id=$1 ORDER BY sort`, [hhId]
     )).rows;
+    // Family goals with a target date - a weekly nudge on how the countdown
+    // stands. Personal goals are private and stay out of shared email.
+    const goalsDue = (await query<{ title: string; pct: number; deadline: string }>(
+      `SELECT title, pct, to_char(deadline,'YYYY-MM-DD') AS deadline FROM goals
+        WHERE household_id=$1 AND member_id IS NULL AND deadline IS NOT NULL AND pct < 100 ORDER BY deadline LIMIT 6`, [hhId]
+    )).rows;
     const members = (await query<{ id: string; name: string }>(`SELECT id, name FROM members WHERE household_id=$1`, [hhId])).rows;
     const nameOf = new Map(members.map((m) => [m.id, m.name]));
     const settle = (await query<{ amount: string; from_member: string; to_member: string }>(
@@ -356,6 +398,7 @@ cronRouter.get('/weekly', async (req, res) => {
         : '') +
       (settle.length ? heading('Who owes who') + ul(settle.map((s) => `${esc(nameOf.get(s.from_member))} owes ${esc(nameOf.get(s.to_member))} ${esc(s.amount)}`)) : '') +
       (savings.length ? heading('Savings goals') + ul(savings.map((v) => `${esc(v.name.trim())} — ${rands(v.saved)} / ${rands(v.target)}`)) : '') +
+      (goalsDue.length ? heading('Family goals') + ul(goalsDue.map((g) => `${esc(g.title.trim())} — ${Number(g.pct)}% · target ${fmtDay(g.deadline)}${g.deadline < today ? ' (passed)' : ''}`)) : '') +
       (openCount ? heading(`To-dos (${openCount} open)`) + ul(openTasks.map((t) => esc(t.title.trim()))) : '');
 
     const head = `Here's the week ahead in <strong>${esc(info.name)}</strong>.`;

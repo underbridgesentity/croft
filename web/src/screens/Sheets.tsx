@@ -22,6 +22,7 @@ export function AddSheet({ nav }: { nav: Nav }) {
     { label: 'Reminder for someone', sub: 'Nudge one or more people', illo: 'bell', color: '#FF5C8A', onTap: () => nav.openForm('task', { title: '', type: 'Reminder', assignees: [] }) },
     { label: 'Shopping item', sub: 'Add to the shared list', illo: 'cart', color: '#16C098', onTap: () => route('tasks', 'lists', 'Add items to the list below') },
     { label: 'Bill', sub: 'Track a payment', illo: 'wallet', color: '#7A5CFF', onTap: () => nav.openForm('bill') },
+    { label: 'Meal', sub: "Plan a night's dinner", illo: 'heart', color: '#F97316', onTap: () => nav.openForm('meal') },
     { label: 'Goal', sub: 'Family or personal', illo: 'goal', color: '#FF6B5C', onTap: () => nav.openForm('goal') },
   ];
   return (
@@ -110,7 +111,7 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
     setFd({ ...fd, [k]: cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id] });
   };
   const editing = !!fd.editId;
-  const NOUNS: Record<FormType, string> = { event: 'event', bill: 'bill', task: 'to-do', goal: 'goal', budget: 'budget category', saving: 'savings goal', settle: 'IOU' };
+  const NOUNS: Record<FormType, string> = { event: 'event', bill: 'bill', task: 'to-do', goal: 'goal', budget: 'budget category', saving: 'savings goal', settle: 'IOU', meal: 'meal' };
   const noun = form === 'task' && fd.type === 'Reminder' ? 'reminder' : NOUNS[form];
   const title = form === 'settle' && !editing ? 'Who owes who' : `${editing ? 'Edit' : 'New'} ${noun}`;
   const memberChips = state.members.map((m) => ({ id: m.id, label: m.name, color: m.color }));
@@ -118,8 +119,13 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
   // local month here), newest first, so the full breakdown shows and any mistake
   // can be removed.
   const thisMonth = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`; })();
+  // Opened from a past month (Insights)? Show THAT month's spends, not today's.
+  const sheetMonth = (editing && form === 'budget' && fd.month) || thisMonth;
   const budgetSpends = editing && form === 'budget'
-    ? (state.budgetSpends || []).filter((sp) => sp.budget_id === fd.editId && sp.month === thisMonth)
+    ? (state.budgetSpends || []).filter((sp) => sp.budget_id === fd.editId && sp.month === sheetMonth)
+    : [];
+  const savingAdds = editing && form === 'saving'
+    ? (state.savingsAdds || []).filter((a) => a.savings_id === fd.editId).slice(0, 8)
     : [];
   const fmtDay = (iso: string) => { try { return new Date(iso + 'T00:00').toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' }); } catch { return iso; } };
 
@@ -140,13 +146,14 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
     if (form === 'event') {
       if (!fd.title?.trim()) return flash('Add a title first');
       if (recurring && !fd.date) return flash('Pick a date for a repeating event');
-      const d = { title: fd.title, date: fd.date, time: fd.time, who: fd.who, recur: fd.recur, remindDays: fd.remindDays };
+      const d = { title: fd.title, date: fd.date, endDate: fd.endDate, time: fd.time, who: fd.who, recur: fd.recur, remindDays: fd.remindDays };
       await run(editing ? api.updEvent(fd.editId!, d) : api.addEvent(d), editing ? 'Event updated' : 'Event added');
       if (!editing) nav.goTab('calendar');
     } else if (form === 'bill') {
       if (!fd.name?.trim()) return flash('Add a bill name');
       if (recurring && !fd.due) return flash('Pick a due date for a repeating bill');
-      const d = { name: fd.name, amount: fd.amount, due: fd.due, payer: fd.payer, recur: fd.recur, remindDays: fd.remindDays };
+      if (fd.autopay && !fd.due) return flash('Pick a due date for an autopay bill');
+      const d = { name: fd.name, amount: fd.amount, due: fd.due, payer: fd.payer, recur: fd.recur, remindDays: fd.remindDays, autopay: !!fd.autopay };
       await run(editing ? api.updBill(fd.editId!, d) : api.addBill(d), editing ? 'Bill updated' : 'Bill added');
       if (!editing) nav.goTab('money');
     } else if (form === 'task') {
@@ -155,9 +162,15 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
       const d = { title: fd.title, type: fd.type, assignees: fd.assignees, recur: fd.recur, dueDate: fd.dueDate, dueTime: fd.dueTime };
       await run(editing ? api.updTask(fd.editId!, d) : api.addTask(d), editing ? 'To-do updated' : 'To-do added');
       if (!editing) { nav.goTab('tasks'); nav.goPlan('todos'); }
+    } else if (form === 'meal') {
+      if (!fd.title?.trim()) return flash('Type a meal');
+      if (!fd.date) return flash('Pick a day');
+      const d = { title: fd.title, date: fd.date, ingredients: fd.ingredients, cook: fd.cook || null };
+      await run(editing ? api.updMeal(fd.editId!, d) : api.addMeal(d), editing ? 'Meal updated' : 'Meal planned');
+      if (!editing) { nav.goTab('tasks'); nav.goPlan('meals'); }
     } else if (form === 'goal') {
       if (!fd.title?.trim()) return flash('Add a goal title');
-      const d = { title: fd.title, kind: fd.kind, target: fd.target };
+      const d = { title: fd.title, kind: fd.kind, target: fd.target, deadline: fd.deadline };
       await run(
         editing ? api.updGoal(fd.editId!, { ...d, addAmount: fd.amount }) : api.addGoal(d),
         editing ? 'Goal updated' : 'Goal added'
@@ -167,7 +180,7 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
       if (!fd.name?.trim()) return flash('Add a category name');
       await run(
         editing
-          ? api.updBudget(fd.editId!, { name: fd.name, limit: fd.limit, addSpend: fd.amount, note: fd.note })
+          ? api.updBudget(fd.editId!, { name: fd.name, limit: fd.limit, addSpend: fd.amount, note: fd.note, spendDate: fd.spendDate })
           : api.addBudget({ name: fd.name, limit: fd.limit }),
         editing ? (Number(fd.amount) ? 'Spend logged' : 'Budget updated') : 'Budget category added'
       );
@@ -192,7 +205,7 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
     busyRef.current = true;
     setBusy(true);
     try {
-      const del = { event: api.delEvent, bill: api.delBill, task: api.delTask, goal: api.delGoal, budget: api.delBudget, saving: api.delSaving, settle: api.delSettle }[form];
+      const del = { event: api.delEvent, bill: api.delBill, task: api.delTask, goal: api.delGoal, budget: api.delBudget, saving: api.delSaving, settle: api.delSettle, meal: api.delMeal }[form];
       await run(del(fd.editId!), 'Removed');
       nav.closeSheet();
     } finally {
@@ -218,6 +231,9 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
             <div style={{ flex: 1, minWidth: 0 }}><Lbl>Date</Lbl><input style={inp} type="date" value={fd.date || ''} onChange={(e) => set('date', e.target.value)} /></div>
             <div style={{ flex: 1, minWidth: 0 }}><Lbl>Time</Lbl><input style={inp} type="time" value={fd.time || ''} onChange={(e) => set('time', e.target.value)} /></div>
           </div>
+          {fd.date && (!fd.recur || fd.recur === 'none') && (
+            <Field label="End date (optional - for trips & multi-day events)"><input style={inp} type="date" min={fd.date} value={fd.endDate || ''} onChange={(e) => set('endDate', e.target.value)} /></Field>
+          )}
           <Lbl>Who's it for - pick any</Lbl>
           <Chips items={memberChips} value={fd.who || []} onToggle={(id) => toggle('who', id)} emptyHint="Nobody picked = the whole family" />
           <div style={{ height: 16 }} />
@@ -259,6 +275,15 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
           </div>
           <Lbl>Paid by - pick any</Lbl>
           <Chips items={memberChips} value={fd.payer || []} onToggle={(id) => toggle('payer', id)} emptyHint="Nobody picked = shared" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 2px 0' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 13.5 }}>Paid automatically</div>
+              <div style={{ fontSize: 11.5, color: '#7D776E', marginTop: 1 }}>Debit order? Croft marks it paid on its due date.</div>
+            </div>
+            <button role="switch" aria-checked={!!fd.autopay} aria-label="Paid automatically" onClick={() => setFd({ ...fd, autopay: !fd.autopay })} style={{ width: 46, height: 28, borderRadius: 100, border: 'none', cursor: 'pointer', background: fd.autopay ? '#16C098' : '#DED9D0', position: 'relative', flexShrink: 0, padding: 0 }}>
+              <span style={{ position: 'absolute', top: 3, left: fd.autopay ? 21 : 3, width: 22, height: 22, borderRadius: '50%', background: '#fff', transition: 'left .15s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+            </button>
+          </div>
           <div style={{ height: 16 }} />
           <RepeatField value={fd.recur} onChange={(v) => set('recur', v)} anchorDate={fd.due} showAdvanced hint="A paid recurring bill creates next period's bill automatically." />
           <RemindField value={fd.remindDays} onChange={(n) => setFd({ ...fd, remindDays: n })} />
@@ -278,9 +303,29 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
             </div>
           </div>
           <Field label="Target amount (optional)"><input style={inp} type="number" inputMode="decimal" min={0} value={fd.target || ''} onChange={(e) => set('target', e.target.value)} placeholder="e.g. 15000" /></Field>
+          <Field label="Target date (optional)"><input style={inp} type="date" value={fd.deadline || ''} onChange={(e) => set('deadline', e.target.value)} /></Field>
           {editing && Number(fd.target) > 0 && (
             <Field label="Add to progress (R, optional)"><input style={inp} type="number" inputMode="decimal" min={0} value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="e.g. 500" /></Field>
           )}
+        </div>
+      )}
+
+      {form === 'meal' && (
+        <div>
+          <Field label="What's cooking?"><input style={inp} value={fd.title || ''} onChange={(e) => set('title', e.target.value)} placeholder="e.g. Spag bol" /></Field>
+          <Field label="Day"><input style={inp} type="date" value={fd.date || ''} onChange={(e) => set('date', e.target.value)} /></Field>
+          <Field label="Ingredients (optional - one per line)">
+            <textarea
+              value={fd.ingredients || ''}
+              onChange={(e) => set('ingredients', e.target.value)}
+              placeholder={'Mince\nPasta\nTinned tomatoes'}
+              rows={4}
+              style={{ ...inp, height: 'auto', minHeight: 96, resize: 'vertical', fontFamily: 'inherit', lineHeight: 1.45 }}
+            />
+          </Field>
+          <div style={{ fontSize: 11.5, color: '#7D776E', margin: '-8px 2px 14px' }}>"+ List" on the meal sends these straight to the shopping list.</div>
+          <Lbl>Who's cooking? (optional)</Lbl>
+          <Chips items={memberChips} value={fd.cook ? [fd.cook] : []} onToggle={(id) => setFd({ ...fd, cook: fd.cook === id ? '' : id })} emptyHint="Nobody picked = whoever gets home first" />
         </div>
       )}
 
@@ -294,10 +339,11 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
                 <div style={{ flex: 1, minWidth: 0 }}><Lbl>Log a spend (R)</Lbl><input style={inp} type="number" inputMode="decimal" min={0} value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="e.g. 250" /></div>
                 <div style={{ flex: 1.4, minWidth: 0 }}><Lbl>What for? (optional)</Lbl><input style={inp} value={fd.note || ''} onChange={(e) => set('note', e.target.value)} placeholder="e.g. Woolies run" /></div>
               </div>
-              <div style={{ fontSize: 11.5, color: '#7D776E', margin: '-6px 2px 14px' }}>Spends tally up for the month. Use a minus amount to correct a mistake.</div>
+              <Field label="When was it? (optional - defaults to today)"><input style={inp} type="date" value={fd.spendDate || ''} onChange={(e) => set('spendDate', e.target.value)} /></Field>
+              <div style={{ fontSize: 11.5, color: '#7D776E', margin: '-6px 2px 14px' }}>Spends tally up for the month they happened in. Use a minus amount to correct a mistake.</div>
               {budgetSpends.length > 0 && (
                 <div style={{ marginBottom: 4 }}>
-                  <Lbl>This month's spends</Lbl>
+                  <Lbl>{sheetMonth === thisMonth ? "This month's spends" : `Spends in ${new Date(sheetMonth + '-01T00:00').toLocaleDateString('en-ZA', { month: 'long' })}`}</Lbl>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     {budgetSpends.map((sp) => (
                       <div key={sp.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: '1px solid #EEEAE2', borderRadius: 12, padding: '9px 12px' }}>
@@ -326,6 +372,22 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
           </div>
           {editing && (
             <Field label="Add to savings (R)"><input style={inp} type="number" inputMode="decimal" min={0} value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="e.g. 500" /></Field>
+          )}
+          {savingAdds.length > 0 && (
+            <div style={{ marginBottom: 4 }}>
+              <Lbl>Recent additions</Lbl>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {savingAdds.map((a) => (
+                  <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#fff', border: '1px solid #EEEAE2', borderRadius: 12, padding: '9px 12px' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, color: '#181922' }}>{a.member_name}</div>
+                      <div style={{ fontSize: 11.5, color: '#7D776E', marginTop: 1 }}>{fmtDay(a.date)}</div>
+                    </div>
+                    <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 14, color: '#16C098' }}>+{money(a.amount)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       )}

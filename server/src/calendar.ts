@@ -39,8 +39,8 @@ calendarRouter.get('/:token.ics', async (req, res) => {
   if (!hh) return res.status(404).send('Not found');
 
   const events = (
-    await query<{ id: string; title: string; loc: string; event_time: string; event_date: string; updated_at: string; recur: string }>(
-      `SELECT id, title, loc, event_time, to_char(event_date,'YYYYMMDD') AS event_date, updated_at, recur
+    await query<{ id: string; title: string; loc: string; event_time: string; event_date: string; end_date: string | null; updated_at: string; recur: string }>(
+      `SELECT id, title, loc, event_time, to_char(event_date,'YYYYMMDD') AS event_date, to_char(end_date,'YYYYMMDD') AS end_date, updated_at, recur
          FROM events WHERE household_id=$1 AND event_date IS NOT NULL AND source_id IS NULL ORDER BY event_date`,
       [hh.id]
     )
@@ -89,8 +89,10 @@ calendarRouter.get('/:token.ics', async (req, res) => {
       const endH = (tm.h + 1) % 24;
       lines.push(`DTEND;TZID=Africa/Johannesburg:${d}T${pad(endH)}${pad(tm.m)}00`);
     } else {
-      // all-day: DTEND is exclusive next day
-      const y = Number(d.slice(0, 4)), mo = Number(d.slice(4, 6)), da = Number(d.slice(6, 8));
+      // all-day: DTEND is EXCLUSIVE, so single-day ends next day and a
+      // multi-day event ends the day after its end_date.
+      const lastDay = e.end_date && e.end_date > d ? e.end_date : d;
+      const y = Number(lastDay.slice(0, 4)), mo = Number(lastDay.slice(4, 6)), da = Number(lastDay.slice(6, 8));
       const next = new Date(Date.UTC(y, mo - 1, da + 1));
       const nd = `${next.getUTCFullYear()}${pad(next.getUTCMonth() + 1)}${pad(next.getUTCDate())}`;
       lines.push(`DTSTART;VALUE=DATE:${d}`);
