@@ -8,6 +8,9 @@ node_modules/@capacitor/*
 !node_modules/@capacitor/haptics
 !node_modules/@capacitor/push-notifications
 !node_modules/@capacitor/share
+# nested workspace node_modules stay fully ignored
+*/node_modules/
+**/xcuserdata/
 dist/
 .env
 .env.local
