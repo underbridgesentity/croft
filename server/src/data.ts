@@ -263,7 +263,7 @@ dataRouter.post('/events', async (req: AuthedRequest, res) => {
   if (b.data.recur && b.data.recur !== 'none' && !d.iso) {
     return res.status(400).json({ error: 'Pick a date for a repeating event' });
   }
-  const endIso = b.data.endDate && isoRe.test(b.data.endDate) && d.iso && b.data.endDate > d.iso ? b.data.endDate : null;
+  const endIso = b.data.endDate && isoRe.test(b.data.endDate) && d.iso && b.data.endDate > d.iso && (!b.data.recur || b.data.recur === 'none') ? b.data.endDate : null;
   await query(
     `INSERT INTO events (household_id, title, time, ampm, day, date_label, event_date, end_date, event_time, loc, color, illo, assignee_ids, recur, remind_days, sort)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,'calendar',$12,$13,$14,${nextSort('events')})`,
@@ -283,7 +283,7 @@ dataRouter.patch('/events/:id', async (req: AuthedRequest, res) => {
   if (b.data.recur && b.data.recur !== 'none' && !d.iso) {
     return res.status(400).json({ error: 'Pick a date for a repeating event' });
   }
-  const endIso = b.data.endDate && isoRe.test(b.data.endDate) && d.iso && b.data.endDate > d.iso ? b.data.endDate : null;
+  const endIso = b.data.endDate && isoRe.test(b.data.endDate) && d.iso && b.data.endDate > d.iso && (!b.data.recur || b.data.recur === 'none') ? b.data.endDate : null;
   await query(
     `UPDATE events SET title=$1, time=$2, ampm=$3, day=$4, date_label=$5, event_date=$6, end_date=$7, event_time=$8, loc=$9, color=$10, assignee_ids=$11, recur=$12, remind_days=$13, updated_at=now()
       WHERE id=$14 AND household_id=$15 AND source_id IS NULL`,
@@ -664,22 +664,30 @@ dataRouter.post('/savings', async (req: AuthedRequest, res) => {
 // Edit name/target, and add an amount to the pot (tallies up; negatives allowed
 // as corrections). `saved` still accepts a direct total for fixing mistakes.
 dataRouter.patch('/savings/:id', async (req: AuthedRequest, res) => {
-  const b = z.object({ name: z.string().min(1).max(60), target: rNum, saved: rNum, addAmount: rNum }).safeParse(req.body);
+  const b = z.object({ name: z.string().min(1).max(60), target: rNum, saved: rNum, addAmount: rNum, savedTouched: z.boolean().optional() }).safeParse(req.body);
   if (!b.success) return res.status(400).json({ error: 'Add a savings goal name' });
   const add = Number(b.data.addAmount) || 0;
   if (add !== 0) {
     // ATOMIC increment - never write back a stale absolute total (two members
     // adding at once, or a sheet left open, must not wipe each other's money).
-    await query(
-      `UPDATE savings SET name=$1, saved = saved + $2::numeric, target=$3 WHERE id=$4 AND household_id=$5`,
-      [b.data.name, add, Number(b.data.target) || 0, req.params.id, hh(req)]
+    // Exception: when the user deliberately retyped "Saved so far" in the same
+    // submit (savedTouched), that correction is the new base for the add.
+    const upd = await query(
+      `UPDATE savings SET name=$1, target=$2,
+              saved = (CASE WHEN $3::boolean THEN $4::numeric ELSE saved END) + $5::numeric
+        WHERE id=$6 AND household_id=$7 RETURNING id`,
+      [b.data.name, Number(b.data.target) || 0, !!b.data.savedTouched, Number(b.data.saved) || 0, add, req.params.id, hh(req)]
     );
-    const me = await meMember(hh(req), req.memberId);
-    await query(
-      `INSERT INTO savings_adds (household_id, savings_id, member_name, amount) VALUES ($1,$2,$3,$4)`,
-      [hh(req), req.params.id, me.name, add]
-    );
-    await addFeed(hh(req), me.name, me.color, me.initial, `added R${add.toLocaleString('en-ZA')} to "${b.data.name}" savings`);
+    // Ledger + feed only when the scoped UPDATE matched - a stale or foreign
+    // id must not fabricate a contribution row (or leak via the global FK).
+    if (upd.rows.length) {
+      const me = await meMember(hh(req), req.memberId);
+      await query(
+        `INSERT INTO savings_adds (household_id, savings_id, member_name, amount) VALUES ($1,$2,$3,$4)`,
+        [hh(req), req.params.id, me.name, add]
+      );
+      await addFeed(hh(req), me.name, me.color, me.initial, `added R${add.toLocaleString('en-ZA')} to "${b.data.name}" savings`);
+    }
   } else {
     // Pure edit (name/target/corrected total) - absolute write is intentional.
     await query(
@@ -792,7 +800,15 @@ dataRouter.delete('/members/:id', async (req: AuthedRequest, res) => {
   // just hide the person from the list.
   if (m.user_id) {
     await query(`UPDATE users SET household_id=NULL, member_id=NULL WHERE id=$1 AND household_id=$2`, [m.user_id, hh(req)]);
+    // Their devices must stop receiving household pushes too - these rows are
+    // only otherwise cleaned on unsubscribe/410, and an evicted member's app
+    // can no longer unsubscribe (its session is rejected).
+    await query(`DELETE FROM push_subscriptions WHERE household_id=$1 AND user_id=$2`, [hh(req), m.user_id]);
+    await query(`DELETE FROM native_push_tokens WHERE household_id=$1 AND user_id=$2`, [hh(req), m.user_id]);
   }
+  // Personal goals leave with their owner (they'd otherwise become invisible,
+  // undeletable rows - nobody else may see or edit them).
+  await query(`DELETE FROM goals WHERE household_id=$1 AND member_id=$2`, [hh(req), req.params.id]);
   await query(`DELETE FROM members WHERE id=$1 AND household_id=$2 AND is_you=false`, [req.params.id, hh(req)]);
   const me = await meMember(hh(req), req.memberId);
   await addFeed(hh(req), me.name, me.color, me.initial, `removed ${m.name} from the household`);
@@ -1045,9 +1061,9 @@ dataRouter.delete('/household-info/:id', async (req: AuthedRequest, res) => {
 dataRouter.post('/calendar-feed/rotate', async (req: AuthedRequest, res) => {
   const token = crypto.randomBytes(18).toString('base64url');
   await query(`UPDATE households SET calendar_token=$1 WHERE id=$2`, [token, hh(req)]);
-  const base = process.env.SERVER_URL || APP_URL;
-  const url = `${base}/api/calendar/feed/${token}.ics`;
-  res.json({ url, webcal: url.replace(/^https?:/, 'webcal:') });
+  // Same shape as GET /calendar-feed - the serving route is /api/calendar/<token>.ics.
+  const url = `${APP_URL}/api/calendar/${token}.ics`;
+  res.json({ url, webcal: url.replace(/^https?:\/\//, 'webcal://') });
 });
 
 // Per-user email cadence override (falls back to the household setting) - one

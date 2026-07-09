@@ -485,9 +485,15 @@ CREATE INDEX IF NOT EXISTS idx_invites_hh ON invites(household_id);
 ALTER TABLE goals ADD COLUMN IF NOT EXISTS member_id UUID;
 ALTER TABLE goals ADD COLUMN IF NOT EXISTS deadline DATE;
 -- Backfill legacy personal goals (owner was stored as the member's display
--- name in the kind column) - idempotent, best-effort by name match.
+-- name in the kind column) - idempotent, and ONLY when exactly one member
+-- carries that name (two "Sam"s must not get each other's goals).
 UPDATE goals g SET member_id = m.id FROM members m
- WHERE g.member_id IS NULL AND g.kind <> 'Family' AND m.household_id = g.household_id AND m.name = g.kind;
+ WHERE g.member_id IS NULL AND g.kind <> 'Family' AND m.household_id = g.household_id AND m.name = g.kind
+   AND (SELECT COUNT(*) FROM members m2 WHERE m2.household_id = g.household_id AND m2.name = g.kind) = 1;
+-- Personal goals whose owner member no longer exists are invisible to everyone
+-- and undeletable (owner-only rules) - remove the orphans. Idempotent.
+DELETE FROM goals g WHERE g.member_id IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM members m WHERE m.id = g.member_id);
 
 -- Meals: ingredients feed the shopping list; an optional cook answers
 -- "who's making dinner Thursday?".

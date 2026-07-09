@@ -12,7 +12,7 @@ const grotesk = "'Geist', sans-serif";
 const pwInput: React.CSSProperties = { width: '100%', boxSizing: 'border-box', border: '1.5px solid #E8E3DB', background: '#fff', borderRadius: 12, padding: '12px 14px', fontSize: 16, outline: 'none', fontFamily: 'inherit', color: '#181922' };
 
 export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: () => void }) {
-  const { state, user, run, flash, deleteAccount, setLockEnabled, openTour } = useStore();
+  const { state, user, patchUser, run, flash, deleteAccount, setLockEnabled, openTour } = useStore();
   const [inviting, setInviting] = useState(false);
   const [inviteName, setInviteName] = useState('');
   const [inviteLink, setInviteLink] = useState<string | null>(null);
@@ -262,8 +262,11 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
   const cadenceDetail = CADENCES.find((c) => c.key === cadence)!.detail;
   const pickCadence = async (k: EmailCadence, label: string) => {
     setMyCadence(k);
-    try { await api.setMyEmailCadence(k); flash(`Your email summaries: ${label.toLowerCase()}`); }
-    catch (e: any) { flash(e?.message || 'Could not save'); }
+    try {
+      await api.setMyEmailCadence(k);
+      patchUser({ email_cadence: k }); // so a tab remount seeds the fresh value
+      flash(`Your email summaries: ${label.toLowerCase()}`);
+    } catch (e: any) { flash(e?.message || 'Could not save'); }
   };
 
   return (

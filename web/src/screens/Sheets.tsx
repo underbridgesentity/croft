@@ -146,7 +146,9 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
     if (form === 'event') {
       if (!fd.title?.trim()) return flash('Add a title first');
       if (recurring && !fd.date) return flash('Pick a date for a repeating event');
-      const d = { title: fd.title, date: fd.date, endDate: fd.endDate, time: fd.time, who: fd.who, recur: fd.recur, remindDays: fd.remindDays };
+      // The end-date field hides once a repeat rule is set - don't submit its
+      // leftover value invisibly.
+      const d = { title: fd.title, date: fd.date, endDate: recurring ? '' : fd.endDate, time: fd.time, who: fd.who, recur: fd.recur, remindDays: fd.remindDays };
       await run(editing ? api.updEvent(fd.editId!, d) : api.addEvent(d), editing ? 'Event updated' : 'Event added');
       if (!editing) nav.goTab('calendar');
     } else if (form === 'bill') {
@@ -186,7 +188,7 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
       );
     } else if (form === 'saving') {
       if (!fd.name?.trim()) return flash('Add a savings goal name');
-      const d = { name: fd.name, target: fd.target, saved: fd.saved, addAmount: fd.amount };
+      const d = { name: fd.name, target: fd.target, saved: fd.saved, addAmount: fd.amount, savedTouched: !!fd.savedTouched };
       await run(editing ? api.updSaving(fd.editId!, d) : api.addSaving(d), editing ? (Number(fd.amount) ? 'Added to savings' : 'Savings goal updated') : 'Savings goal added');
     } else {
       const memberId = (fd.who || [])[0];
@@ -368,7 +370,7 @@ export function FormSheet({ form, fd, setFd, nav }: { form: FormType; fd: FormDa
           <Field label="What are you saving for?"><input style={inp} value={fd.name || ''} onChange={(e) => set('name', e.target.value)} placeholder="e.g. December holiday" /></Field>
           <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
             <div style={{ flex: 1, minWidth: 0 }}><Lbl>Target (R)</Lbl><input style={inp} type="number" inputMode="decimal" min={0} value={fd.target || ''} onChange={(e) => set('target', e.target.value)} placeholder="0" /></div>
-            <div style={{ flex: 1, minWidth: 0 }}><Lbl>Saved so far (R)</Lbl><input style={inp} type="number" inputMode="decimal" min={0} value={fd.saved || ''} onChange={(e) => set('saved', e.target.value)} placeholder="0" /></div>
+            <div style={{ flex: 1, minWidth: 0 }}><Lbl>Saved so far (R)</Lbl><input style={inp} type="number" inputMode="decimal" min={0} value={fd.saved || ''} onChange={(e) => setFd({ ...fd, saved: e.target.value, savedTouched: true })} placeholder="0" /></div>
           </div>
           {editing && (
             <Field label="Add to savings (R)"><input style={inp} type="number" inputMode="decimal" min={0} value={fd.amount || ''} onChange={(e) => set('amount', e.target.value)} placeholder="e.g. 500" /></Field>

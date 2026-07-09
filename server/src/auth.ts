@@ -378,8 +378,19 @@ authRouter.post('/invite/:token/accept-existing', rateLimit('signup', 10, 3600),
     const oldHousehold = u.household_id;
     await tx(async (c) => {
       // A solo starter household holds only this user's seed data - deleting it
-      // cascades everything so no orphaned household lingers.
-      if (oldHousehold) await c.query(`DELETE FROM households WHERE id=$1`, [oldHousehold]);
+      // cascades everything so no orphaned household lingers. The occupancy
+      // re-check runs INSIDE the tx: someone may have accepted an invite into
+      // this household since the pre-check, and deleting it then would destroy
+      // THEIR data. In that case leave the household standing and just remove
+      // this user's member row from it.
+      if (oldHousehold) {
+        const del = await c.query(
+          `DELETE FROM households WHERE id=$1
+            AND NOT EXISTS (SELECT 1 FROM users WHERE household_id=$1 AND id<>$2)`,
+          [oldHousehold, userId]
+        );
+        if (!del.rowCount) await c.query(`DELETE FROM members WHERE household_id=$1 AND user_id=$2`, [oldHousehold, userId]);
+      }
       await joinHousehold(c, invite, userId, u!.name);
     });
   } catch (e) {

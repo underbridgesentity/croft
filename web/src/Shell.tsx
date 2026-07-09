@@ -17,7 +17,7 @@ export interface FormData {
   time?: string; due?: string; target?: string; kind?: string; type?: string;
   limit?: string; spent?: string; saved?: string; note?: string; dir?: string; recur?: string; remindDays?: number;
   dueDate?: string; dueTime?: string; endDate?: string; deadline?: string; autopay?: boolean;
-  ingredients?: string; cook?: string; spendDate?: string; month?: string;
+  ingredients?: string; cook?: string; spendDate?: string; month?: string; savedTouched?: boolean;
   // Multi-select member assignment (member ids).
   who?: string[]; payer?: string[]; assignees?: string[];
   // Present when the form edits an existing item instead of creating one.

@@ -1,5 +1,5 @@
 import { Router, type Request } from 'express';
-import { query } from './db.js';
+import { query, tx } from './db.js';
 import { sendEmail, emailLayout, esc } from './mailer.js';
 import { pushToHousehold, pushToMembers } from './push.js';
 import { sastToday, sastPlus, formatDateLabel } from './dates.js';
@@ -74,28 +74,40 @@ cronRouter.get('/digest', async (req, res) => {
     // Autopay bills settle themselves on their due date (they're paid by the
     // bank, not by a person) - mark paid and spawn the next occurrence, exactly
     // like a manual "Mark paid" would.
-    const autopaid = (await query<{ id: string; name: string; cat: string; amount: number; due_date: string; payer: string; color: string; illo: string; assignee_ids: string[]; recur: string; remind_days: number }>(
-      `UPDATE bills SET status='paid'
-        WHERE household_id=$1 AND autopay=true AND status IN ('unpaid','overdue') AND due_date IS NOT NULL AND due_date <= $2
-        RETURNING id, name, cat, amount, to_char(due_date,'YYYY-MM-DD') AS due_date, payer, color, illo, assignee_ids, recur, remind_days`,
+    const autoDue = (await query<{ id: string; name: string; cat: string; amount: number; due_date: string; payer: string; color: string; illo: string; assignee_ids: string[]; recur: string; remind_days: number }>(
+      `SELECT id, name, cat, amount, to_char(due_date,'YYYY-MM-DD') AS due_date, payer, color, illo, assignee_ids, recur, remind_days
+         FROM bills WHERE household_id=$1 AND autopay=true AND status IN ('unpaid','overdue') AND due_date IS NOT NULL AND due_date <= $2`,
       [hhId, today]
     )).rows;
-    for (const ab of autopaid) {
-      if (ab.recur && ab.recur !== 'none') {
-        const nextIso = advanceIso(ab.due_date, ab.recur);
-        if (nextIso) {
-          await query(
-            `INSERT INTO bills (household_id, name, cat, amount, due, due_date, status, payer, color, illo, assignee_ids, recur, remind_days, autopay, sort)
-             SELECT $1,$2,$3,$4,$5,$6,'unpaid',$7,$8,$9,$10,$11,$12,true, COALESCE(MAX(sort),0)+1 FROM bills WHERE household_id=$1
-             AND NOT EXISTS (SELECT 1 FROM bills WHERE household_id=$1 AND name=$2 AND status<>'paid' AND due_date=$6::date)`,
-            [hhId, ab.name, ab.cat, ab.amount, formatDateLabel(nextIso), nextIso, ab.payer, ab.color, ab.illo, JSON.stringify(ab.assignee_ids || []), ab.recur, ab.remind_days ?? 0]
-          );
+    for (const ab of autoDue) {
+      // Mark-paid + spawn + feed are ONE transaction per bill: a crash between
+      // them must not leave a paid bill with no successor (which would silently
+      // end the recurring chain - re-runs skip already-paid bills).
+      await tx(async (c) => {
+        const paid = await c.query(
+          `UPDATE bills SET status='paid' WHERE id=$1 AND household_id=$2 AND status IN ('unpaid','overdue') RETURNING id`,
+          [ab.id, hhId]
+        );
+        if (!paid.rows.length) return; // someone paid it meanwhile
+        if (ab.recur && ab.recur !== 'none') {
+          const nextIso = advanceIso(ab.due_date, ab.recur);
+          if (nextIso) {
+            // Plain SELECT (no aggregate) so WHERE NOT EXISTS actually
+            // suppresses the row - MAX() would emit one row regardless.
+            await c.query(
+              `INSERT INTO bills (household_id, name, cat, amount, due, due_date, status, payer, color, illo, assignee_ids, recur, remind_days, autopay, sort)
+               SELECT $1,$2,$3,$4,$5,$6,'unpaid',$7,$8,$9,$10,$11,$12,true,
+                      (SELECT COALESCE(MAX(sort),0)+1 FROM bills WHERE household_id=$1)
+                WHERE NOT EXISTS (SELECT 1 FROM bills WHERE household_id=$1 AND name=$2 AND status<>'paid' AND due_date=$6::date)`,
+              [hhId, ab.name, ab.cat, ab.amount, formatDateLabel(nextIso), nextIso, ab.payer, ab.color, ab.illo, JSON.stringify(ab.assignee_ids || []), ab.recur, ab.remind_days ?? 0]
+            );
+          }
         }
-      }
-      await query(
-        `INSERT INTO feed (household_id, who, color, initial, text) VALUES ($1,'Croft','#3B5BFF','C',$2)`,
-        [hhId, `auto-paid ${ab.name} (R${Number(ab.amount).toLocaleString('en-ZA')})`]
-      );
+        await c.query(
+          `INSERT INTO feed (household_id, who, color, initial, txt) VALUES ($1,'Croft','#3B5BFF','C',$2)`,
+          [hhId, `auto-paid ${ab.name} (R${Number(ab.amount).toLocaleString('en-ZA')})`]
+        );
+      });
     }
 
     // Keep bill statuses honest.
@@ -254,10 +266,12 @@ cronRouter.get('/event-reminders', async (req, res) => {
     { scoped: false }
   )).rows;
 
-  const inWindow = (hhmm: string) => {
+  // dayOffset 0 = happening today, 1 = tomorrow (so a 00:30 event still gets
+  // its hour-before reminder at ~23:30 the night before).
+  const inWindow = (hhmm: string, dayOffset = 0) => {
     const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm);
     if (!m) return false;
-    const until = Number(m[1]) * 60 + Number(m[2]) - nowMin;
+    const until = dayOffset * 1440 + Number(m[1]) * 60 + Number(m[2]) - nowMin;
     return until > 45 && until <= 60;
   };
   // Bell entry doubles as the exactly-once guard (same pattern as the digest);
@@ -280,7 +294,9 @@ cronRouter.get('/event-reminders', async (req, res) => {
   let sent = 0;
   for (const e of rows) {
     try {
-      if (!occursOn(e.event_date, e.recur, today) || !inWindow(e.event_time)) continue;
+      const dueNow = (occursOn(e.event_date, e.recur, today) && inWindow(e.event_time))
+        || (occursOn(e.event_date, e.recur, sastPlus(1)) && inWindow(e.event_time, 1));
+      if (!dueNow) continue;
       if (await remindOnce(e.household_id, `${e.title.trim()} at ${e.event_time}`, 'Coming up in about an hour', e.assignee_ids)) sent++;
     } catch (err: any) {
       console.error('[croft] event-reminders: skipped event', e.title, err?.message || err);
@@ -333,12 +349,15 @@ cronRouter.get('/weekly', async (req, res) => {
     if (!weeklyUsers.length) continue;
 
     // Events across the next 7 days (recurrence-aware, so repeats show).
-    const dated = (await query<{ title: string; event_time: string; event_date: string; recur: string }>(
-      `SELECT title, event_time, to_char(event_date,'YYYY-MM-DD') AS event_date, recur
+    const dated = (await query<{ title: string; event_time: string; event_date: string; end_date: string | null; recur: string }>(
+      `SELECT title, event_time, to_char(event_date,'YYYY-MM-DD') AS event_date, to_char(end_date,'YYYY-MM-DD') AS end_date, recur
          FROM events WHERE household_id=$1 AND event_date IS NOT NULL`, [hhId]
     )).rows;
     const weekEvents: { date: string; title: string; time: string }[] = [];
-    for (const d of weekDates) for (const e of dated) if (occursOn(e.event_date, e.recur, d)) weekEvents.push({ date: d, title: e.title, time: e.event_time });
+    // Multi-day events appear on every covered day of the week, not just day 1.
+    const coversDay = (e: (typeof dated)[number], d: string) =>
+      occursOn(e.event_date, e.recur, d) || !!(e.end_date && e.event_date <= d && d <= e.end_date);
+    for (const d of weekDates) for (const e of dated) if (coversDay(e, d)) weekEvents.push({ date: d, title: e.title, time: e.event_time });
     weekEvents.sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''));
 
     // Bills: overdue + due within the week, plus still-unpaid ones with no date

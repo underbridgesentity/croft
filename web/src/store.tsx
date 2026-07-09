@@ -7,6 +7,8 @@ import type { AppState, User } from './lib/types';
 interface Store {
   ready: boolean;
   user: User | null;
+  /** Merge fields into the signed-in user (e.g. after saving a per-user setting). */
+  patchUser: (p: Partial<User>) => void;
   state: AppState | null;
   toast: string | null;
   flash: (msg: string) => void;
@@ -190,6 +192,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Dismiss the first-run welcome. Update locally at once; persist best-effort so
   // a network blip doesn't re-trap the user (they'll just see it once more).
+  const patchUser = useCallback((p: Partial<User>) => {
+    setUser((u) => (u ? { ...u, ...p } : u));
+  }, []);
+
   const completeOnboarding = useCallback(() => {
     setUser((u) => (u ? { ...u, onboarded: true } : u));
     api.markOnboarded().catch(() => {});
@@ -222,7 +228,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const openTour = useCallback(() => setTourOpen(true), []);
   const closeTour = useCallback(() => setTourOpen(false), []);
 
-  const value: Store = { ready, user, state, toast, flash, signup, login, acceptInvite, acceptInviteExisting, resetPassword, deleteAccount, logout, completeOnboarding, appUnlocked, unlock, setLockEnabled, refreshState, loadError, retryLoad, tourOpen, openTour, closeTour, run, isBusy };
+  const value: Store = { ready, user, patchUser, state, toast, flash, signup, login, acceptInvite, acceptInviteExisting, resetPassword, deleteAccount, logout, completeOnboarding, appUnlocked, unlock, setLockEnabled, refreshState, loadError, retryLoad, tourOpen, openTour, closeTour, run, isBusy };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

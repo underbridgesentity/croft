@@ -33,7 +33,7 @@ export default function Home({ nav }: { nav: Nav }) {
   const todayList = [
     ...todayEvents.map((e) => ({
       key: e.id, illo: e.illo, color: e.color, title: e.title, meta: e.loc, time: `${e.time} ${e.ampm}`.trim(), tappable: false as const,
-      onEdit: () => nav.openForm('event', { editId: e.id, title: e.title, date: e.event_date || '', time: e.event_time || '', who: e.assignee_ids || [], recur: e.recur, remindDays: e.remind_days }),
+      onEdit: () => nav.openForm('event', { editId: e.id, title: e.title, date: e.event_date || '', endDate: e.end_date || '', time: e.event_time || '', who: e.assignee_ids || [], recur: e.recur, remindDays: e.remind_days }),
     })),
     ...todayTasks.map((t) => ({
       key: t.id, illo: t.type === 'Reminder' ? 'bell' : 'todo', color: t.from_color, title: t.title, meta: `${t.type}${t.due_time ? ' · ' + t.due_time : ''} · From ${t.from_name}`, tappable: true as const, id: t.id,
@@ -42,7 +42,7 @@ export default function Home({ nav }: { nav: Nav }) {
   ];
 
   const goal = state.goals.find((g) => g.kind === 'Family');
-  const editGoal = () => goal && nav.openForm('goal', { editId: goal.id, title: goal.title, kind: 'family', target: goal.target ? String(goal.target) : '', amount: '' });
+  const editGoal = () => goal && nav.openForm('goal', { editId: goal.id, title: goal.title, kind: 'family', target: goal.target ? String(goal.target) : '', amount: '', deadline: goal.deadline || '' });
 
   return (
     <div className="stagger">

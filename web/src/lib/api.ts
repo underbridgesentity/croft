@@ -175,7 +175,7 @@ export const api = {
 
   addSaving: (d: { name: string; target?: string; saved?: string }) =>
     req<AppState>('/savings', { method: 'POST', body: JSON.stringify(d) }),
-  updSaving: (id: string, d: { name: string; target?: string; saved?: string; addAmount?: string }) =>
+  updSaving: (id: string, d: { name: string; target?: string; saved?: string; addAmount?: string; savedTouched?: boolean }) =>
     req<AppState>(`/savings/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
   delSaving: (id: string) => req<AppState>(`/savings/${id}`, { method: 'DELETE' }),
 

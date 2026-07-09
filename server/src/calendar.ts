@@ -87,7 +87,9 @@ calendarRouter.get('/:token.ics', async (req, res) => {
       // any viewer's calendar, instead of "floating" to the viewer's zone.
       lines.push(`DTSTART;TZID=Africa/Johannesburg:${d}T${pad(tm.h)}${pad(tm.m)}00`);
       const endH = (tm.h + 1) % 24;
-      lines.push(`DTEND;TZID=Africa/Johannesburg:${d}T${pad(endH)}${pad(tm.m)}00`);
+      // A timed multi-day event ends on its end_date, not an hour into day 1.
+      const endDay = e.end_date && e.end_date > d ? e.end_date : d;
+      lines.push(`DTEND;TZID=Africa/Johannesburg:${endDay}T${pad(endH)}${pad(tm.m)}00`);
     } else {
       // all-day: DTEND is EXCLUSIVE, so single-day ends next day and a
       // multi-day event ends the day after its end_date.
