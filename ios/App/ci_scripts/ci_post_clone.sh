@@ -8,14 +8,28 @@
 # Without them the archive fails at "Could not resolve package dependencies".
 # So: install Node, install JS deps, build the web assets, and run `cap sync`
 # to regenerate the iOS project's package references before Xcode builds.
+#
+# Node comes from the official nodejs.org tarball, NOT Homebrew: brew has to
+# phone formulae.brew.sh on every run and that host is unreachable from the
+# runners (build 23: `curl: (7) Failed to connect to formulae.brew.sh`).
 
 set -e
 echo "=== ci_post_clone: preparing Capacitor iOS build ==="
 
-# Xcode Cloud's macOS image ships Homebrew but not Node.
 if ! command -v node >/dev/null 2>&1; then
-  echo "Installing Node via Homebrew..."
-  brew install node
+  NODE_VERSION="22.14.0"
+  case "$(uname -m)" in
+    arm64) NODE_PKG="node-v${NODE_VERSION}-darwin-arm64" ;;
+    *)     NODE_PKG="node-v${NODE_VERSION}-darwin-x64" ;;
+  esac
+  echo "Installing Node ${NODE_VERSION} from nodejs.org..."
+  curl -fsSL --retry 3 --retry-delay 2 \
+    "https://nodejs.org/dist/v${NODE_VERSION}/${NODE_PKG}.tar.gz" -o /tmp/node.tar.gz
+  tar -xzf /tmp/node.tar.gz -C /tmp
+  export PATH="/tmp/${NODE_PKG}/bin:$PATH"
+  # Best effort: put node where later xcodebuild phases could also find it.
+  sudo ln -sf "/tmp/${NODE_PKG}/bin/node" /usr/local/bin/node 2>/dev/null || true
+  sudo ln -sf "/tmp/${NODE_PKG}/bin/npm" /usr/local/bin/npm 2>/dev/null || true
 fi
 echo "node $(node -v), npm $(npm -v)"
 
