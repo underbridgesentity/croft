@@ -30,6 +30,7 @@ function readResetToken(): string | null {
 export default function App() {
   const { ready, user, state, flash, appUnlocked, loadError, retryLoad, tourOpen } = useStore();
   const [entered, setEntered] = useState(false);
+  const [justJoined, setJustJoined] = useState(false);
   const [joinToken, setJoinToken] = useState<string | null>(() => readJoinToken());
   const [resetToken, setResetToken] = useState<string | null>(() => readResetToken());
   const [showAuth, setShowAuth] = useState(false);
@@ -105,9 +106,20 @@ export default function App() {
       <Frame>
         <JoinInvite
           token={joinToken}
-          onJoined={() => { clearUrl(); setJoinToken(null); setEntered(true); }}
+          onJoined={() => { clearUrl(); setJoinToken(null); setJustJoined(true); }}
           onCancel={() => { clearUrl(); setJoinToken(null); }}
         />
+      </Frame>
+    );
+  }
+
+  // Invited members used to skip the notifications ask entirely (it only
+  // lived in the founder's sign-up flow) - so whole families ended up with
+  // push off. Show them the same "Stay in the loop" step right after joining.
+  if (justJoined && user) {
+    return (
+      <Frame>
+        <Onboarding initialStep="notify" onComplete={() => { setJustJoined(false); setEntered(true); }} />
       </Frame>
     );
   }
