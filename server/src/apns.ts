@@ -56,6 +56,20 @@ export async function sendApns(tokens: string[], payload: ApnsPayload): Promise<
     jwt = providerJwt();
   } catch (e: any) {
     console.error('[croft] apns: jwt signing failed (check APNS_KEY formatting)', e?.message || e);
+    // SAFE shape diagnostics only - lengths, marker presence, whitespace
+    // counts and the first 12 chars (PEM header text, no key material).
+    const raw = process.env.APNS_KEY || '';
+    const shape = (v: string) => ({
+      len: v.length,
+      begin: v.includes('BEGIN'), end: v.includes('END'),
+      nl: (v.match(/\n/g) || []).length,
+      litBackslashN: (v.match(/\\n/g) || []).length,
+      spaces: (v.match(/ /g) || []).length,
+      head: JSON.stringify(v.slice(0, 12)),
+      tail: JSON.stringify(v.slice(-12)),
+    });
+    console.error('[croft] apns: raw key shape', JSON.stringify(shape(raw)));
+    console.error('[croft] apns: normalized key shape', JSON.stringify(shape(KEY)));
     return [];
   }
   const body = JSON.stringify({
