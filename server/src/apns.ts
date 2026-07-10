@@ -13,10 +13,16 @@ import crypto from 'node:crypto';
 // push down). Rebuild a canonical PEM from whatever shape survived the paste.
 function normalizePem(raw: string): string {
   const k = raw.trim().replace(/^["']|["']$/g, '').replace(/\\n/g, '\n').trim();
+  const wrap = (label: string, b64: string) =>
+    `-----BEGIN ${label}-----\n${b64.match(/.{1,64}/g)?.join('\n') || b64}\n-----END ${label}-----\n`;
   const m = k.match(/-----BEGIN ([A-Z0-9 ]+)-----([\s\S]*?)-----END \1-----/);
-  if (!m) return k;
-  const body = m[2].replace(/[^A-Za-z0-9+/=]/g, ''); // strip whitespace/junk from the base64
-  return `-----BEGIN ${m[1]}-----\n${body.match(/.{1,64}/g)?.join('\n') || body}\n-----END ${m[1]}-----\n`;
+  if (m) return wrap(m[1], m[2].replace(/[^A-Za-z0-9+/=]/g, ''));
+  // No PEM markers at all - the Vercel value is just the base64 body of the
+  // .p8 (confirmed by shape diagnostics: 203 chars starting "MIGTAgEA...").
+  // Re-wrap it as PKCS8.
+  const body = k.replace(/[^A-Za-z0-9+/=]/g, '');
+  if (body.length >= 150 && /^MIG/.test(body)) return wrap('PRIVATE KEY', body);
+  return k;
 }
 const KEY = normalizePem(process.env.APNS_KEY || '');
 const KEY_ID = process.env.APNS_KEY_ID || '';
