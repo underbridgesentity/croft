@@ -38,14 +38,23 @@ export interface ApnsPayload { title: string; body?: string; url?: string }
  * as dead (Unregistered / BadDeviceToken) so the caller can prune them. */
 export async function sendApns(tokens: string[], payload: ApnsPayload): Promise<string[]> {
   if (!apnsEnabled || !tokens.length) return [];
-  const jwt = providerJwt();
+  // A push must never crash its caller, but failures must be VISIBLE - every
+  // outcome below logs, so the function logs show exactly what APNs said.
+  let jwt: string;
+  try {
+    jwt = providerJwt();
+  } catch (e: any) {
+    console.error('[croft] apns: jwt signing failed (check APNS_KEY formatting)', e?.message || e);
+    return [];
+  }
   const body = JSON.stringify({
     aps: { alert: { title: payload.title, body: payload.body || '' }, sound: 'default' },
     url: payload.url || '/',
   });
   const dead: string[] = [];
+  let ok = 0;
   const client = http2.connect(HOST);
-  client.on('error', () => { /* connection errors resolve per-request below */ });
+  client.on('error', (e) => console.error('[croft] apns: connection error', e?.message || e));
   await Promise.all(
     tokens.map(
       (token) =>
@@ -65,15 +74,22 @@ export async function sendApns(tokens: string[], payload: ApnsPayload): Promise<
           req.setEncoding('utf8');
           req.on('data', (d) => { data += d; });
           req.on('end', () => {
-            if (status === 410 || (status === 400 && /BadDeviceToken/.test(data))) dead.push(token);
+            if (status === 200) ok++;
+            else if (status === 410 || (status === 400 && /BadDeviceToken/.test(data))) {
+              dead.push(token);
+              console.warn('[croft] apns: pruning dead token', token.slice(0, 8) + '…', status, data.slice(0, 120));
+            } else {
+              console.error('[croft] apns: rejected', token.slice(0, 8) + '…', 'status', status, data.slice(0, 200));
+            }
             resolve();
           });
-          req.on('error', () => resolve());
-          req.setTimeout(10000, () => { try { req.close(); } catch { /* noop */ } resolve(); });
+          req.on('error', (e) => { console.error('[croft] apns: request error', token.slice(0, 8) + '…', e?.message || e); resolve(); });
+          req.setTimeout(10000, () => { console.error('[croft] apns: timeout', token.slice(0, 8) + '…'); try { req.close(); } catch { /* noop */ } resolve(); });
           req.end(body);
         })
     )
   );
   try { client.close(); } catch { /* noop */ }
+  console.log(`[croft] apns: ${ok}/${tokens.length} accepted ("${payload.title.slice(0, 40)}")`);
   return dead;
 }
