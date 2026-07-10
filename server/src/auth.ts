@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';
 import { query, tx } from './db.js';
+import { pushToHousehold } from './push.js';
 import { seedHousehold } from './seed.js';
 import { rateLimit } from './rateLimit.js';
 import { sendEmail } from './mailer.js';
@@ -204,15 +205,23 @@ async function joinHousehold(c: TxClient, invite: Invite, userId: string, userNa
 }
 
 /** Best-effort: email the person who created the invite that someone joined. */
-async function notifyInviterOfJoin(invite: Invite, joinerName: string) {
+async function notifyInviterOfJoin(invite: Invite, joinerName: string, joinerUserId?: string) {
+  // A new member is a rare, high-signal moment - the whole household hears
+  // about it (except the joiner themselves), and the inviter also gets email.
+  const hhRow = (await query(`SELECT name FROM households WHERE id=$1`, [invite.household_id])).rows[0];
+  await pushToHousehold(invite.household_id, {
+    title: `${joinerName} joined ${hhRow?.name || 'your home'}`,
+    body: 'Say hi - you now share your calendar, plans and money.',
+    url: '/?tab=family',
+  }, joinerUserId).catch(() => {});
   if (!invite.created_by) return;
   const r = await query(
-    `SELECT u.email, h.name AS hh FROM users u JOIN households h ON h.id = $2 WHERE u.id = $1`,
-    [invite.created_by, invite.household_id]
+    `SELECT u.email FROM users u WHERE u.id = $1`,
+    [invite.created_by]
   );
   const row = r.rows[0];
   if (row?.email) {
-    await sendEmail({ to: row.email, ...memberJoinedEmail({ joinerName, householdName: row.hh }) }).catch(() => {});
+    await sendEmail({ to: row.email, ...memberJoinedEmail({ joinerName, householdName: hhRow?.name || 'your home' }) }).catch(() => {});
   }
 }
 
@@ -343,7 +352,7 @@ authRouter.post('/invite/:token/accept', rateLimit('signup', 10, 3600), async (r
     throw e;
   }
   await sendEmail({ to: email.toLowerCase(), ...welcomeEmail(name) }).catch(() => {});
-  await notifyInviterOfJoin(invite, name).catch(() => {});
+  await notifyInviterOfJoin(invite, name, userId).catch(() => {});
   const token = await issueSession(res, userId);
   res.json({ user: await loadUser(userId), token });
 });
@@ -402,7 +411,7 @@ authRouter.post('/invite/:token/accept-existing', rateLimit('signup', 10, 3600),
     }
     throw e;
   }
-  await notifyInviterOfJoin(invite, u.name).catch(() => {});
+  await notifyInviterOfJoin(invite, u.name, u.id).catch(() => {});
   res.json({ user: await loadUser(u.id) });
 });
 
@@ -674,7 +683,7 @@ authRouter.get('/google/callback', async (req, res) => {
       await provision(userId);
       await sendEmail({ to: email, ...welcomeEmail(name) }).catch(() => {});
     }
-    if (joinedViaInvite && invite) await notifyInviterOfJoin(invite, name).catch(() => {});
+    if (joinedViaInvite && invite) await notifyInviterOfJoin(invite, name, userId).catch(() => {});
     await issueSession(res, userId); // web OAuth redirect → cookie only
     res.redirect(`${APP_URL}/?auth=google_ok`);
   } catch (e) {

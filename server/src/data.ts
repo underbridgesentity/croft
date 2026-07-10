@@ -648,12 +648,27 @@ dataRouter.patch('/budget/:id', async (req: AuthedRequest, res) => {
       spend > 0
         ? `spent ${rands} on ${b.data.name}${noteBit ? ` (${noteBit})` : ''}`
         : `corrected ${b.data.name} spending down by ${rands}`);
+    // Per-spend pushes drizzle; the signal worth an interruption is the 
+    // moment a category CROSSES its limit - pushed once, to everyone
+    // (including the spender - they most of all should know).
     if (spend > 0) {
-      await pushToHousehold(hh(req), {
-        title: `${me.name} logged a spend`,
-        body: `${rands} on ${b.data.name}${noteBit ? ` — ${noteBit}` : ''}`,
-        url: '/?tab=money',
-      }, req.userId).catch(() => {});
+      const thisMonth = sastToday().slice(0, 7);
+      const spendMonth = spendIso ? spendIso.slice(0, 7) : thisMonth;
+      const lim = Number(b.data.limit) || 0;
+      if (lim > 0 && spendMonth === thisMonth) {
+        const tot = num((await query(
+          `SELECT COALESCE(SUM(amount),0) AS t FROM budget_spends
+            WHERE budget_id=$1 AND household_id=$2 AND to_char(created_at + interval '2 hours','YYYY-MM')=$3`,
+          [req.params.id, hh(req), spendMonth]
+        )).rows[0].t);
+        if (tot > lim && tot - spend <= lim) {
+          await pushToHousehold(hh(req), {
+            title: `${b.data.name} is over budget`,
+            body: `R${Math.round(tot).toLocaleString('en-ZA')} of R${lim.toLocaleString('en-ZA')} this month`,
+            url: '/?tab=money',
+          }).catch(() => {});
+        }
+      }
     }
   }
   await sendState(req, res);
@@ -767,6 +782,13 @@ dataRouter.post('/settle', async (req: AuthedRequest, res) => {
   );
   const me = await meMember(hh(req), req.memberId);
   await addFeed(hh(req), me.name, me.color, me.initial, `logged an IOU: ${f.dir === 'in' ? `${f.who} owes` : `owes ${f.who}`} ${f.amount}`);
+  // Personal money involving you deserves a heads-up (same class as an
+  // assigned to-do) - sent to the named member only, never the creator.
+  await pushToMembers(hh(req), [f.memberId], {
+    title: `${me.name} added an IOU`,
+    body: f.dir === 'in' ? `You owe ${me.name} ${f.amount}` : `${me.name} owes you ${f.amount}`,
+    url: '/?tab=money',
+  }, req.userId).catch(() => {});
   await sendState(req, res);
 });
 dataRouter.delete('/settle/:id', async (req: AuthedRequest, res) => {
