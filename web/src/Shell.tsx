@@ -243,7 +243,10 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   return (
     <>
       <div style={{ flexShrink: 0, padding: 'max(20px, calc(env(safe-area-inset-top) + 8px)) 18px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', zIndex: 8 }}>
-        <button onClick={() => nav.goTab('family')} className="glass" style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 14px 7px 9px', borderRadius: 100, cursor: 'pointer' }}>
+        {/* Household pill goes HOME (it wears a home icon); the avatar on the
+            right is the one route to Family/settings - two buttons to the same
+            place read as a bug. */}
+        <button onClick={() => nav.goTab('home')} aria-label="Go to Home" className="glass" style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '7px 14px 7px 9px', borderRadius: 100, cursor: 'pointer' }}>
           <span style={{ width: 28, height: 28, borderRadius: 9, background: 'rgba(59,91,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3.5 11L12 4l8.5 7v8.2a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1z" stroke="#3B5BFF" strokeWidth="1.9" strokeLinejoin="round" /><path d="M9.5 20.5v-6h5v6" stroke="#3B5BFF" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </span>
