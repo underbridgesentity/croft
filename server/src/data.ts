@@ -330,7 +330,9 @@ dataRouter.post('/tasks', async (req: AuthedRequest, res) => {
   // (skip the creator - they know). Undated items stay quiet until due.
   if (ms.length && d.iso) {
     const when = d.iso === sastToday() ? 'today' : formatDateLabel(d.iso);
-    pushToMembers(hh(req), ms.map((m) => m.id), {
+    // Awaited: un-awaited sends get suspended when the serverless response
+    // goes out and may never execute.
+    await pushToMembers(hh(req), ms.map((m) => m.id), {
       title: `${isReminder ? 'Reminder' : 'To-do'} from ${me.name}`,
       body: `${b.data.title} — ${when}${d.time ? ' at ' + d.time : ''}`,
       url: '/?tab=tasks',
@@ -884,7 +886,7 @@ dataRouter.post('/nudge', async (req: AuthedRequest, res) => {
   );
   // Targeted when the nudge names people (their devices only); otherwise the
   // household minus the sender. Best-effort; never blocks the response.
-  pushToMembers(hh(req), memberIds, { title: `Reminder for ${name}`, body, url: '/?tab=tasks' }, req.userId).catch(() => {});
+  await pushToMembers(hh(req), memberIds, { title: `Reminder for ${name}`, body, url: '/?tab=tasks' }, req.userId).catch(() => {});
   await sendState(req, res);
 });
 
@@ -899,7 +901,7 @@ dataRouter.post('/push/subscribe', async (req: AuthedRequest, res) => {
   }
   await saveSubscription(hh(req), req.userId, sub);
   // Immediate confirmation so the user sees push working right away.
-  pushToSub(sub, { title: 'Croft notifications are on', body: 'Reminders and nudges will appear here.', url: '/' }).catch(() => {});
+  await pushToSub(sub, { title: 'Croft notifications are on', body: 'Reminders and nudges will appear here.', url: '/' }).catch(() => {});
   res.json({ ok: true });
 });
 dataRouter.post('/push/unsubscribe', async (req: AuthedRequest, res) => {
@@ -912,7 +914,7 @@ dataRouter.post('/push/register-native', async (req: AuthedRequest, res) => {
   const token = String(req.body?.token || '').trim();
   if (!token) return res.status(400).json({ error: 'Missing token' });
   await saveNativeToken(hh(req), req.userId, token, String(req.body?.platform || 'ios'));
-  pushToNativeToken(token, { title: 'Croft notifications are on', body: 'Reminders and nudges will appear here.', url: '/' }).catch(() => {});
+  await pushToNativeToken(token, { title: 'Croft notifications are on', body: 'Reminders and nudges will appear here.', url: '/' }).catch(() => {});
   res.json({ ok: true });
 });
 dataRouter.post('/push/unregister-native', async (req: AuthedRequest, res) => {

@@ -248,7 +248,10 @@ authRouter.post('/signup', rateLimit('signup', 10, 3600), async (req, res) => {
     await provisionHousehold(c, uid, name, household);
     return uid;
   });
-  sendEmail({ to: email.toLowerCase(), ...welcomeEmail(name) }).catch(() => {});
+  // Awaited (with a swallow-catch): serverless freezes the instance the moment
+  // the response is sent, so fire-and-forget work gets suspended mid-flight
+  // and may never run. Same for every send below.
+  await sendEmail({ to: email.toLowerCase(), ...welcomeEmail(name) }).catch(() => {});
   const token = await issueSession(res, userId);
   res.json({ user: await loadUser(userId), token });
 });
@@ -339,8 +342,8 @@ authRouter.post('/invite/:token/accept', rateLimit('signup', 10, 3600), async (r
     }
     throw e;
   }
-  sendEmail({ to: email.toLowerCase(), ...welcomeEmail(name) }).catch(() => {});
-  notifyInviterOfJoin(invite, name).catch(() => {});
+  await sendEmail({ to: email.toLowerCase(), ...welcomeEmail(name) }).catch(() => {});
+  await notifyInviterOfJoin(invite, name).catch(() => {});
   const token = await issueSession(res, userId);
   res.json({ user: await loadUser(userId), token });
 });
@@ -399,7 +402,7 @@ authRouter.post('/invite/:token/accept-existing', rateLimit('signup', 10, 3600),
     }
     throw e;
   }
-  notifyInviterOfJoin(invite, u.name).catch(() => {});
+  await notifyInviterOfJoin(invite, u.name).catch(() => {});
   res.json({ user: await loadUser(u.id) });
 });
 
@@ -441,7 +444,7 @@ authRouter.post('/reset', rateLimit('forgot', 10, 900), async (req, res) => {
     await c.query(`UPDATE password_resets SET used=true WHERE token=$1`, [parsed.data.token]);
   });
   const u = await loadUser(r.user_id);
-  if (u?.email) sendEmail({ to: u.email, ...passwordChangedEmail({ name: u.name }) }).catch(() => {});
+  if (u?.email) await sendEmail({ to: u.email, ...passwordChangedEmail({ name: u.name }) }).catch(() => {});
   const token = await issueSession(res, r.user_id);
   res.json({ user: u, token });
 });
@@ -465,7 +468,7 @@ authRouter.post('/change-password', requireAuth, async (req: AuthedRequest, res)
   await query(`UPDATE users SET password_hash=$1, token_version=token_version+1 WHERE id=$2`, [hash, req.userId]);
   const token = await issueSession(res, req.userId!);
   const who = await loadUser(req.userId!);
-  if (who?.email) sendEmail({ to: who.email, ...passwordChangedEmail({ name: who.name }) }).catch(() => {});
+  if (who?.email) await sendEmail({ to: who.email, ...passwordChangedEmail({ name: who.name }) }).catch(() => {});
   res.json({ ok: true, token });
 });
 
@@ -669,9 +672,9 @@ authRouter.get('/google/callback', async (req, res) => {
       );
       userId = ins.rows[0].id;
       await provision(userId);
-      sendEmail({ to: email, ...welcomeEmail(name) }).catch(() => {});
+      await sendEmail({ to: email, ...welcomeEmail(name) }).catch(() => {});
     }
-    if (joinedViaInvite && invite) notifyInviterOfJoin(invite, name).catch(() => {});
+    if (joinedViaInvite && invite) await notifyInviterOfJoin(invite, name).catch(() => {});
     await issueSession(res, userId); // web OAuth redirect → cookie only
     res.redirect(`${APP_URL}/?auth=google_ok`);
   } catch (e) {
