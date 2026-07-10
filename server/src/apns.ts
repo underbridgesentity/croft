@@ -7,7 +7,18 @@
 import http2 from 'node:http2';
 import crypto from 'node:crypto';
 
-const KEY = (process.env.APNS_KEY || '').replace(/\\n/g, '\n'); // env may escape newlines
+// Env-var paste fields love to mangle multiline PEMs: newlines become literal
+// "\n", spaces, or vanish entirely, and OpenSSL then refuses the key
+// (error:1E08010C:DECODER routines::unsupported - exactly what took every
+// push down). Rebuild a canonical PEM from whatever shape survived the paste.
+function normalizePem(raw: string): string {
+  const k = raw.trim().replace(/^["']|["']$/g, '').replace(/\\n/g, '\n').trim();
+  const m = k.match(/-----BEGIN ([A-Z0-9 ]+)-----([\s\S]*?)-----END \1-----/);
+  if (!m) return k;
+  const body = m[2].replace(/[^A-Za-z0-9+/=]/g, ''); // strip whitespace/junk from the base64
+  return `-----BEGIN ${m[1]}-----\n${body.match(/.{1,64}/g)?.join('\n') || body}\n-----END ${m[1]}-----\n`;
+}
+const KEY = normalizePem(process.env.APNS_KEY || '');
 const KEY_ID = process.env.APNS_KEY_ID || '';
 const TEAM_ID = process.env.APNS_TEAM_ID || '';
 const BUNDLE_ID = process.env.APNS_BUNDLE_ID || 'za.co.underbridges.croft';
