@@ -273,6 +273,13 @@ dataRouter.post('/events', async (req: AuthedRequest, res) => {
   );
   const me = await meMember(hh(req), req.memberId);
   await addFeed(hh(req), me.name, me.color, me.initial, `added "${b.data.title}" to the calendar`);
+  // The rest of the family hears about new plans right away (creator excluded).
+  // Edits stay quiet - only creation is push-worthy.
+  await pushToHousehold(hh(req), {
+    title: `${me.name} added an event`,
+    body: `${b.data.title}${d.iso ? ' — ' + formatDateLabel(d.iso) : ''}${d.timeStr ? ' · ' + d.timeStr : ''}`,
+    url: '/?tab=calendar',
+  }, req.userId).catch(() => {});
   await sendState(req, res);
 });
 dataRouter.patch('/events/:id', async (req: AuthedRequest, res) => {
@@ -536,6 +543,11 @@ dataRouter.post('/bills', async (req: AuthedRequest, res) => {
   );
   const me = await meMember(hh(req), req.memberId);
   await addFeed(hh(req), me.name, me.color, me.initial, `added the bill "${b.data.name}"`);
+  await pushToHousehold(hh(req), {
+    title: `${me.name} added a bill`,
+    body: `${b.data.name}${Number(b.data.amount) ? ' — R' + Number(b.data.amount).toLocaleString('en-ZA') : ''}${iso ? ' · due ' + dueLabel : ''}`,
+    url: '/?tab=money',
+  }, req.userId).catch(() => {});
   await sendState(req, res);
 });
 // One PATCH, two shapes: `{status}` marks paid/unpaid (and the cron's overdue
@@ -636,6 +648,13 @@ dataRouter.patch('/budget/:id', async (req: AuthedRequest, res) => {
       spend > 0
         ? `spent ${rands} on ${b.data.name}${noteBit ? ` (${noteBit})` : ''}`
         : `corrected ${b.data.name} spending down by ${rands}`);
+    if (spend > 0) {
+      await pushToHousehold(hh(req), {
+        title: `${me.name} logged a spend`,
+        body: `${rands} on ${b.data.name}${noteBit ? ` — ${noteBit}` : ''}`,
+        url: '/?tab=money',
+      }, req.userId).catch(() => {});
+    }
   }
   await sendState(req, res);
 });
