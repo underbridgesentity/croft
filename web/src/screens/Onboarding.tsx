@@ -38,7 +38,7 @@ const INTRO = [
   { art: 'money', title: 'Money, handled together', body: "See what's paid, what's still due, and who owes who - all at a glance." },
 ];
 
-export default function Onboarding({ onComplete, initialStep = 'welcome' }: { onComplete: () => void; initialStep?: Step }) {
+export default function Onboarding({ onComplete, onExit, initialStep = 'welcome' }: { onComplete: () => void; onExit?: () => void; initialStep?: Step }) {
   const { signup, login, state, user, run, flash } = useStore();
   const [step, setStep] = useState<Step>(initialStep);
   const [intro, setIntro] = useState(0);
@@ -146,7 +146,7 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
   if (step === 'welcome') {
     return (
       <Scroll>
-        <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: '60px 26px 36px', textAlign: 'center' }}>
+        <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: 'max(60px, calc(env(safe-area-inset-top) + 24px)) 26px 36px', textAlign: 'center' }}>
           <Wordmark />
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px 0' }}>
             <img src="/illustrations/family-home.jpg" alt="A family relaxing at home" style={{ width: '100%', maxWidth: 372, height: 'auto', mixBlendMode: 'multiply' }} />
@@ -170,7 +170,7 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
     const next = () => (intro >= 2 ? setStep('signup') : setIntro(intro + 1));
     return (
       <Scroll>
-        <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: '24px 26px 36px' }}>
+        <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: 'max(24px, calc(env(safe-area-inset-top) + 10px)) 26px 36px' }}>
           <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
             <button onClick={() => setStep('signup')} style={{ border: 'none', background: 'none', color: '#6F6C67', fontWeight: 700, fontSize: 14, cursor: 'pointer', padding: 8 }}>Skip</button>
           </div>
@@ -194,8 +194,10 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
   if (step === 'signup') {
     return (
       <Scroll>
-        <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: '56px 26px 36px' }}>
-          <BackBtn onClick={() => setStep('welcome')} />
+        <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: 'max(56px, calc(env(safe-area-inset-top) + 20px)) 26px 36px' }}>
+          {/* Came from the marketing page? Back returns THERE, not to the
+              internal welcome hero (which has no way out). */}
+          <BackBtn onClick={() => (onExit ? onExit() : setStep('welcome'))} />
           <h1 style={titleStyle}>Create your account</h1>
           <p style={subStyle}>Start running your home in one place.</p>
           <Field label="Full name"><input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} placeholder="Sipho Mokoena" /></Field>
@@ -235,7 +237,7 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
   if (step === 'forgot') {
     return (
       <Scroll>
-        <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: '56px 26px 36px' }}>
+        <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: 'max(56px, calc(env(safe-area-inset-top) + 20px)) 26px 36px' }}>
           <BackBtn onClick={() => { setForgotSent(false); setStep('login'); }} />
           {forgotSent ? (
             <>
@@ -265,8 +267,8 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
   if (step === 'login') {
     return (
       <Scroll>
-        <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: '56px 26px 36px' }}>
-          <BackBtn onClick={() => setStep('welcome')} />
+        <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: 'max(56px, calc(env(safe-area-inset-top) + 20px)) 26px 36px' }}>
+          <BackBtn onClick={() => (onExit ? onExit() : setStep('welcome'))} />
           <h1 style={titleStyle}>Welcome back</h1>
           <p style={subStyle}>Log in to your Croft home.</p>
           <Field label="Email"><input style={inputStyle} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" /></Field>
@@ -304,7 +306,7 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
     const members = state?.members || [];
     return (
       <Scroll>
-        <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: '56px 26px 36px' }}>
+        <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: 'max(56px, calc(env(safe-area-inset-top) + 20px)) 26px 36px' }}>
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}><Art name="family" width={200} /></div>
           <h1 style={{ ...titleStyle, textAlign: 'center', fontSize: 27 }}>Set up your home</h1>
           <p style={{ ...subStyle, textAlign: 'center' }}>Give your household a name and review the family.</p>
@@ -335,7 +337,7 @@ export default function Onboarding({ onComplete, initialStep = 'welcome' }: { on
   // ---------- NOTIFICATIONS ----------
   return (
     <Scroll>
-      <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: '56px 26px 36px', textAlign: 'center' }}>
+      <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', padding: 'max(56px, calc(env(safe-area-inset-top) + 20px)) 26px 36px', textAlign: 'center' }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ marginBottom: 28, width: '100%', display: 'flex', justifyContent: 'center' }}>
             <img src="/illustrations/in-sync.jpg" alt="Family staying in sync" style={{ width: '100%', maxWidth: 340, height: 'auto', mixBlendMode: 'multiply' }} />

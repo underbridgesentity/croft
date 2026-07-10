@@ -69,7 +69,9 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
   return (
     <div className="croft-scroll" style={{ position: 'absolute', inset: 0, overflowY: 'auto', background: '#fff', color: INK }}>
       {/* NAV */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid #EBE7DF' }}>
+      {/* In the iOS app the webview draws under the status bar - pad the sticky
+          bar by the safe-area inset so the logo/buttons sit below the clock. */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 20, paddingTop: 'env(safe-area-inset-top)', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', borderBottom: '1px solid #EBE7DF' }}>
         <div style={{ maxWidth: maxW, margin: '0 auto', padding: pad, height: 66, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Logo size={30} />
           <div style={{ display: 'flex', alignItems: 'center', gap: desktop ? 10 : 8 }}>
@@ -94,7 +96,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
                 Shared dates, reminders, lists, goals and money - all in one place, off your group chats. Plan together, stay organized, live better.
               </p>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                <button onClick={onStart} style={{ ...primaryBtn, fontSize: 16 }}>Get started - it’s free</button>
+                <button onClick={onStart} style={primaryBtn}>Get started</button>
                 <a href="#features" style={{ ...ghostBtn, textDecoration: 'none', display: 'inline-block' }}>See how it works</a>
               </div>
               <div style={{ marginTop: 18, fontSize: 13.5, color: '#7D776E', fontWeight: 500 }}>No credit card · Works on any device</div>
@@ -204,7 +206,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
         <div style={{ background: 'linear-gradient(135deg,#3B5BFF 0%,#1F99FF 100%)', borderRadius: 28, padding: desktop ? '56px 48px' : '40px 26px', textAlign: 'center', color: '#fff', boxShadow: '0 20px 50px rgba(59,91,255,0.35)' }}>
           <h2 style={{ fontFamily: grotesk, fontWeight: 700, fontSize: desktop ? 38 : 28, letterSpacing: '-0.02em', margin: '0 0 12px', lineHeight: 1.1 }}>Bring your whole home together</h2>
           <p style={{ fontSize: 17, opacity: 0.92, margin: '0 auto 26px', maxWidth: 440, lineHeight: 1.55 }}>Join the families running a calmer, more organized home with Croft.</p>
-          <button onClick={onStart} style={{ border: 'none', background: '#fff', color: BLUE, fontFamily: grotesk, fontWeight: 700, fontSize: 16.5, padding: '15px 32px', borderRadius: 14, cursor: 'pointer', boxShadow: '0 10px 26px rgba(0,0,0,0.18)' }}>Get started - it’s free</button>
+          <button onClick={onStart} style={{ border: 'none', background: '#fff', color: BLUE, fontFamily: grotesk, fontWeight: 700, fontSize: 16.5, padding: '15px 32px', borderRadius: 14, cursor: 'pointer', boxShadow: '0 10px 26px rgba(0,0,0,0.18)' }}>Get started</button>
         </div>
       </div>
 

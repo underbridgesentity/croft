@@ -150,7 +150,7 @@ export default function App() {
     }
     return (
       <Frame>
-        <Onboarding initialStep={authStart} onComplete={() => setEntered(true)} />
+        <Onboarding initialStep={authStart} onExit={() => setShowAuth(false)} onComplete={() => setEntered(true)} />
       </Frame>
     );
   }
