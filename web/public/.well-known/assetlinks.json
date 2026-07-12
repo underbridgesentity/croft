@@ -3,6 +3,9 @@
   "target": {
     "namespace": "android_app",
     "package_name": "za.co.underbridges.croft",
-    "sha256_cert_fingerprints": ["F8:5D:2C:85:D3:47:CF:DA:6C:ED:89:00:D8:8E:60:23:E8:1F:EF:81:4B:C0:21:BB:0C:B1:16:E5:8A:09:D2:CD"]
+    "sha256_cert_fingerprints": [
+      "F8:5D:2C:85:D3:47:CF:DA:6C:ED:89:00:D8:8E:60:23:E8:1F:EF:81:4B:C0:21:BB:0C:B1:16:E5:8A:09:D2:CD",
+      "EE:4B:33:66:E9:77:03:E7:59:66:46:5E:16:CA:EC:93:69:C8:68:04:EC:6E:12:12:AE:06:6B:87:FF:12:F0:E3"
+    ]
   }
 }]
