@@ -1,0 +1,8 @@
+android.keystore
+*.aab
+*.apk
+*.apk.idsig
+build/
+app/build/
+.gradle/
+manifest-checksum.txt

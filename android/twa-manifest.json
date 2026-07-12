@@ -1,0 +1,43 @@
+{
+  "packageId": "za.co.underbridges.croft",
+  "host": "www.croftapp.co.za",
+  "name": "Croft - Family Hub",
+  "launcherName": "Croft",
+  "display": "standalone",
+  "themeColor": "#3B5BFF",
+  "themeColorDark": "#3B5BFF",
+  "navigationColor": "#EAE7E1",
+  "navigationColorDark": "#181922",
+  "navigationDividerColor": "#EAE7E1",
+  "navigationDividerColorDark": "#181922",
+  "backgroundColor": "#EAE7E1",
+  "enableNotifications": true,
+  "startUrl": "/",
+  "iconUrl": "https://www.croftapp.co.za/icons/icon-512.png",
+  "maskableIconUrl": "https://www.croftapp.co.za/icons/icon-maskable-512.png",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "android"
+  },
+  "appVersionName": "1.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "webManifestUrl": "https://www.croftapp.co.za/manifest.webmanifest",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://www.croftapp.co.za/",
+  "minSdkVersion": 23,
+  "orientation": "portrait",
+  "fingerprints": [],
+  "additionalTrustedOrigins": [],
+  "retainedBundles": [],
+  "appVersion": "1.0"
+}
