@@ -13,7 +13,7 @@ export default defineConfig({
         short_name: 'Croft',
         description: 'One calm home for your whole family - dates, reminders, lists, goals and money.',
         theme_color: '#3B5BFF',
-        background_color: '#F3F5FB',
+        background_color: '#EAE7E1',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
