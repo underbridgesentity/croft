@@ -123,12 +123,12 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
     { t: 'Invite your family', d: 'Everyone gets their own login and the same live home.' },
     { t: 'Money, together', d: 'Bills, budgets and who-owes-who - no awkward maths.' },
     { t: 'Passcode lock', d: 'Keep your home private on shared devices.' },
-    { t: 'Works everywhere', d: 'Phone, tablet or desktop - installable, always in sync.' },
+    { t: 'Works everywhere', d: 'Get the app or use any browser - phone, tablet or desktop, always in sync.' },
   ];
 
   const faqs = [
     { q: 'Is Croft free?', a: 'Yes. You can create your home, invite your family and use every feature for free.' },
-    { q: 'Do I need to install anything?', a: 'No. Croft runs in any browser, and you can add it to your phone or desktop home screen for an app-like experience.' },
+    { q: 'Is there an app?', a: `Yes - Croft has an app for ${PLAY_STORE_LIVE ? 'iPhone and Android' : 'iPhone (Android is on the way)'}, and it also runs beautifully in any browser. Whichever you use, your home stays in sync.` },
     { q: 'Can the whole family use it?', a: 'Yes. Invite people by email or a link, and each person gets their own login and the same live home.' },
     { q: 'Will I actually get reminders?', a: 'Croft sends push notifications and a friendly daily email summary, and you can subscribe your events to Apple or Google Calendar.' },
     { q: 'Is my data private?', a: 'Your household content is private to your household. We never sell your data or use it for advertising, and you can delete your account and data at any time.' },
