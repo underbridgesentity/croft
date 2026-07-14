@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useIsDesktop } from '../lib/useMedia';
-import { APP_STORE_URL, PLAY_STORE_URL, PLAY_STORE_LIVE, showInstallUI, preferredStoreUrl } from '../lib/appLinks';
+import { APP_STORE_URL, PLAY_STORE_URL, PLAY_STORE_LIVE, showInstallUI, preferredStoreUrl, isIOSSafari, isNativeAppInstalled } from '../lib/appLinks';
 
 const grotesk = "'Geist', sans-serif";
 const INK = '#181922';
@@ -15,7 +15,13 @@ const STRIP_KEY = 'croft-app-strip-dismissed';
 // installed PWA - those all load this same page.
 function AppStrip() {
   const [dismissed, setDismissed] = useState(() => localStorage.getItem(STRIP_KEY) === '1');
-  if (dismissed || !showInstallUI()) return null;
+  // Android Chrome can report our TWA as installed - hide the strip for those
+  // users. iOS has no such API; there Safari's own banner handles Get/Open.
+  const [installed, setInstalled] = useState(false);
+  useEffect(() => {
+    isNativeAppInstalled().then(setInstalled).catch(() => {});
+  }, []);
+  if (dismissed || installed || !showInstallUI() || isIOSSafari()) return null;
   const url = preferredStoreUrl();
   if (!url) return null;
   return (

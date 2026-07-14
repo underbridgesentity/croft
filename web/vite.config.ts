@@ -18,6 +18,9 @@ export default defineConfig({
         orientation: 'portrait',
         start_url: '/',
         scope: '/',
+        // Lets Android Chrome answer navigator.getInstalledRelatedApps(), so the
+        // install strip can hide itself for people who already have the TWA.
+        related_applications: [{ platform: 'play', id: 'za.co.underbridges.croft' }],
         icons: [
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },

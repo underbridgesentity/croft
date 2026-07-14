@@ -30,6 +30,27 @@ export function isStandalone(): boolean {
   return window.matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true;
 }
 
+/** Safari proper on iOS - the one place Apple's own Smart App Banner renders
+ * (and knows install state: "Get"/"Open"). Our strip must stand down there or
+ * the two stack. Other iOS browsers (CriOS/FxiOS/...) and in-app webviews
+ * don't get Apple's banner, so the strip still covers them. */
+export function isIOSSafari(): boolean {
+  const ua = navigator.userAgent;
+  if (!/iPhone|iPad|iPod/.test(ua) && !(navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) return false;
+  return /Safari\//.test(ua) && !/(CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|DuckDuckGo|Brave|GSA\/)/.test(ua);
+}
+
+/** Android Chrome can tell a page whether our TWA is installed (iOS has no
+ * equivalent). Resolves false anywhere the API is missing. */
+export async function isNativeAppInstalled(): Promise<boolean> {
+  try {
+    const rel = await (navigator as { getInstalledRelatedApps?: () => Promise<{ id?: string }[]> }).getInstalledRelatedApps?.();
+    return !!rel?.some((a) => a.id === 'za.co.underbridges.croft');
+  } catch {
+    return false;
+  }
+}
+
 /** True only in a plain browser tab - never in the native apps, the TWA or an installed PWA. */
 export function showInstallUI(): boolean {
   return !isNative() && !isStandalone();
