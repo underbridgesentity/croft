@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from './store';
 import { isNative } from './lib/native';
+import { preferredStoreUrl } from './lib/appLinks';
 import Onboarding from './screens/Onboarding';
 import Shell from './Shell';
 import WelcomeTour from './screens/WelcomeTour';
@@ -25,6 +26,15 @@ function readJoinToken(): string | null {
 function readResetToken(): string | null {
   const m = window.location.pathname.match(/^\/reset\/(.+)$/);
   return m ? decodeURIComponent(m[1]) : null;
+}
+
+// croftapp.co.za/get - the one "get the app" URL used in emails. The site
+// decides the right store per device; anyone else lands on the marketing page.
+function GetAppRedirect() {
+  useEffect(() => {
+    window.location.replace(preferredStoreUrl() ?? '/');
+  }, []);
+  return null;
 }
 
 export default function App() {
@@ -56,6 +66,9 @@ export default function App() {
       window.history.replaceState({}, '', window.location.pathname);
     }
   }, [flash]);
+
+  const p = window.location.pathname;
+  if (p === '/get' || p === '/get/') return <GetAppRedirect />;
 
   // Public legal pages - reachable without a session (App Store review, Google
   // consent screen), independent of auth state.

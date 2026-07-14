@@ -3,6 +3,7 @@ import { useStore } from '../store';
 import { api } from '../lib/api';
 import { enablePush, disablePush } from '../lib/push';
 import { nativeShare } from '../lib/native';
+import { showInstallUI, preferredStoreUrl } from '../lib/appLinks';
 import type { Nav } from '../Shell';
 import type { Settings, EmailCadence } from '../lib/types';
 import Icon from '../components/Icon';
@@ -477,6 +478,10 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
         <SettingRow illo="lock" label="Change password" detail="" onClick={() => setPwOpen((v) => !v)} />
         <SettingRow illo="bell" label="View the welcome tour" detail="" onClick={openTour} />
         <SettingRow illo="lock" label="App lock (passcode)" detail={locked ? 'On' : 'Off'} good={locked} onClick={() => { setLockOpen((v) => !v); setPinA(''); setPinB(''); }} />
+        {/* Only for mobile-browser users - never inside the apps/TWA/installed PWA. */}
+        {showInstallUI() && preferredStoreUrl() && (
+          <SettingRow illo="house" label="Get the Croft app" detail="Free" onClick={() => window.open(preferredStoreUrl()!, '_blank', 'noopener')} />
+        )}
         <div style={{ height: 4 }} />
       </div>
 

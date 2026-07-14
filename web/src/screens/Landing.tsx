@@ -1,9 +1,72 @@
+import { useState } from 'react';
 import { useIsDesktop } from '../lib/useMedia';
+import { APP_STORE_URL, PLAY_STORE_URL, PLAY_STORE_LIVE, showInstallUI, preferredStoreUrl } from '../lib/appLinks';
 
 const grotesk = "'Geist', sans-serif";
 const INK = '#181922';
 const BLUE = '#3B5BFF';
 const MUTED = '#655F57';
+
+const STRIP_KEY = 'croft-app-strip-dismissed';
+
+// Slim app-install strip, mobile browser only. Scrolls away with the page
+// (like Apple's own banner) and stays dismissed via localStorage. showInstallUI()
+// guarantees it never renders inside the iOS app, the Android TWA or an
+// installed PWA - those all load this same page.
+function AppStrip() {
+  const [dismissed, setDismissed] = useState(() => localStorage.getItem(STRIP_KEY) === '1');
+  if (dismissed || !showInstallUI()) return null;
+  const url = preferredStoreUrl();
+  if (!url) return null;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px 9px 6px', background: '#F1EFEA', borderBottom: '1px solid #E8E3DB' }}>
+      <button
+        onClick={() => { localStorage.setItem(STRIP_KEY, '1'); setDismissed(true); }}
+        aria-label="Dismiss"
+        style={{ flexShrink: 0, border: 'none', background: 'none', cursor: 'pointer', padding: '6px 8px', color: '#9B958B', fontSize: 14, lineHeight: 1 }}
+      >
+        ✕
+      </button>
+      <img src="/icons/icon-192.png" width={30} height={30} alt="" style={{ borderRadius: 8.5, display: 'block' }} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 13.5, color: INK, lineHeight: 1.2 }}>Croft - Family Hub</div>
+        <div style={{ fontSize: 11.5, color: MUTED }}>Free on your phone</div>
+      </div>
+      <a href={url} style={{ flexShrink: 0, background: BLUE, color: '#fff', fontFamily: grotesk, fontWeight: 700, fontSize: 13, padding: '8px 18px', borderRadius: 100, textDecoration: 'none' }}>Get</a>
+    </div>
+  );
+}
+
+// Footer store badges (self-drawn, on-brand). The Play badge stays dark until
+// the listing is approved; both disappear entirely inside the apps.
+function StoreBadges() {
+  if (!showInstallUI()) return null;
+  const badge: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 9, background: INK, color: '#fff', borderRadius: 12, padding: '8px 16px 8px 13px', textDecoration: 'none' };
+  const lines = (top: string, bottom: string) => (
+    <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.18, textAlign: 'left' }}>
+      <span style={{ fontSize: 9.5, opacity: 0.72, fontWeight: 500, letterSpacing: '0.02em' }}>{top}</span>
+      <span style={{ fontFamily: grotesk, fontSize: 14.5, fontWeight: 700 }}>{bottom}</span>
+    </span>
+  );
+  return (
+    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <a href={APP_STORE_URL} style={badge} aria-label="Download on the App Store">
+        <svg width="19" height="22" viewBox="0 0 384 512" fill="#fff" aria-hidden="true">
+          <path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z" />
+        </svg>
+        {lines('Download on the', 'App Store')}
+      </a>
+      {PLAY_STORE_LIVE && (
+        <a href={PLAY_STORE_URL} style={badge} aria-label="Get it on Google Play">
+          <svg width="19" height="21" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+            <path d="M4 2.6a1.6 1.6 0 0 0-.6 1.25v16.3c0 .5.23.96.6 1.25l9.1-9.4L4 2.6zm10.5 8L6.2 2.05l10.2 5.86-1.9 2.69zm1.9 2.06l2.9 1.67c1.1.63 1.1 1.71 0 2.34l-2.9 1.67-2.15-2.84 2.15-2.84zM6.2 21.95l8.3-8.55 1.9 2.69-10.2 5.86z" />
+          </svg>
+          {lines('Get it on', 'Google Play')}
+        </a>
+      )}
+    </div>
+  );
+}
 
 function Logo({ size = 34 }: { size?: number }) {
   return (
@@ -68,6 +131,7 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
 
   return (
     <div className="croft-scroll" style={{ position: 'absolute', inset: 0, overflowY: 'auto', background: '#fff', color: INK }}>
+      {!desktop && <AppStrip />}
       {/* NAV */}
       {/* In the iOS app the webview draws under the status bar - pad the sticky
           bar by the safe-area inset so the logo/buttons sit below the clock. */}
@@ -216,6 +280,9 @@ export default function Landing({ onStart, onLogin }: { onStart: () => void; onL
           <div>
             <Logo size={26} />
             <div style={{ fontSize: 13, color: '#7D776E', marginTop: 8 }}>Plan together. Stay organized. Live better.</div>
+            <div style={{ marginTop: 14 }}>
+              <StoreBadges />
+            </div>
           </div>
           <div style={{ display: 'flex', gap: 22, fontSize: 14, fontWeight: 600 }}>
             <a href="/privacy" style={{ color: MUTED, textDecoration: 'none' }}>Privacy</a>

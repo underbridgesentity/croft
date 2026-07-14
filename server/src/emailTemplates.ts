@@ -6,16 +6,22 @@ export interface Email { subject: string; html: string; text: string }
 
 const firstName = (name?: string | null) => (name ? name.split(' ')[0] : 'there');
 
+// "Get the app" nudge appended to onboarding-flavoured emails. Links to /get,
+// which redirects each device to its own store (and desktops to the site) -
+// so this template never needs to know which stores are live.
+const appNudgeHtml = `<br><br><span style="font-size:13px;color:#7D776E;">Prefer an app? <a href="${APP_URL}/get" style="color:#3B5BFF;font-weight:600;">Get Croft for iPhone or Android</a>.</span>`;
+const appNudgeText = ` Prefer an app? Get Croft for your phone: ${APP_URL}/get`;
+
 /** New account created (email signup). */
 export function welcomeEmail(name?: string): Email {
   return {
     subject: 'Welcome to Croft',
     html: emailLayout(
       `Welcome to Croft, ${firstName(name)}`,
-      `Your home is all set up. Croft keeps your family's <strong>dates, to-dos, shopping lists, goals and money</strong> in one calm place - off your group chats.<br><br>Add a few things to get going, then invite the people you live with so everyone stays in sync.`,
+      `Your home is all set up. Croft keeps your family's <strong>dates, to-dos, shopping lists, goals and money</strong> in one calm place - off your group chats.<br><br>Add a few things to get going, then invite the people you live with so everyone stays in sync.${appNudgeHtml}`,
       { label: 'Open Croft', url: APP_URL }
     ),
-    text: `Welcome to Croft, ${firstName(name)}. Your home is set up - add your family's dates, to-dos, lists, goals and money in one place. ${APP_URL}`,
+    text: `Welcome to Croft, ${firstName(name)}. Your home is set up - add your family's dates, to-dos, lists, goals and money in one place. ${APP_URL}${appNudgeText}`,
   };
 }
 
@@ -26,10 +32,10 @@ export function inviteEmail(opts: { inviterName?: string | null; householdName: 
     subject: `${who} invited you to join ${opts.householdName} on Croft`,
     html: emailLayout(
       `Join ${opts.householdName} on Croft`,
-      `${esc(who)} has invited you to share <strong>${esc(opts.householdName)}</strong> on Croft - one calm home for your family's dates, plans and money.<br><br>Tap below to create your account and join. This invite is single-use and expires in 14 days.`,
+      `${esc(who)} has invited you to share <strong>${esc(opts.householdName)}</strong> on Croft - one calm home for your family's dates, plans and money.<br><br>Tap below to create your account and join. This invite is single-use and expires in 14 days.${appNudgeHtml}`,
       { label: `Join ${opts.householdName}`, url: opts.joinUrl }
     ),
-    text: `${who} invited you to join ${opts.householdName} on Croft. Join here (expires in 14 days): ${opts.joinUrl}`,
+    text: `${who} invited you to join ${opts.householdName} on Croft. Join here (expires in 14 days): ${opts.joinUrl}${appNudgeText}`,
   };
 }
 
