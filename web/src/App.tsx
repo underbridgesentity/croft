@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from './store';
 import { isNative } from './lib/native';
-import { preferredStoreUrl } from './lib/appLinks';
+import { preferredStoreUrl, isStandalone } from './lib/appLinks';
 import Onboarding from './screens/Onboarding';
 import Shell from './Shell';
 import WelcomeTour from './screens/WelcomeTour';
@@ -162,8 +162,11 @@ export default function App() {
   }
 
   if (!(entered && user && state)) {
-    // Logged-out visitors land on the marketing page; the CTAs open sign-up/log-in.
-    if (!user && !showAuth) {
+    // Inside the apps (iOS wrapper, Android TWA, installed PWA) the person has
+    // already chosen Croft - open at the app-style welcome, never the marketing
+    // site. Browsers keep the landing page; its CTAs open sign-up/log-in.
+    const inApp = isNative() || isStandalone();
+    if (!user && !showAuth && !inApp) {
       return (
         <Frame wide>
           <Landing
@@ -175,7 +178,11 @@ export default function App() {
     }
     return (
       <Frame>
-        <Onboarding initialStep={authStart} onExit={() => setShowAuth(false)} onComplete={() => setEntered(true)} />
+        <Onboarding
+          initialStep={inApp && !showAuth ? 'welcome' : authStart}
+          onExit={inApp ? undefined : () => setShowAuth(false)}
+          onComplete={() => setEntered(true)}
+        />
       </Frame>
     );
   }
