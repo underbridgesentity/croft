@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from './store';
 import { isNative } from './lib/native';
 import { preferredStoreUrl, isStandalone } from './lib/appLinks';
@@ -48,7 +48,9 @@ export default function App() {
   const checked = useRef(false);
 
   // Returning users (valid session) skip onboarding straight into the app.
-  useEffect(() => {
+  // Layout effect: it must flip `entered` BEFORE the browser paints, or the
+  // welcome screen flashes for one frame on every cold start.
+  useLayoutEffect(() => {
     if (ready && !checked.current) {
       checked.current = true;
       if (user && user.household_id) setEntered(true);
