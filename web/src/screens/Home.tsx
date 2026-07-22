@@ -1,4 +1,5 @@
 import { useStore } from '../store';
+import { feedDest } from '../lib/feedDest';
 import { api } from '../lib/api';
 import type { Nav } from '../Shell';
 import Icon from '../components/Icon';
@@ -156,13 +157,25 @@ export default function Home({ nav }: { nav: Nav }) {
         {state.feed.length === 0 && (
           <div style={{ padding: '16px 2px', color: '#6F6C67', fontSize: 13.5 }}>Quiet so far - as the family adds and completes things, it shows up here.</div>
         )}
-        {state.feed.slice(0, 6).map((f) => (
-          <div key={f.id} style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderBottom: '1px solid #EFEBE3' }}>
-            <div style={{ flexShrink: 0, width: 32, height: 32, borderRadius: '50%', background: f.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: grotesk, fontWeight: 700, fontSize: 13 }}>{f.initial}</div>
-            <div style={{ flex: 1, fontSize: 13.5, color: '#3A362F', lineHeight: 1.4 }}><b style={{ fontWeight: 700, color: '#181922' }}>{f.who}</b> {f.txt}</div>
-            <div style={{ flexShrink: 0, fontSize: 11, color: '#7D776E', fontWeight: 600, paddingTop: 2 }}>{f.time_label}</div>
-          </div>
-        ))}
+        {state.feed.slice(0, 6).map((f) => {
+          const dest = feedDest(f.txt);
+          const go = dest ? () => { nav.goTab(dest.tab as Parameters<typeof nav.goTab>[0]); if (dest.plan) nav.goPlan(dest.plan as Parameters<typeof nav.goPlan>[0]); } : undefined;
+          return (
+            <div
+              key={f.id}
+              role={go ? 'button' : undefined}
+              tabIndex={go ? 0 : undefined}
+              aria-label={go ? `Open: ${f.who} ${f.txt}` : undefined}
+              onClick={go}
+              onKeyDown={go ? (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); go(); } } : undefined}
+              style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '12px 0', borderBottom: '1px solid #EFEBE3', cursor: go ? 'pointer' : 'default' }}
+            >
+              <div style={{ flexShrink: 0, width: 32, height: 32, borderRadius: '50%', background: f.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: grotesk, fontWeight: 700, fontSize: 13 }}>{f.initial}</div>
+              <div style={{ flex: 1, fontSize: 13.5, color: '#3A362F', lineHeight: 1.4 }}><b style={{ fontWeight: 700, color: '#181922' }}>{f.who}</b> {f.txt}</div>
+              <div style={{ flexShrink: 0, fontSize: 11, color: '#7D776E', fontWeight: 600, paddingTop: 2 }}>{f.time_label}</div>
+            </div>
+          );
+        })}
         <div style={{ height: 6 }} />
       </div>
 

@@ -177,7 +177,7 @@ export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
             {!isDesktop && <div style={{ width: 40, height: 5, borderRadius: 100, background: '#D8D2C8', margin: '4px auto 16px' }} />}
             {sheet === 'add' && <AddSheet nav={nav} />}
             {sheet === 'notifs' && <NotifSheet />}
-            {sheet === 'feed' && <FeedSheet />}
+            {sheet === 'feed' && <FeedSheet nav={nav} />}
             {sheet === 'form' && <FormSheet form={form} fd={fd} setFd={setFd} nav={nav} />}
           </div>
         </div>
