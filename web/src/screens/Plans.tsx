@@ -31,7 +31,7 @@ export default function Plans({ nav }: { nav: Nav }) {
       </div>
 
       {nav.plan === 'todos' && <Todos nav={nav} />}
-      {nav.plan === 'lists' && <Lists />}
+      {nav.plan === 'lists' && <Lists nav={nav} />}
       {nav.plan === 'meals' && <Meals nav={nav} />}
       {nav.plan === 'goals' && <Goals nav={nav} />}
     </div>
@@ -145,7 +145,7 @@ function Todos({ nav }: { nav: Nav }) {
 }
 
 // ---------------- LISTS ----------------
-function Lists() {
+function Lists({ nav }: { nav: Nav }) {
   const { state, run, isBusy } = useStore();
   const [draft, setDraft] = useState('');
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
@@ -208,6 +208,18 @@ function Lists() {
               style={{ ...iconBtn, width: 30, height: 30, borderRadius: 9 }}
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 9.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 15.5 18 9.5" stroke="#3B5BFF" strokeWidth="1.8" strokeLinejoin="round" /><path d="M10.2 20.5a2 2 0 0 0 3.6 0" stroke="#3B5BFF" strokeWidth="1.8" strokeLinecap="round" /></svg>
+            </button>
+          )}
+          {left > 0 && (
+            // Nudge = act now; this = act by then. Opens the existing reminder
+            // form prefilled, so scheduling stays in one engine.
+            <button
+              onClick={() => nav.openForm('task', { title: `${activeList} shopping (${left} item${left === 1 ? '' : 's'})`, type: 'Reminder', assignees: [] })}
+              title="Set a reminder for this list"
+              aria-label={`Set a reminder for ${activeList}`}
+              style={{ ...iconBtn, width: 30, height: 30, borderRadius: 9 }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="13" r="7" stroke="#3B5BFF" strokeWidth="1.8" /><path d="M12 9.5V13l2.3 1.6M4 5l3-2.2M20 5l-3-2.2" stroke="#3B5BFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
           )}
         </div>
