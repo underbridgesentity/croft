@@ -151,6 +151,9 @@ function Lists({ nav }: { nav: Nav }) {
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null);
   const [activeList, setActiveList] = useState('Groceries');
   const [newList, setNewList] = useState<string | null>(null);
+  // Nudge picker: who gets the "go shopping" push. Defaults to everyone else.
+  const [nudgeOpen, setNudgeOpen] = useState(false);
+  const [nudgeIds, setNudgeIds] = useState<string[]>([]);
   if (!state) return null;
   const saveRename = () => {
     if (!editing) return;
@@ -200,14 +203,15 @@ function Lists({ nav }: { nav: Nav }) {
           {left > 0 && (
             <button
               onClick={() => {
-                if (isBusy('nudge-list:' + activeList)) return;
-                run(api.nudge('the family', [], `${activeList} - ${left} item${left === 1 ? '' : 's'} to buy`, 'lists'), 'Reminder sent to the family', 'nudge-list:' + activeList);
+                if (!nudgeOpen) setNudgeIds(state.members.filter((m) => !m.you).map((m) => m.id));
+                setNudgeOpen((v) => !v);
               }}
-              title="Nudge the family about this list"
-              aria-label={`Nudge the family about ${activeList}`}
-              style={{ ...iconBtn, width: 30, height: 30, borderRadius: 9 }}
+              title="Nudge people about this list"
+              aria-label={`Nudge people about ${activeList}`}
+              aria-expanded={nudgeOpen}
+              style={{ ...iconBtn, width: 30, height: 30, borderRadius: 9, background: nudgeOpen ? '#3B5BFF' : '#EFEBE3' }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 9.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 15.5 18 9.5" stroke="#3B5BFF" strokeWidth="1.8" strokeLinejoin="round" /><path d="M10.2 20.5a2 2 0 0 0 3.6 0" stroke="#3B5BFF" strokeWidth="1.8" strokeLinecap="round" /></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 9.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 15.5 18 9.5" stroke={nudgeOpen ? '#fff' : '#3B5BFF'} strokeWidth="1.8" strokeLinejoin="round" /><path d="M10.2 20.5a2 2 0 0 0 3.6 0" stroke={nudgeOpen ? '#fff' : '#3B5BFF'} strokeWidth="1.8" strokeLinecap="round" /></svg>
             </button>
           )}
           {left > 0 && (
@@ -224,6 +228,33 @@ function Lists({ nav }: { nav: Nav }) {
           )}
         </div>
       </div>
+      {nudgeOpen && (
+        <div style={{ background: '#fff', borderRadius: 16, padding: '10px 12px', boxShadow: '0 1px 2px rgba(24,25,34,0.04), 0 12px 30px -16px rgba(24,25,34,0.16)', marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: '#6F6C67' }}>Remind:</span>
+          {state.members.filter((m) => !m.you).map((m) => {
+            const on = nudgeIds.includes(m.id);
+            return (
+              <button key={m.id} onClick={() => setNudgeIds((ids) => (on ? ids.filter((i) => i !== m.id) : [...ids, m.id]))} aria-pressed={on} style={{ border: 'none', cursor: 'pointer', padding: '7px 13px', borderRadius: 100, fontWeight: 700, fontSize: 12.5, background: on ? '#181922' : '#EBE7DF', color: on ? '#fff' : '#181922' }}>
+                {m.name.split(' ')[0]}
+              </button>
+            );
+          })}
+          <button
+            onClick={() => {
+              if (isBusy('nudge-list:' + activeList) || nudgeIds.length === 0) return;
+              const others = state.members.filter((m) => !m.you);
+              const all = nudgeIds.length === others.length;
+              const names = all ? 'the family' : others.filter((m) => nudgeIds.includes(m.id)).map((m) => m.name.split(' ')[0]).join(', ');
+              run(api.nudge(names, all ? [] : nudgeIds, `${activeList} - ${left} item${left === 1 ? '' : 's'} to buy`, 'lists'), `Reminder sent to ${names}`, 'nudge-list:' + activeList);
+              setNudgeOpen(false);
+            }}
+            disabled={nudgeIds.length === 0}
+            style={{ marginLeft: 'auto', border: 'none', background: '#3B5BFF', color: '#fff', fontWeight: 700, fontSize: 12.5, padding: '8px 18px', borderRadius: 100, cursor: 'pointer', opacity: nudgeIds.length === 0 ? 0.5 : 1 }}
+          >
+            Send
+          </button>
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 12 }}>
         {listNames.map((ln) => {
           const n = state.shopping.filter((x) => (x.list || 'Groceries') === ln && !x.got).length;

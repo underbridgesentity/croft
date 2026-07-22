@@ -92,9 +92,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       lastSync.current = now;
       refreshState().catch(() => {});
     };
-    const onVisible = () => { if (document.visibilityState === 'visible') sync(15_000); };
+    // Co-editing (e.g. two phones on the same shopping list) rides on the
+    // interval - quiet mutations send no push, so the poll IS the sync. 15s
+    // keeps a family feeling live at ~4 req/min per open app.
+    const onVisible = () => { if (document.visibilityState === 'visible') sync(4_000); };
     const onOnline = () => sync(2_000);
-    const iv = setInterval(() => { if (document.visibilityState === 'visible') sync(55_000); }, 60_000);
+    const iv = setInterval(() => { if (document.visibilityState === 'visible') sync(12_000); }, 15_000);
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);
     window.addEventListener('online', onOnline);
