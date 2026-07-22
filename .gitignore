@@ -1,4 +1,4 @@
-# node_modules is ignored EXCEPT the four Capacitor iOS plugin packages -
+# node_modules is ignored EXCEPT the Capacitor iOS plugin packages -
 # they are local Swift packages the Xcode project needs, and Xcode Cloud
 # runners can't npm-install them (no network in custom build phases).
 node_modules/*
@@ -8,6 +8,9 @@ node_modules/@capacitor/*
 !node_modules/@capacitor/haptics
 !node_modules/@capacitor/push-notifications
 !node_modules/@capacitor/share
+!node_modules/@capgo
+node_modules/@capgo/*
+!node_modules/@capgo/capacitor-native-biometric
 # nested workspace node_modules stay fully ignored
 */node_modules/
 **/xcuserdata/

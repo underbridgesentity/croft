@@ -32,7 +32,8 @@ for f in \
   node_modules/@capacitor/app/Package.swift \
   node_modules/@capacitor/haptics/Package.swift \
   node_modules/@capacitor/push-notifications/Package.swift \
-  node_modules/@capacitor/share/Package.swift
+  node_modules/@capacitor/share/Package.swift \
+  node_modules/@capgo/capacitor-native-biometric/Package.swift
 do
   [ -e "$f" ] || { echo "ERROR: missing committed artifact $f"; exit 1; }
 done
@@ -40,16 +41,19 @@ done
 # Point every manifest at the vendored capacitor-swift-pm instead of GitHub.
 sed -i '' 's|\.package(url: "https://github\.com/ionic-team/capacitor-swift-pm\.git"[^)]*)|.package(name: "capacitor-swift-pm", path: "../../vendor/capacitor-swift-pm")|' \
   ios/App/CapApp-SPM/Package.swift
-for p in app haptics push-notifications share; do
+for p in \
+  @capacitor/app @capacitor/haptics @capacitor/push-notifications @capacitor/share \
+  @capgo/capacitor-native-biometric
+do
   sed -i '' 's|\.package(url: "https://github\.com/ionic-team/capacitor-swift-pm\.git"[^)]*)|.package(name: "capacitor-swift-pm", path: "../../../ios/vendor/capacitor-swift-pm")|' \
-    "node_modules/@capacitor/$p/Package.swift"
+    "node_modules/$p/Package.swift"
 done
 
 # The committed Package.resolved pins the REMOTE package - drop it so SPM
 # re-resolves against the local paths (no network involved).
 rm -f ios/App/App.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 
-if grep -l 'capacitor-swift-pm\.git' ios/App/CapApp-SPM/Package.swift node_modules/@capacitor/*/Package.swift 2>/dev/null; then
+if grep -l 'capacitor-swift-pm\.git' ios/App/CapApp-SPM/Package.swift node_modules/@capacitor/*/Package.swift node_modules/@capgo/*/Package.swift 2>/dev/null; then
   echo "ERROR: a manifest still references the remote package"; exit 1
 fi
 echo "Manifests rewritten to vendored capacitor-swift-pm:"

@@ -31,10 +31,19 @@ export function bioSupport(): Promise<BioBackend> {
 
 async function detect(): Promise<BioBackend> {
   if (isNative()) {
-    // v1.3: probe the Capacitor biometrics plugin here (isPluginAvailable +
-    // dynamic import + checkBiometry, all try/catch). Until that binary
-    // ships, the WKWebView has no biometric path.
-    return 'none';
+    // The double guard (isPluginAvailable + probe, all try/catch) is what
+    // keeps this web deploy safe inside OLD binaries: the app loads the live
+    // site, so v1.2 runs this code too - there the plugin isn't registered
+    // and the probe cleanly yields 'none'. v1.3+ lights up 'native'.
+    try {
+      const { Capacitor } = await import('@capacitor/core');
+      if (!Capacitor.isPluginAvailable('NativeBiometric')) return 'none';
+      const { NativeBiometric } = await import('@capgo/capacitor-native-biometric');
+      const r = await NativeBiometric.isAvailable();
+      return r.isAvailable ? 'native' : 'none';
+    } catch {
+      return 'none';
+    }
   }
   try {
     if (!window.isSecureContext || !window.PublicKeyCredential) return 'none';
@@ -42,6 +51,20 @@ async function detect(): Promise<BioBackend> {
     return ok ? 'webauthn' : 'none';
   } catch {
     return 'none';
+  }
+}
+
+/** One OS biometric prompt via the native plugin. true = verified. */
+async function nativeVerify(): Promise<boolean> {
+  try {
+    const { NativeBiometric } = await import('@capgo/capacitor-native-biometric');
+    await NativeBiometric.verifyIdentity({
+      reason: 'Unlock Croft',
+      title: 'Unlock Croft',
+    });
+    return true;
+  } catch {
+    return false; // cancelled / failed / lockout - the PIN keypad is right there
   }
 }
 
@@ -80,6 +103,17 @@ export async function bioEnroll(user: { id: string; email?: string; name?: strin
   const backend = await bioSupport();
   if (backend === 'none') throw new Error('Biometric unlock isn’t available on this device');
   if (prompting) throw new Error('Already waiting for a biometric prompt');
+  if (backend === 'native') {
+    prompting = true;
+    try {
+      const ok = await nativeVerify();
+      if (!ok) throw new Error('Biometric setup was cancelled');
+      localStorage.setItem(key(user.id), 'native');
+      return;
+    } finally {
+      prompting = false;
+    }
+  }
   prompting = true;
   try {
     // The challenge is random-but-unverified by design: the OS user-verification
@@ -132,7 +166,16 @@ export async function bioUnlock(userId: string): Promise<boolean> {
     }
   })();
   if (!stored) return false;
-  if ((await bioSupport()) !== 'webauthn') return false;
+  const backend = await bioSupport();
+  if (backend === 'native') {
+    prompting = true;
+    try {
+      return await nativeVerify();
+    } finally {
+      prompting = false;
+    }
+  }
+  if (backend !== 'webauthn') return false;
   prompting = true;
   try {
     const assertion = await navigator.credentials.get({
