@@ -46,19 +46,24 @@ const NAV: { key: Tab; label: string; icon: React.ReactNode }[] = [
   { key: 'family', label: 'Family', icon: <><circle cx="9" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.9" fill="none" /><circle cx="16.5" cy="9.5" r="2.4" stroke="currentColor" strokeWidth="1.9" fill="none" /><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5M15 14.2c2.4.2 4.5 2 4.5 4.8" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" fill="none" /></> },
 ];
 
+// Push notifications deep-link with ?tab= (and optionally ?plan= for the
+// Plans segments); read once at module load, then strip the query so both
+// useState initializers see the values regardless of order.
+const deepLink = (() => {
+  const sp = new URLSearchParams(window.location.search);
+  const t = sp.get('tab');
+  const p = sp.get('plan');
+  const tab = t && ['home', 'calendar', 'tasks', 'money', 'family'].includes(t) ? t : null;
+  const plan = p && ['todos', 'lists', 'meals', 'goals'].includes(p) ? p : null;
+  if (tab || plan) window.history.replaceState({}, '', window.location.pathname);
+  return { tab, plan };
+})();
+
 export default function Shell({ onSignedOut }: { onSignedOut: () => void }) {
   const { state, toast, logout, flash } = useStore();
   const isDesktop = useIsDesktop();
-  const [tab, setTab] = useState<Tab>(() => {
-    // Push notifications deep-link with ?tab=; land there on open.
-    const t = new URLSearchParams(window.location.search).get('tab');
-    if (t && ['home', 'calendar', 'tasks', 'money', 'family'].includes(t)) {
-      window.history.replaceState({}, '', window.location.pathname);
-      return t as Tab;
-    }
-    return 'home';
-  });
-  const [plan, setPlan] = useState<Plan>('todos');
+  const [tab, setTab] = useState<Tab>(() => (deepLink.tab as Tab) || 'home');
+  const [plan, setPlan] = useState<Plan>(() => (deepLink.plan as Plan) || 'todos');
   const [sheet, setSheet] = useState<null | 'add' | 'notifs' | 'feed' | 'form'>(null);
   const [form, setForm] = useState<FormType>('event');
   const [fd, setFd] = useState<FormData>({});

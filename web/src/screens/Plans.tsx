@@ -10,18 +10,24 @@ const grotesk = "'Geist', sans-serif";
 export default function Plans({ nav }: { nav: Nav }) {
   const { state } = useStore();
   if (!state) return null;
+  // Live counts on the segments - the content signposts what lives here.
+  const todayIso = new Date().toLocaleDateString('en-CA');
+  const nTodos = state.tasks.filter((t) => !t.done).length;
+  const nToBuy = state.shopping.filter((s) => !s.got).length;
+  const nMeals = (state.meals || []).filter((m) => m.date >= todayIso).length;
+  const nGoals = (state.goals || []).length;
   return (
     <div>
       <div style={{ margin: '8px 2px 16px' }}>
         <div style={{ fontFamily: grotesk, fontWeight: 700, fontSize: 30, letterSpacing: '-0.02em' }}>Plans</div>
-        <div style={{ marginTop: 4, color: '#6F6C67', fontSize: 14, fontWeight: 500 }}>To-dos, lists & goals - together</div>
+        <div style={{ marginTop: 4, color: '#6F6C67', fontSize: 14, fontWeight: 500 }}>To-dos, lists, meals & goals - together</div>
       </div>
 
       <div style={{ display: 'flex', gap: 4, background: '#E8E3DB', borderRadius: 14, padding: 4, marginBottom: 22 }}>
-        <Seg label="To-dos" active={nav.plan === 'todos'} onClick={() => nav.goPlan('todos')} />
-        <Seg label="Lists" active={nav.plan === 'lists'} onClick={() => nav.goPlan('lists')} />
-        <Seg label="Meals" active={nav.plan === 'meals'} onClick={() => nav.goPlan('meals')} />
-        <Seg label="Goals" active={nav.plan === 'goals'} onClick={() => nav.goPlan('goals')} />
+        <Seg label="To-dos" count={nTodos} active={nav.plan === 'todos'} onClick={() => nav.goPlan('todos')} />
+        <Seg label="Lists" count={nToBuy} active={nav.plan === 'lists'} onClick={() => nav.goPlan('lists')} />
+        <Seg label="Meals" count={nMeals} active={nav.plan === 'meals'} onClick={() => nav.goPlan('meals')} />
+        <Seg label="Goals" count={nGoals} active={nav.plan === 'goals'} onClick={() => nav.goPlan('goals')} />
       </div>
 
       {nav.plan === 'todos' && <Todos nav={nav} />}
@@ -32,10 +38,11 @@ export default function Plans({ nav }: { nav: Nav }) {
   );
 }
 
-function Seg({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+function Seg({ label, count, active, onClick }: { label: string; count?: number; active: boolean; onClick: () => void }) {
   return (
     <button onClick={onClick} style={{ flex: 1, border: 'none', cursor: 'pointer', padding: '10px 0', borderRadius: 10, fontWeight: 700, fontSize: 13.5, color: active ? '#181922' : '#6F6C67', background: active ? '#fff' : 'transparent', boxShadow: active ? '0 1px 4px rgba(16,20,38,0.1)' : 'none' }}>
       {label}
+      {!!count && <span style={{ marginLeft: 4, fontSize: 11.5, color: active ? '#3B5BFF' : '#9B958B' }}>· {count}</span>}
     </button>
   );
 }
@@ -190,6 +197,19 @@ function Lists() {
             <button onClick={() => run(api.clearGotShopping(activeList), 'Bought items cleared')} style={{ border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 12, cursor: 'pointer', padding: '4px 2px' }}>Clear bought</button>
           )}
           <span style={{ fontSize: 12, fontWeight: 700, color: '#3B5BFF', background: 'rgba(59,91,255,0.1)', padding: '4px 11px', borderRadius: 100 }}>{left} to buy</span>
+          {left > 0 && (
+            <button
+              onClick={() => {
+                if (isBusy('nudge-list:' + activeList)) return;
+                run(api.nudge('the family', [], `${activeList} - ${left} item${left === 1 ? '' : 's'} to buy`, 'lists'), 'Reminder sent to the family', 'nudge-list:' + activeList);
+              }}
+              title="Nudge the family about this list"
+              aria-label={`Nudge the family about ${activeList}`}
+              style={{ ...iconBtn, width: 30, height: 30, borderRadius: 9 }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M18 9.5a6 6 0 1 0-12 0c0 6-2.5 7.5-2.5 7.5h17S18 15.5 18 9.5" stroke="#3B5BFF" strokeWidth="1.8" strokeLinejoin="round" /><path d="M10.2 20.5a2 2 0 0 0 3.6 0" stroke="#3B5BFF" strokeWidth="1.8" strokeLinecap="round" /></svg>
+            </button>
+          )}
         </div>
       </div>
       <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 12 }}>

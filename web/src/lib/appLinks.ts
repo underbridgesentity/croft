@@ -5,9 +5,9 @@ import { isNative } from './native';
 
 export const APP_STORE_URL = 'https://apps.apple.com/app/id6786755483';
 export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=za.co.underbridges.croft';
-// Flip to true the day Google approves the Play listing - reveals the Android
-// strip, the Play footer badge and the /get Android redirect in one deploy.
-export const PLAY_STORE_LIVE = false;
+// Flipped 2026-07-17: Croft approved on Google Play - Android strip, Play
+// footer badge and /get Android redirect all live.
+export const PLAY_STORE_LIVE = true;
 
 // ?store=ios|android forces platform detection, so every state is testable
 // from a desktop browser (the Android path stays dark until PLAY_STORE_LIVE).

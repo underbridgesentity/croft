@@ -210,8 +210,8 @@ export const api = {
   delInfo: (id: string) => req<AppState>(`/household-info/${id}`, { method: 'DELETE' }),
 
   markAllRead: () => req<AppState>('/notifications/read-all', { method: 'POST' }),
-  nudge: (name: string, memberIds?: string[], about?: string) =>
-    req<AppState>('/nudge', { method: 'POST', body: JSON.stringify({ name, memberIds, about }) }),
+  nudge: (name: string, memberIds?: string[], about?: string, plan?: string) =>
+    req<AppState>('/nudge', { method: 'POST', body: JSON.stringify({ name, memberIds, about, plan }) }),
   settleUp: (id: string) => req<AppState>(`/settle/${id}`, { method: 'PATCH', body: '{}' }),
   reopenSettle: (id: string) => req<AppState>(`/settle/${id}`, { method: 'PATCH', body: JSON.stringify({ settled: false }) }),
   setSetting: (key: string, value: unknown) =>

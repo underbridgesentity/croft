@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store';
 import { api } from '../lib/api';
+import { bioSupport, bioEnrolled, bioUnlock, bioLabel, type BioBackend } from '../lib/biometric';
 
 const grotesk = "'Geist', sans-serif";
 
@@ -9,6 +10,32 @@ export default function LockScreen() {
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(false);
+  const [bio, setBio] = useState<BioBackend>('none');
+  const attempted = useRef(false);
+  const enrolled = user ? bioEnrolled(user.id) : false;
+
+  // Best-effort biometric prompt once per lock cycle (LockScreen remounts on
+  // every re-lock). A refused/cancelled prompt just leaves the keypad - it is
+  // NOT a wrong-passcode error.
+  useEffect(() => {
+    if (!user || !bioEnrolled(user.id)) return;
+    bioSupport().then((b) => {
+      setBio(b);
+      if (b === 'none' || attempted.current) return;
+      attempted.current = true;
+      bioUnlock(user.id).then((ok) => {
+        if (ok) unlock();
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const tryBio = () => {
+    if (!user) return;
+    bioUnlock(user.id).then((ok) => {
+      if (ok) unlock();
+    });
+  };
 
   const submit = async (value: string) => {
     setBusy(true);
@@ -69,6 +96,12 @@ export default function LockScreen() {
         <button onClick={() => submit(pin)} disabled={busy || pin.length < 4} style={{ width: '100%', marginTop: 24, border: 'none', borderRadius: 16, padding: 15, background: '#3B5BFF', color: '#fff', fontFamily: grotesk, fontWeight: 700, fontSize: 15.5, cursor: 'pointer', opacity: busy || pin.length < 4 ? 0.5 : 1 }}>
           {busy ? 'Checking…' : 'Unlock'}
         </button>
+        {bio !== 'none' && enrolled && (
+          <button onClick={tryBio} style={{ width: '100%', marginTop: 10, border: '1.5px solid #E8E3DB', borderRadius: 16, padding: 13, background: '#fff', color: '#181922', fontFamily: grotesk, fontWeight: 700, fontSize: 14.5, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 3.3A9 9 0 0 1 21 12c0 2.5-.5 4.9-1.4 7M3.9 7.2A9 9 0 0 0 3 12c0 2.8.7 5.2 1.8 7.2M12 7a5 5 0 0 1 5 5c0 1.9-.3 3.7-.9 5.4M7.2 11a5 5 0 0 1 4.8-4M7 15c.3 1.5.8 2.9 1.5 4.2M12 11a1 1 0 0 1 1 1c0 2.2-.4 4.4-1.2 6.4" stroke="#3B5BFF" strokeWidth="1.7" strokeLinecap="round" /></svg>
+            Use {bioLabel()}
+          </button>
+        )}
         <button onClick={() => logout()} style={{ border: 'none', background: 'none', color: '#7D776E', fontWeight: 700, fontSize: 13.5, padding: '14px 0 0', cursor: 'pointer' }}>Forgot passcode? Sign out</button>
       </div>
     </div>

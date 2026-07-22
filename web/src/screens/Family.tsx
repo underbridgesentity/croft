@@ -4,6 +4,7 @@ import { api } from '../lib/api';
 import { enablePush, disablePush } from '../lib/push';
 import { nativeShare } from '../lib/native';
 import { showInstallUI, preferredStoreUrl } from '../lib/appLinks';
+import { bioSupport, bioEnrolled, bioEnroll, bioClear, bioLabel, type BioBackend } from '../lib/biometric';
 import type { Nav } from '../Shell';
 import type { Settings, EmailCadence } from '../lib/types';
 import Icon from '../components/Icon';
@@ -98,6 +99,33 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
   const locked = !!user?.locked;
   const s: Settings = state.household.settings || {};
 
+  // Biometric unlock on top of the passcode (see lib/biometric.ts).
+  const [bio, setBio] = useState<BioBackend>('none');
+  const [bioOn, setBioOn] = useState(() => (user ? bioEnrolled(user.id) : false));
+  const [bioBusy, setBioBusy] = useState(false);
+  useEffect(() => {
+    bioSupport().then(setBio);
+  }, []);
+  const toggleBio = async () => {
+    if (!user || bioBusy) return;
+    if (bioOn) {
+      bioClear(user.id);
+      setBioOn(false);
+      flash('Biometric unlock turned off');
+      return;
+    }
+    setBioBusy(true);
+    try {
+      await bioEnroll({ id: user.id, email: user.email, name: user.name });
+      setBioOn(true);
+      flash(`You can now unlock with ${bioLabel()}`);
+    } catch (e: any) {
+      flash(e?.message || 'Could not set up biometric unlock');
+    } finally {
+      setBioBusy(false);
+    }
+  };
+
   const changePassword = async () => {
     if (newPw.length < 8) return flash('New password must be at least 8 characters');
     setPwBusy(true);
@@ -153,6 +181,8 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
     try {
       await api.lockDisable(pinA);
       setLockEnabled(false);
+      if (user) bioClear(user.id); // passcode off retires the biometric shortcut
+      setBioOn(false);
       flash('App lock turned off');
       setLockOpen(false); setPinA('');
     } catch (e: any) {
@@ -478,6 +508,9 @@ export default function Family({ nav: _nav, onSignOut }: { nav: Nav; onSignOut: 
         <SettingRow illo="lock" label="Change password" detail="" onClick={() => setPwOpen((v) => !v)} />
         <SettingRow illo="bell" label="View the welcome tour" detail="" onClick={openTour} />
         <SettingRow illo="lock" label="App lock (passcode)" detail={locked ? 'On' : 'Off'} good={locked} onClick={() => { setLockOpen((v) => !v); setPinA(''); setPinB(''); }} />
+        {locked && bio !== 'none' && (
+          <SettingRow illo="shield" label={`Unlock with ${bioLabel()}`} detail={bioBusy ? '…' : bioOn ? 'On' : 'Off'} good={bioOn} onClick={toggleBio} />
+        )}
         {/* Only for mobile-browser users - never inside the apps/TWA/installed PWA. */}
         {showInstallUI() && preferredStoreUrl() && (
           <SettingRow illo="house" label="Get the Croft app" detail="Free" onClick={() => window.open(preferredStoreUrl()!, '_blank', 'noopener')} />

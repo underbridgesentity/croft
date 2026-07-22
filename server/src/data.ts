@@ -919,6 +919,8 @@ dataRouter.post('/nudge', async (req: AuthedRequest, res) => {
   const name = String(req.body?.name || 'the family');
   const memberIds = toIds(req.body?.memberIds).filter((id) => /^[0-9a-f-]{36}$/i.test(id));
   const about = String(req.body?.about || '').trim().slice(0, 120);
+  // Optional Plans deep-link: a nudge about a list/meal opens that segment.
+  const plan = ['todos', 'lists', 'meals', 'goals'].includes(req.body?.plan) ? String(req.body.plan) : null;
   const body = about ? `Don't forget: ${about}` : 'A nudge was sent - don’t forget!';
   await query(
     `INSERT INTO notifications (household_id, illo, color, title, body, time_label, unread)
@@ -927,7 +929,8 @@ dataRouter.post('/nudge', async (req: AuthedRequest, res) => {
   );
   // Targeted when the nudge names people (their devices only); otherwise the
   // household minus the sender. Best-effort; never blocks the response.
-  await pushToMembers(hh(req), memberIds, { title: `Reminder for ${name}`, body, url: '/?tab=tasks' }, req.userId).catch(() => {});
+  const url = plan ? `/?tab=tasks&plan=${plan}` : '/?tab=tasks';
+  await pushToMembers(hh(req), memberIds, { title: `Reminder for ${name}`, body, url }, req.userId).catch(() => {});
   await sendState(req, res);
 });
 
